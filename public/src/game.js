@@ -95,6 +95,7 @@ export class Game {
     const inGame=state!=='menu';
     document.body.classList.toggle('unified-play',inGame);
     document.body.classList.toggle('playing',state==='playing');
+    document.body.classList.toggle('mode-multiplayer',inGame&&this.mode==='multiplayer');
     document.body.classList.toggle('reloading',state==='playing'&&this.weapons.reloadTime>0);
     document.body.classList.toggle('trial-active',this.parkour.trialActive&&inGame);
     el('parkour-hud').classList.toggle('hidden',!inGame);
@@ -132,8 +133,8 @@ export class Game {
     this.positionCamera();this.updateHud();this.requestLock();
   }
   menu(){if(this.mode==='multiplayer'&&this.multiplayer?.connected)this.multiplayer.disconnect();this.parkour.stop();this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);document.body.classList.remove('trial-active');this.campaign.disposeSector();this.hideScreens();el('start-screen').classList.remove('hidden');this.enemies.clear();this.ordnance.clear();this.pendingSpawns=[];this.setState('menu');el('menu-best').textContent=num(this.best);if(document.pointerLockElement)document.exitPointerLock();}
-  pause(){if(this.state!=='playing')return;if(this.mode==='multiplayer'){this.multiplayer.disconnect();this.menu();return;}this.setState('paused');this.mobile?.clear();this.mouseDown=false;this.rightDown=false;el('pause-screen').classList.remove('hidden');if(document.pointerLockElement)document.exitPointerLock();}
-  resume(){if(this.state!=='paused')return;this.hideScreens();this.setState('playing');this.requestLock();}
+  pause(){if(this.state!=='playing')return;if(this.mode==='multiplayer'){this.multiplayer.openRoomPanel();return;}this.setState('paused');this.mobile?.clear();this.mouseDown=false;this.rightDown=false;el('pause-screen').classList.remove('hidden');if(document.pointerLockElement)document.exitPointerLock();}
+  resume(){if(this.state!=='paused')return;if(this.mode==='multiplayer'&&this.multiplayer?.panelOpen){this.multiplayer.closeRoomPanel();return;}this.hideScreens();this.setState('playing');this.requestLock();}
   beginWave(){this.wave++;this.waveKilled=0;this.waveCount=4+this.wave*2+(this.wave%4===0?1:0);this.pendingSpawns=[];if(this.wave%4===0){this.pendingSpawns.push('boss');this.audio.play('boss');}
     for(let i=this.pendingSpawns.length;i<this.waveCount;i++){const roll=Math.random();let type='scout';if(this.wave>=2&&roll>.48)type='gunner';if(this.wave>=3&&roll>.82)type='tank';if(this.wave>=4&&roll>.67&&roll<=.82)type='sniper';if(this.wave>=5&&roll>.33&&roll<=.46)type='hunter';this.pendingSpawns.push(type);}
     this.spawnTimer=.14;el('wave-callout').querySelector('small').textContent=this.wave%4===0?'ALERTA · ASSINATURA TITAN':'AMEAÇA DETECTADA';el('wave-callout').querySelector('strong').textContent='ONDA '+fmt(this.wave);el('wave-callout').querySelector('span').textContent=this.wave%4===0?'COLOSSUS NO SETOR':'ELIMINE OS HOSTIS';el('wave-callout').classList.add('active');this.calloutTimer=2.4;this.toast(this.wave%4===0?'CONTATO COM ALVO DE CLASSE TITAN':'SINAIS HOSTIS DETECTADOS');this.updateHud();}
@@ -243,7 +244,7 @@ export class Game {
       if(this.state==='playing'&&this.mode!=='multiplayer'){if(this.pendingSpawns.length){this.spawnTimer-=dt;if(this.spawnTimer<=0&&this.enemies.count()<7){this.enemies.spawnAt(this.pendingSpawns.shift(),this.player,this.wave);this.spawnTimer=rand(.65,1.3);}}else if(this.enemies.count()===0){if(this.mode==='campaign'){if(this.campaign.phase==='clear'||this.campaign.phase==='boss')this.campaign.onCleared();}else this.waveComplete();}
         this.uiTick-=dt;if(this.uiTick<=0){this.updateHud();this.uiTick=.095;}this.radarTick-=dt;if(this.radarTick<=0){this.updateRadar();this.radarTick=.12;}}
       else if(this.state==='playing'){this.uiTick-=dt;if(this.uiTick<=0){this.updateHud();this.uiTick=.15;}this.radarTick-=dt;if(this.radarTick<=0){this.updateRadar();this.radarTick=.2;}}
-    }else if(this.state==='menu'){const t=this.animTime*.095;this.world.setMenuCamera(t);this.weapons.model.visible=false;}else if(this.state==='paused'||this.state==='upgrade'||this.state==='dead'){/* Keep last camera frame and scene. */}
+    }else if(this.mode==='multiplayer'&&this.state==='paused'){this.multiplayer.update(dt);this.mouseDown=false;}else if(this.state==='menu'){const t=this.animTime*.095;this.world.setMenuCamera(t);this.weapons.model.visible=false;}else if(this.state==='paused'||this.state==='upgrade'||this.state==='dead'){/* Keep last camera frame and scene. */}
     if(this.state==='playing')this.weapons.model.visible=true;
     if(this.calloutTimer>0){this.calloutTimer-=dt;if(this.calloutTimer<=0)el('wave-callout').classList.remove('active');}
     if(this.toastTimer>0){this.toastTimer-=dt;if(this.toastTimer<=0)el('toast').classList.remove('active');}

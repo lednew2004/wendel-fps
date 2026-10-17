@@ -1,48 +1,47 @@
-# TITAN PROTOCOL 1.4 — MULTIPLAYER GRATUITO (Render)
+# TITAN PROTOCOL 1.6 — Multiplayer estável + Mira móvel
 
-Versão do TITAN PROTOCOL adaptada para publicar **jogo + servidor de salas PvP juntos**, em um único Web Service Node.js gratuito na Render, **sem Redis** e sem URL de WebSocket manual.
+Atualização incremental sobre a **1.5**. Preserva campanha, sobrevivência, parkour, armas, dash sem recarga, salas por código, menu SALA, cópia/compartilhamento de convites e o serviço gratuito Render.
 
-## Publicação
+## Melhorias realizadas
 
-Leia o guia [GUIA_PUBLICACAO_GRATIS.md](GUIA_PUBLICACAO_GRATIS.md).
+### Multiplayer
+- Heartbeat WebSocket de controle ping/pong a cada 15s, sem depender do frame rate do jogo; acompanhamento de inatividade real.
+- Keepalive do navegador a cada 8s, mesmo em telas com FPS muito baixo ou quando o painel de sala está aberto.
+- **Retomada de sessão por até 90 segundos** quando a conexão cai: sala, identificação, pontuação, mortes e posição são preservadas em RAM no servidor.
+- Reconexão progressiva com a sessão anterior sem reiniciar a câmera e a partida quando ela ainda está carregada.
+- Redução de snapshots de 15 para 10 por segundo e de posições do cliente para ~11/s, descartando snapshots obsoletos sob fila de rede acumulada.
+- Código da sala salvo temporariamente na aba do navegador, facilitando voltar após recarregar a página.
+- Estado da conexão e ping acessíveis pelo painel **SALA**, sem bloquear o campo de visão.
+- Arquivos HTML/CSS/JS usam cache com revalidação para evitar telas antigas após atualizar o deploy.
 
-1. Substitua os arquivos do repositório GitHub pelo conteúdo deste pacote (na raiz).
-2. Abra https://dashboard.render.com/ → New → Blueprint e selecione o repositório GitHub.
-3. Revise o plano `Free` indicado no arquivo `render.yaml`.
-4. Clique em Apply / Deploy e aguarde `Live`.
-5. Acesse `https://seu-jogo.onrender.com/health` e depois o próprio endereço.
-6. No jogo, use **MULTIPLAYER ONLINE** para criar uma sala e compartilhar o código.
+### Jogabilidade no celular
+- Sensibilidade de mira inicial aumentada de 1.9× para **3.3×**, com pequena aceleração para deslizes rápidos.
+- Ajuste de **0.8× a 6.0×**, salvo no celular e disponível no painel SALA durante o multiplayer.
+- Analógico flutuante, com centro no ponto do toque, zona morta menor e deslocamento melhor aproveitado.
+- Mira por deslize na área direita **ou pelo dedo que mantém ATIRAR**, mantendo movimentação simultânea com outro dedo.
+- Controles, câmera, modos de jogo e interface da versão 1.5 preservados.
 
-## Localmente
+## Deploy gratuito Render
 
-Com Node.js 22+:
+1. Substitua no seu repositório GitHub os arquivos com os deste ZIP (a raiz deve conter `public/`, `server/`, `render.yaml` e `package.json`).
+2. Rode `git add .`, `git commit -m "TITAN 1.6 estabilidade multiplayer e mira"` e `git push origin main` (ajuste a branch se necessário).
+3. Aguarde a Render concluir o deploy automático, ou faça **Manual Deploy → Deploy latest commit**.
+4. Abra `https://SEU-SERVICO.onrender.com/health` e confirme `ok: true`.
+5. Atualize o jogo no computador e no telefone; abra **MULTIPLAYER ONLINE**, crie uma sala, copie o convite pelo botão **SALA** e teste com dois ou mais jogadores.
+7. No celular, entre na sala e clique em **SALA → VELOCIDADE DA MIRA** para ajustar os dedos (comece com 3.3×).
 
-```sh
-npm start
-```
+## Limitações importantes
 
-Abra http://localhost:3000.
+- **Render Free não garante partidas sem quedas.** O servidor pode adormecer quando ocioso, reiniciar, ou sofrer interrupções de rede. A reserva de sessão funciona apenas enquanto **o mesmo processo Node.js permanece em execução**; em reinicializações completas, as salas mantidas em RAM são perdidas. Persistência de partidas entre reinicializações requer armazenamento externo.
+- A reconexão preserva a vaga por até 90s, porém, ao ultrapassar o limite, o usuário precisará criar ou entrar em uma nova sala.
+- Não foi possível verificar FPS, toque e WebGL em um Android/iPhone real neste ambiente; o desempenho deve ser validado no dispositivo.
 
 ## Testes
 
-```sh
+Com **Node.js 22+**:
+
+```bash
 npm test
 ```
 
-## O que já existe
-
-- Campanha, sobrevivência, cidade com parkour e quatro armas.
-- Dash sem recarga.
-- Controle com mouse e teclado no PC e touch em celular (orientação horizontal recomendada).
-- Salas PvP de 2 a 8 jogadores com código.
-- Movimento e dano sincronizados por WebSocket no mesmo domínio (`/ws`).
-- Um único processo Node serve HTML, CSS, JS, modelos e WebSocket.
-
-## Limitações reais
-
-- Hospedagem gratuita da Render hiberna após 15 minutos sem tráfego; a primeira abertura pode levar aproximadamente um minuto.
-- Salas e placares são mantidos **somente em memória**: reinícios/deploys/hibernação apagam as salas.
-- A Render gratuita tem limites mensais de uso; excedê-los pode suspender o serviço ou gerar cobrança conforme a conta.
-- Esta solução é apropriada para testes entre amigos. Não há persistência, autenticação ou anticheat profissional.
-- O Three.js é carregado por CDN e os jogadores precisam de internet.
-- Testes automatizados de rede não substituem testes reais com navegadores e telefones.
+Testes automatizados de criação de salas, tiros, respawn, reconexão de 3 jogadores, retomar identificação/pontuação, sair da sala, controles touch e anatomia do deploy.

@@ -35,18 +35,103 @@ export class MultiplayerClient {
   constructor(game){
     this.game=game;this.socket=null;this.connected=false;this.id=null;this.room='';this.alive=true;
     this.others=new Map();this.syncTick=0;this.isJoining=false;this.players=[];this.heartbeat=0;this.reconnectAttempts=0;this.reconnectTimer=null;this.reconnectSession=(globalThis.crypto?.randomUUID?.()||('titan-'+Date.now()+'-'+Math.random().toString(36).slice(2)));this.wantReconnect=false;
+    // Keep the reconnect token on the same tab if the mobile browser reloads it.
+    try{
+      const saved=sessionStorage.getItem('titan-online-session');
+      if(saved&&/^[a-zA-Z0-9-]{20,100}$/.test(saved))this.reconnectSession=saved;
+      sessionStorage.setItem('titan-online-session',this.reconnectSession);
+    }catch{}
+    this.panelOpen=false;this.lastRoomFocus=null;this.keepAliveTimer=null;this.lastServerMessage=0;this.pingMs=null;this.joinStarted=0;
+    const presetRoom=new URLSearchParams(location.search).get('room');
+    if(presetRoom&&/^[A-Za-z0-9]{6}$/.test(presetRoom))byId('mp-code').value=presetRoom.toUpperCase();
+    else try{const savedRoom=sessionStorage.getItem('titan-online-room');if(savedRoom&&/^[A-Za-z0-9]{6}$/.test(savedRoom))byId('mp-code').value=savedRoom;}catch{}
     const presetServer=new URLSearchParams(location.search).get('server');
     if(presetServer)byId('mp-server').value=presetServer;
     byId('mp-open').addEventListener('click',()=>this.openLobby());
     byId('mp-close').addEventListener('click',()=>this.closeLobby());
     byId('mp-create').addEventListener('click',()=>this.connect(true));
     byId('mp-join').addEventListener('click',()=>this.connect(false));
-    byId('mp-copy').addEventListener('click',()=>{
-      if(navigator.clipboard&&this.room)navigator.clipboard.writeText(this.room).catch(()=>{});
-      this.setStatus('CÓDIGO DA SALA: '+this.room);
-    });
+    byId('mp-room-open').addEventListener('click',()=>this.openRoomPanel());
+    byId('mp-room-close').addEventListener('click',()=>this.closeRoomPanel());
+    byId('mp-room-resume').addEventListener('click',()=>this.closeRoomPanel());
+    byId('mp-room-leave').addEventListener('click',()=>this.leaveRoom());
+    byId('mp-copy').addEventListener('click',()=>this.copyRoomCode());
+    byId('mp-share').addEventListener('click',()=>this.shareRoomInvite());
   }
   setStatus(message,isError=false){const el=byId('mp-status');el.textContent=message;el.classList.toggle('error',isError);}
+  roomInviteURL(){
+    const url=new URL(window.location.pathname,window.location.origin);
+    url.searchParams.set('room',this.room);
+    return url.toString();
+  }
+  shareStatus(text,error=false){
+    const status=byId('mp-share-status');status.textContent=text;status.classList.toggle('error',error);
+  }
+  async copyText(text){
+    try{
+      if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);return true;}
+    }catch{}
+    // Older browsers: copy the actual invite text (not merely the room code).
+    const fallback=document.createElement('textarea');
+    fallback.value=text;fallback.setAttribute('readonly','');
+    fallback.style.position='fixed';fallback.style.opacity='0';
+    document.body.appendChild(fallback);
+    fallback.focus();fallback.select();
+    try{return !!document.execCommand('copy');}
+    catch{return false;}
+    finally{fallback.remove();}
+  }
+  async copyRoomCode(){
+    if(!this.room)return;
+    const done=await this.copyText(this.room);
+    this.shareStatus(done?'CÓDIGO COPIADO!':'SELECIONE E COPIE O CÓDIGO ACIMA.',!done);
+  }
+  async shareRoomInvite(){
+    if(!this.room)return;
+    const url=this.roomInviteURL();
+    const data={title:'TITAN PROTOCOL — Multiplayer',text:`Entre na minha sala ${this.room} no TITAN PROTOCOL!`,url};
+    if(navigator.share){
+      try{await navigator.share(data);this.shareStatus('CONVITE ENVIADO!');return;}
+      catch(err){if(err?.name==='AbortError')return;}
+    }
+    const done=await this.copyText(`${data.text} ${url}`);
+    this.shareStatus(done?'LINK DE CONVITE COPIADO!':'COMPARTILHE O CÓDIGO ACIMA.',!done);
+  }
+  openRoomPanel(){
+    if(!this.connected||this.game.mode!=='multiplayer'||this.panelOpen)return;
+    this.panelOpen=true;
+    this.lastRoomFocus=document.activeElement;
+    const game=this.game;
+    game.setState('paused');
+    game.mouseDown=false;game.rightDown=false;game.mobile?.clear();
+    byId('mp-room-panel').classList.remove('hidden');
+    byId('mp-hud').classList.add('hidden');
+    byId('mp-room-code-input').value=this.room;
+    this.shareStatus('');
+    this.connectionStatus();
+    this.updateScore();
+    if(document.pointerLockElement)document.exitPointerLock();
+    byId('mp-room-resume').focus({preventScroll:true});
+  }
+  closeRoomPanel(){
+    if(!this.panelOpen)return;
+    this.panelOpen=false;
+    byId('mp-room-panel').classList.add('hidden');
+    if(this.connected&&this.game.mode==='multiplayer'){
+      byId('mp-hud').classList.remove('hidden');
+      this.game.setState('playing');
+      this.game.requestLock();
+      if(this.game.mobile?.enabled)this.game.mobile.sync();
+    }
+  }
+  leaveRoom(){
+    if(!this.panelOpen&&!this.connected)return;
+    if(!window.confirm('Deseja sair da sala e voltar ao menu principal?'))return;
+    this.panelOpen=false;
+    byId('mp-room-panel').classList.add('hidden');
+    this.disconnect();
+    this.game.menu();
+  }
   openLobby(){
     byId('multiplayer-lobby').classList.remove('hidden');
     this.setStatus('Crie uma sala ou digite o código enviado por um amigo.');
@@ -69,27 +154,31 @@ export class MultiplayerClient {
     const name=(byId('mp-name').value||'Operador').trim().slice(0,18);
     const room=byId('mp-code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
     if(!create && room.length!==6){this.setStatus('Digite um código de 6 caracteres.',true);return;}
-    this.disconnect(false);this.isJoining=true;this.setStatus('Conectando ao servidor...');
+    this.disconnect(false);this.isJoining=true;this.joinStarted=Date.now();this.setStatus('Conectando ao servidor...');
     if(isReconnect){byId('mp-respawn').textContent='REESTABELECENDO CONEXÃO...';byId('mp-respawn').classList.remove('hidden');}
     let socket;try{socket=new WebSocket(url);}catch(err){this.isJoining=false;this.setStatus('Não foi possível abrir a conexão.',true);return;}
     this.socket=socket;
-    const watchdog=setTimeout(()=>{if(this.socket===socket&&!this.connected){this.setStatus('Servidor não respondeu. Verifique se ele está online.',true);socket.close();}},9000);
+    const watchdog=setTimeout(()=>{if(this.socket===socket&&!this.connected){this.setStatus('Servidor não respondeu. Aguarde ou tente novamente.',true);socket.close();}},isReconnect?20000:45000);
     socket.addEventListener('open',()=>{
+      this.lastServerMessage=Date.now();
+      this.startKeepAlive(socket);
       this.setStatus('Entrando na sala...');
       socket.send(JSON.stringify({type:'join',name,create,room,session:this.reconnectSession}));
     });
     socket.addEventListener('message',e=>{
       if(this.socket!==socket)return;
       let msg;try{msg=JSON.parse(e.data);}catch{return;}
+      this.lastServerMessage=Date.now();
       this.receive(msg);
     });
     socket.addEventListener('close',()=>{
-      clearTimeout(watchdog);
+      clearTimeout(watchdog);this.stopKeepAlive();
       if(this.socket!==socket)return;
       const shouldRetry=this.wantReconnect && this.room && this.game.mode==='multiplayer';
       this.connected=false;this.isJoining=false;this.socket=null;this.alive=false;
       this.removeAll();
       if(shouldRetry){
+        if(this.panelOpen){this.panelOpen=false;byId('mp-room-panel').classList.add('hidden');this.game.setState('playing');}
         byId('mp-respawn').textContent='REESTABELECENDO CONEXÃO...';
         byId('mp-respawn').classList.remove('hidden');
         this.reconnectAttempts++;
@@ -97,25 +186,43 @@ export class MultiplayerClient {
           this.reconnectTimer=null;
           byId('mp-code').value=this.room;
           this.connect(false,true);
-        },Math.min(1000*Math.pow(1.6,this.reconnectAttempts-1),8000));
+        },Math.min(1000*Math.pow(1.5,this.reconnectAttempts-1),6500));
       }else{
         byId('mp-hud').classList.add('hidden');
+        this.panelOpen=false;byId('mp-room-panel').classList.add('hidden');
         if(this.game.mode==='multiplayer'&&this.game.state!=='menu'){
           this.game.menu();this.openLobby();this.setStatus('Conexão encerrada. Tente novamente.',true);
         }else this.setStatus('Servidor desconectado.',true);
       }
     });
-    socket.addEventListener('error',()=>{if(this.socket===socket)this.setStatus('Falha de conexão: servidor indisponível ou WSS não configurado.',true);});
+    socket.addEventListener('error',()=>{if(this.socket===socket)this.setStatus('Conexão instável. Tentando novamente quando possível...',true);});
   }
-  send(data){if(this.socket?.readyState===WebSocket.OPEN)this.socket.send(JSON.stringify(data));}
+  startKeepAlive(socket){
+    this.stopKeepAlive();
+    this.keepAliveTimer=setInterval(()=>{
+      if(this.socket!==socket||socket.readyState!==WebSocket.OPEN)return;
+      // A network watchdog must not depend on requestAnimationFrame (mobile screens sleep).
+      if(this.lastServerMessage&&Date.now()-this.lastServerMessage>55000){
+        socket.close();return;
+      }
+      if(socket.bufferedAmount<40000)socket.send(JSON.stringify({type:'ping',t:Date.now()}));
+    },8000);
+  }
+  stopKeepAlive(){if(this.keepAliveTimer){clearInterval(this.keepAliveTimer);this.keepAliveTimer=null;}}
+  send(data){
+    if(this.socket?.readyState!==WebSocket.OPEN)return;
+    if(data.type==='move'&&this.socket.bufferedAmount>30000)return;
+    this.socket.send(JSON.stringify(data));
+  }
   receive(msg){
     if(!msg||typeof msg.type!=='string')return;
     switch(msg.type){
-      case 'error':this.setStatus(msg.message||'Erro na sala.',true);if(this.isJoining)this.disconnect();break;
+      case 'error':this.setStatus(msg.message||'Erro na sala.',true);if(this.isJoining){this.disconnect();byId('multiplayer-lobby').classList.remove('hidden');}break;
       case 'welcome':{
-        this.connected=true;this.isJoining=false;this.wantReconnect=true;this.reconnectAttempts=0;this.id=msg.id;this.room=msg.room;byId('mp-code').value=msg.room;
+        this.connected=true;this.isJoining=false;this.wantReconnect=true;this.reconnectAttempts=0;this.id=msg.id;this.room=msg.room;byId('mp-code').value=msg.room;try{sessionStorage.setItem('titan-online-room',this.room);}catch{}
         // On automatic reconnect do not restart the whole game/camera.
-        if(this.game.mode!=='multiplayer'||this.game.state!=='playing')this.game.start('multiplayer');
+        if(this.game.mode!=='multiplayer')this.game.start('multiplayer');
+        else if(this.game.state!=='playing'&&!this.panelOpen)this.game.setState('playing');
         this.game.parkour.spawn(msg.spawn.x,msg.spawn.y,msg.spawn.z);
         const self=msg.players.find(p=>p.id===msg.id);
         this.game.player.health=self?.hp??100;this.game.player.shield=self?.shield??40;
@@ -123,11 +230,16 @@ export class MultiplayerClient {
         byId('multiplayer-lobby').classList.add('hidden');
         byId('mp-hud').classList.remove('hidden');
         byId('mp-respawn').classList.toggle('hidden',this.alive);
-        byId('mp-code-visible').textContent=this.room;
+        byId('mp-room-code-input').value=this.room;
+        if(this.panelOpen){byId('mp-hud').classList.add('hidden');byId('mp-room-panel').classList.remove('hidden');}
         this.receive({type:'snapshot',players:msg.players});
-        this.game.toast('SALA '+this.room+' · MULTIPLAYER ONLINE');
+        this.game.toast(msg.resumed?'CONEXÃO RESTABELECIDA · PARTIDA RETOMADA':'PARTIDA ONLINE · TOQUE EM SALA PARA CONVIDAR');
         break;
       }
+      case 'pong':
+        if(Number.isFinite(msg.t))this.pingMs=Math.max(0,Date.now()-msg.t);
+        this.connectionStatus();
+        break;
       case 'snapshot':
         if(!this.connected)return;
         this.players=Array.isArray(msg.players)?msg.players:[];
@@ -166,12 +278,20 @@ export class MultiplayerClient {
       }
     }
   }
+  connectionStatus(){
+    const el=byId('mp-connection-status');if(!el)return;
+    if(!this.connected){el.textContent='RECONECTANDO À SALA...';return;}
+    if(this.pingMs===null){el.textContent='CONECTADO · SINCRONIZANDO';return;}
+    const label=this.pingMs<120?'BOA':this.pingMs<250?'REGULAR':'LENTA';
+    el.textContent=`CONEXÃO ${label} · ${this.pingMs} ms`;
+  }
   updateScore(){
     if(!this.connected)return;
-    byId('mp-count').textContent=this.players.length+' / 8';
+    byId('mp-count').textContent=this.players.length+'/8';
+    byId('mp-roster-count').textContent=this.players.length+'/8';
     const sorted=[...this.players].sort((a,b)=>b.kills-a.kills);
     byId('mp-scores').replaceChildren(...sorted.map(p=>{
-      const item=document.createElement('span');item.textContent=`${p.id===this.id?'VOCÊ':p.name}: ${p.kills}`;
+      const item=document.createElement('div');item.setAttribute('role','listitem');item.textContent=`${p.id===this.id?'VOCÊ':p.name} · ${p.kills} eliminações`;
       if(p.id===this.id)item.classList.add('self');return item;
     }));
   }
@@ -198,11 +318,10 @@ export class MultiplayerClient {
     if(!this.connected||this.game.mode!=='multiplayer')return;
     this.syncTick-=dt;
     if(this.syncTick<=0 && this.game.state==='playing'&&this.alive){
-      this.syncTick=.065;
+      this.syncTick=.09;
       this.syncState();
     }
-    this.heartbeat+=dt;
-    if(this.heartbeat>=6){this.heartbeat=0;this.send({type:'ping'});}
+    // Keepalive now runs on a separate timer; do not depend on the render loop.
     for(const entry of this.others.values()){
       entry.flash=Math.max(0,entry.flash-dt);entry.group.userData.flash.visible=entry.flash>0;
       entry.group.position.lerp(entry.target,Math.min(1,dt*12));
@@ -211,8 +330,9 @@ export class MultiplayerClient {
   }
   disconnect(manual=true){
     if(manual){this.wantReconnect=false;clearTimeout(this.reconnectTimer);this.reconnectTimer=null;}
+    this.stopKeepAlive();
     this.connected=false;this.isJoining=false;this.alive=false;this.id=null;
-    if(this.socket){const old=this.socket;this.socket=null;try{old.send(JSON.stringify({type:'leave'}));old.close();}catch{}}
-    this.removeAll();byId('mp-respawn').classList.add('hidden');byId('mp-hud').classList.add('hidden');
+    if(this.socket){const old=this.socket;this.socket=null;try{if(manual&&old.readyState===WebSocket.OPEN)old.send(JSON.stringify({type:'leave'}));old.close();}catch{}}
+    this.removeAll();this.panelOpen=false;byId('mp-room-panel').classList.add('hidden');byId('mp-respawn').classList.add('hidden');byId('mp-hud').classList.add('hidden');
   }
 }

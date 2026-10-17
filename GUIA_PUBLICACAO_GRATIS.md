@@ -1,61 +1,47 @@
-# Publicar o TITAN PROTOCOL multiplayer sem Redis e sem Vercel Pro
+# TITAN PROTOCOL 1.6 — Multiplayer estável + Mira móvel
 
-O projeto foi preparado para a **Render**, na modalidade de um único **Web Service** gratuito. Não utilize `Static Site`, porque o multiplayer precisa de um servidor Node.js/WebSocket rodando.
+Atualização incremental sobre a **1.5**. Preserva campanha, sobrevivência, parkour, armas, dash sem recarga, salas por código, menu SALA, cópia/compartilhamento de convites e o serviço gratuito Render.
 
-## 1 — Atualizar o repositório GitHub
+## Melhorias realizadas
 
-Extraia o ZIP. No repositório GitHub que você já criou, **substitua a versão antiga** por estes arquivos (pastas `public`, `server`, arquivos `render.yaml`, `package.json` na raiz). Remova a pasta `api`, o antigo `vercel.json` e configurações Redis para evitar misturar as duas arquiteturas.
+### Multiplayer
+- Heartbeat WebSocket de controle ping/pong a cada 15s, sem depender do frame rate do jogo; acompanhamento de inatividade real.
+- Keepalive do navegador a cada 8s, mesmo em telas com FPS muito baixo ou quando o painel de sala está aberto.
+- **Retomada de sessão por até 90 segundos** quando a conexão cai: sala, identificação, pontuação, mortes e posição são preservadas em RAM no servidor.
+- Reconexão progressiva com a sessão anterior sem reiniciar a câmera e a partida quando ela ainda está carregada.
+- Redução de snapshots de 15 para 10 por segundo e de posições do cliente para ~11/s, descartando snapshots obsoletos sob fila de rede acumulada.
+- Código da sala salvo temporariamente na aba do navegador, facilitando voltar após recarregar a página.
+- Estado da conexão e ping acessíveis pelo painel **SALA**, sem bloquear o campo de visão.
+- Arquivos HTML/CSS/JS usam cache com revalidação para evitar telas antigas após atualizar o deploy.
 
-No terminal PowerShell dentro da pasta:
+### Jogabilidade no celular
+- Sensibilidade de mira inicial aumentada de 1.9× para **3.3×**, com pequena aceleração para deslizes rápidos.
+- Ajuste de **0.8× a 6.0×**, salvo no celular e disponível no painel SALA durante o multiplayer.
+- Analógico flutuante, com centro no ponto do toque, zona morta menor e deslocamento melhor aproveitado.
+- Mira por deslize na área direita **ou pelo dedo que mantém ATIRAR**, mantendo movimentação simultânea com outro dedo.
+- Controles, câmera, modos de jogo e interface da versão 1.5 preservados.
 
-```powershell
-git add -A
-git commit -m "Multiplayer gratuito - Render"
-git push origin main
-```
+## Deploy gratuito Render
 
-A branch pode ter outro nome. Se preferir, use a interface do GitHub para enviar os arquivos.
-
-## 2 — Render (grátis)
-
-1. Abra https://dashboard.render.com/ e conecte seu GitHub.
-2. Clique em **New → Blueprint** e selecione seu repositório.
-3. A Render encontrará `render.yaml`, que já define:
-   - Web Service
-   - Node.js
-   - plano `free`
-   - `npm install`
-   - `npm start`
-4. Confirme o plano gratuito e aplique. Não precisa configurar Redis, banco, segredos ou outro serviço.
-5. Aguarde o deploy ficar **Live**.
-
-Se a opção Blueprint não aparecer, use **New → Web Service**, conecte o mesmo repositório e configure:
-
-| Campo | Valor |
-|---|---|
-| Language/Runtime | Node |
-| Branch | main ou a branch do repositório |
-| Build Command | `npm install` |
-| Start Command | `npm start` |
-| Instance type | Free |
-| Health Check Path | `/health` |
-
-## 3 — Testar
-
-- Abra `https://SEU-ENDERECO.onrender.com/health`: deve mostrar um JSON com `ok: true`.
-- Abra `https://SEU-ENDERECO.onrender.com/` para jogar.
-- Jogador A: **Multiplayer Online → Criar Sala**.
-- Jogador B: abre **o mesmo endereço** no celular ou PC → **Entrar na Sala** usando o código.
-
-O jogo reconhece automaticamente o WebSocket seguro `wss://SEU-ENDERECO.onrender.com/ws`.
+1. Substitua no seu repositório GitHub os arquivos com os deste ZIP (a raiz deve conter `public/`, `server/`, `render.yaml` e `package.json`).
+2. Rode `git add .`, `git commit -m "TITAN 1.6 estabilidade multiplayer e mira"` e `git push origin main` (ajuste a branch se necessário).
+3. Aguarde a Render concluir o deploy automático, ou faça **Manual Deploy → Deploy latest commit**.
+4. Abra `https://SEU-SERVICO.onrender.com/health` e confirme `ok: true`.
+5. Atualize o jogo no computador e no telefone; abra **MULTIPLAYER ONLINE**, crie uma sala, copie o convite pelo botão **SALA** e teste com dois ou mais jogadores.
+7. No celular, entre na sala e clique em **SALA → VELOCIDADE DA MIRA** para ajustar os dedos (comece com 3.3×).
 
 ## Limitações importantes
 
-- Após 15 minutos sem tráfego, o plano Free desliga o servidor temporariamente; o próximo acesso pode demorar ~1 minuto.
-- Ao hibernar, reiniciar ou redeployar, as salas e partidas em memória desaparecem. Será preciso criar a sala outra vez.
-- Limites mensais de uso e banda se aplicam, e cobranças podem ocorrer se você adicionar um método de pagamento e ultrapassar os limites. Confira o painel de uso da Render.
-- Não garante zero travamentos ou compatibilidade total com todos os celulares; teste nos seus dispositivos.
+- **Render Free não garante partidas sem quedas.** O servidor pode adormecer quando ocioso, reiniciar, ou sofrer interrupções de rede. A reserva de sessão funciona apenas enquanto **o mesmo processo Node.js permanece em execução**; em reinicializações completas, as salas mantidas em RAM são perdidas. Persistência de partidas entre reinicializações requer armazenamento externo.
+- A reconexão preserva a vaga por até 90s, porém, ao ultrapassar o limite, o usuário precisará criar ou entrar em uma nova sala.
+- Não foi possível verificar FPS, toque e WebGL em um Android/iPhone real neste ambiente; o desempenho deve ser validado no dispositivo.
 
-## E a Vercel?
+## Testes
 
-A Vercel continua útil para sites estáticos, inclusive no plano Hobby grátis. Mas esta solução de multiplayer **não depende dela**; usa a Render para entregar frontend e backend num único deploy. Você pode deixar o antigo site Vercel ativo, mas os jogadores devem usar o endereço da Render para acessar o multiplayer integrado.
+Com **Node.js 22+**:
+
+```bash
+npm test
+```
+
+Testes automatizados de criação de salas, tiros, respawn, reconexão de 3 jogadores, retomar identificação/pontuação, sair da sala, controles touch e anatomia do deploy.
