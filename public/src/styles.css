@@ -460,3 +460,10 @@ html.touch-playing #mobile-controls,html.touch-playing #mobile-controls *{touch-
 @media (pointer:coarse) and (orientation:landscape) and (max-height:330px){
   #mp-minimap{width:80px;top:38px}
 }
+
+/* v2.2: FIRE moved LEFT and ABOVE JUMP; combat cluster separated from ability sticks. */
+@media (pointer:coarse) and (orientation:landscape){
+ .touch-playing #m-jump{left:auto!important;right:max(12px,env(safe-area-inset-right))!important;bottom:max(12px,env(safe-area-inset-bottom))!important;width:clamp(53px,14vh,66px)!important;height:clamp(53px,14vh,66px)!important}
+ .touch-playing #m-dash{left:auto!important;right:clamp(88px,23vh,108px)!important;bottom:max(12px,env(safe-area-inset-bottom))!important;width:clamp(49px,13vh,60px)!important;height:clamp(49px,13vh,60px)!important}
+ .touch-playing #m-fire{left:auto!important;right:clamp(106px,27vh,138px)!important;bottom:clamp(94px,25vh,125px)!important;width:clamp(70px,18vh,87px)!important;height:clamp(70px,18vh,87px)!important;background:rgba(164,85,59,.82)!important;border-color:#f3c793!important}
+}

@@ -290,11 +290,12 @@ export class MultiplayerClient {
         if(msg.kind==='gravity'&&Array.isArray(msg.affected)&&msg.affected.includes(this.id)){this.game.powers.status.gravity=Date.now()+2000;this.game.parkour.y+=3.5;this.game.parkour.vy=0;}
         if(msg.kind==='gravity-land'&&msg.player===this.id&&Number.isFinite(msg.y))this.game.parkour.spawn(msg.x,msg.y,msg.z);
         if(msg.kind==='push'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x))entry.target.set(msg.x,msg.y,msg.z);}
-        if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='rewind'||msg.kind==='swap'||msg.kind==='phase-exit'||msg.kind==='gravity-land'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
+        if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='clonejump'||msg.kind==='rewind'||msg.kind==='swap'||msg.kind==='phase-exit'||msg.kind==='gravity-land'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
         break;
       }
       case 'power-vfx':{
         if(msg.kind==='clones'){
+          this.game.powers.onServerClones(msg);
           for(const clone of msg.clones||[]){
             if(this.decoys.has(clone.id))continue;
             const root=remoteAvatar('HOLOGRAMA');root.position.set(clone.x,clone.y,clone.z);
@@ -309,7 +310,7 @@ export class MultiplayerClient {
         else this.game.powers.flash(0x80dbff,9,msg);
         break;
       }
-      case 'clone-destroy':this.removeDecoy(msg.id);break;
+      case 'clone-destroy':this.removeDecoy(msg.id);this.game.powers.onCloneDestroy(msg.id);break;
       case 'power-status':{
         if(msg.player===this.id)this.game.powers.onServerState(msg.powers);
         const entry=this.others.get(msg.player);if(entry){entry.group.visible=(!msg.powers.invisible&&!msg.powers.phased);entry.group.userData.ice.visible=!!msg.powers.frozen;entry.group.userData.shieldBubble.visible=!!msg.powers.shielded;}

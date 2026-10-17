@@ -222,6 +222,17 @@ function aimPoint(p,range){
 function castPower(p,data){
   const id=data.id,now=Date.now(),state=p.powers,rule=POWER_RULES[id];
   if(!rule){send(p.socket,{type:'power-error',message:'Habilidade desconhecida.'});return;}
+  // Reativação autorizada: escolha apenas clones seus, existentes e ainda ativos.
+  if(id==='clonejump'&&data.jump===true){
+    const own=p.room.clones.filter(c=>c.owner===p.id&&c.power==='clonejump'&&c.until>now);
+    const index=Number(data.index);
+    if(!p.alive||state.frozenUntil>now||state.gravityUntil>now||state.phaseUntil>now||!state.loadout.includes(id)||state.cloneJumpUsed||!Number.isInteger(index)||index<0||index>2){send(p.socket,{type:'power-error',message:'Escolha um clone válido.'});return;}
+    const selected=own.find(c=>c.slot===index);
+    if(!selected||!locationValid(selected.x,selected.y,selected.z,colliders)){send(p.socket,{type:'power-error',message:'Este clone não está disponível.'});return;}
+    Object.assign(p,{x:selected.x,y:selected.y,z:selected.z,lastMove:now});state.cloneJumpUsed=true;state.activeUntil.clonejump=0;
+    broadcast(p.room,{type:'power-effect',kind:'clonejump',player:p.id,x:p.x,y:p.y,z:p.z,index});
+    notifyPower(p,id);return;
+  }
   if(id==='teleport'&&data.back===true){
     const ret=state.teleportReturn;
     if(!ret||ret.until<now){send(p.socket,{type:'power-error',message:'Tempo de retorno expirou.'});return;}
@@ -249,6 +260,7 @@ function castPower(p,data){
   if(id==='swap'&&(!isGroundedDestination(p.x,p.y,p.z,colliders)||!isGroundedDestination(target.x,target.y,target.z,colliders))){send(p.socket,{type:'power-error',message:'Troca indisponível nestas posições.'});return;}
   if(id==='rewind'&&!state.history.length){send(p.socket,{type:'power-error',message:'Histórico ainda indisponível.'});return;}
   state.cooldowns[id]=now+rule.cooldown;
+  if(rule.duration)state.activeUntil[id]=now+rule.duration;
   if(id==='push'){
     for(const v of p.room.players.values()){
       if(v.id===p.id||!v.alive||v.powers.phaseUntil>now||!within(v.x,v.z,p,rule.range))continue;
@@ -299,11 +311,21 @@ function castPower(p,data){
     Object.assign(p,destination,{lastMove:now});Object.assign(target,origin,{lastMove:now});
     broadcast(p.room,{type:'power-effect',kind:'swap',player:p.id,...destination});
     broadcast(p.room,{type:'power-effect',kind:'swap',player:target.id,...origin});
-  }else if(id==='clones'){
+  }else if(id==='clones'||id==='clonejump'){
     const clones=[];
-    for(let i=0;i<3;i++){const x=limit(p.x+(i-1)*3,-140,140),z=limit(p.z+((i%2)*2-1)*2,-140,140);
-      if(locationValid(x,p.y,z,colliders)){const clone={id:crypto.randomBytes(4).toString('hex'),owner:p.id,x,z,y:p.y,until:now+rule.duration};p.room.clones.push(clone);clones.push(clone);}
+    if(id==='clonejump')state.cloneJumpUsed=false;
+    for(let i=0;i<3;i++){
+      const forwardX=-Math.sin(p.yaw),forwardZ=-Math.cos(p.yaw),sideX=-forwardZ,sideZ=forwardX;
+      const distance=id==='clonejump'?7:2;
+      const lateral=id==='clonejump'?(i-1)*5:(i-1)*3;
+      const x=limit(p.x+forwardX*distance+sideX*lateral,-140,140);
+      const z=limit(p.z+forwardZ*distance+sideZ*lateral,-140,140);
+      if(locationValid(x,p.y,z,colliders)){
+        const clone={id:crypto.randomBytes(4).toString('hex'),owner:p.id,power:id,slot:i,x,z,y:p.y,until:now+rule.duration};
+        p.room.clones.push(clone);clones.push(clone);
+      }
     }
+    if(id==='clonejump'&&!clones.length){delete state.cooldowns[id];delete state.activeUntil[id];send(p.socket,{type:'power-error',message:'Sem espaço para criar clones.'});return;}
     broadcast(p.room,{type:'power-vfx',kind:'clones',player:p.id,clones});
   }else if(id==='shield'){state.shieldUntil=now+rule.duration;
   }else if(id==='flight'){state.flightUntil=now+rule.duration;
@@ -366,7 +388,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.1.0'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.2.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';

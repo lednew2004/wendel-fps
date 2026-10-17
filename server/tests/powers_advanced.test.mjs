@@ -7,7 +7,7 @@ import {PowerMenu} from '../../public/src/powerMenu.js';
 
 const colliders=JSON.parse(fs.readFileSync(new URL('../colliders.json',import.meta.url)));
 test('13 skills, map distance and collision-checked destinations',()=>{
- assert.equal(Object.keys(POWER_RULES).length,13);
+ assert.equal(Object.keys(POWER_RULES).length,14);
  assert.equal(POWER_RULES.teleport.range,410);
  assert.equal(POWER_RULES.teleport.returnWindow,12000);
  assert.ok(isGroundedDestination(-135,.09,-135,colliders));
