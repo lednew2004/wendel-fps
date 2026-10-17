@@ -10,11 +10,11 @@ const styles=fs.readFileSync(new URL('../../public/src/styles.css',import.meta.u
 const mobileCss=fs.readFileSync(new URL('../../public/src/powers.css',import.meta.url),'utf8');
 const multiplayerSource=fs.readFileSync(new URL('../../public/src/multiplayer.js',import.meta.url),'utf8');
 
-test('14 powers, with all cooldowns at most 10 seconds and extra clone-jump skill',()=>{
- assert.equal(Object.keys(POWER_RULES).length,14);
+test('16 powers, cooldowns at most 10s, and mobile powers',()=>{
+ assert.equal(Object.keys(POWER_RULES).length,16);
  assert.ok(Object.values(POWER_RULES).every(p=>p.cooldown<=10000));
  assert.deepEqual(sanitizeLoadout(['clonejump','freeze']),['clonejump','freeze']);
- assert.match(source,/clonejump:\{label:'CLONE SALTO'/);
+ assert.match(source,/clonejump:\{label:'CLONE MÓVEL'/);
 });
 test('touch aiming: hold, drag, release, cancel; only two skill buttons; fire moved above/left of jump',()=>{
  assert.match(source,/const cast=touch\.skillShot&&!touch\.cancelled&&!aborted/);
@@ -40,7 +40,7 @@ function listen(ws,accept,timeout=3000){return new Promise((resolve,reject)=>{
  ws.addEventListener('message',handler);
 });}
 const send=(ws,msg)=>ws.send(JSON.stringify(msg));
-test('two actual online connections: summon three clones, select one, teleport authoritatively, reject retry',async t=>{
+test('two online connections: one running clone, server-side movement, position swap and cooldown',async t=>{
  t.after(async()=>{for(const ws of sockets)try{ws.close()}catch{};await new Promise(r=>setTimeout(r,80));await new Promise(r=>server.close(r));});
  const a=await connect(),j=listen(a,m=>m.type==='welcome');send(a,{type:'join',create:true,room:'CLN222',name:'Salto',loadout:['clonejump','flight']});const welcome=await j;
  const b=await connect(),j2=listen(b,m=>m.type==='welcome');send(b,{type:'join',room:'CLN222',name:'Visitante',loadout:['push','freeze']});await j2;
@@ -48,15 +48,20 @@ test('two actual online connections: summon three clones, select one, teleport a
  Object.assign(p,{x:0,y:0,z:18,yaw:0,pitch:0,lastMove:Date.now()-1000});
  const summoned=listen(b,m=>m.type==='power-vfx'&&m.kind==='clones'&&m.player===welcome.id);
  send(a,{type:'power',id:'clonejump'});const msg=await summoned;
- assert.ok(msg.clones.length>=1,'At least one clone has safe collision-free spawn');
+ assert.equal(msg.clones.length,1,'One moving clone is spawned');
  assert.ok(msg.clones.every(c=>c.power==='clonejump'));
  assert.ok(p.powers.cooldowns.clonejump>Date.now());
  const own=rooms.get('CLN222').clones.filter(c=>c.owner===welcome.id);
- const choice=own.find(c=>c.slot===1)||own[0];
+ const choice=own[0];
+ const startingZ=choice.z;
+ const cloneMove=await listen(b,m=>m.type==='clone-move'&&m.id===choice.id&&Math.abs(m.z-startingZ)>.2);
+ assert.ok(Math.hypot(cloneMove.x-choice.x,cloneMove.z-startingZ)>.19 || Math.abs(cloneMove.z-startingZ)>.2,'The hologram is not static');
+ const oldPosition={x:p.x,y:p.y,z:p.z};
  const jumped=listen(b,m=>m.type==='power-effect'&&m.kind==='clonejump'&&m.player===welcome.id);
  send(a,{type:'power',id:'clonejump',jump:true,index:choice.slot});const warp=await jumped;
- assert.equal(warp.x,choice.x);assert.equal(warp.z,choice.z);assert.equal(p.x,choice.x);
- const fail=listen(a,m=>m.type==='power-error');send(a,{type:'power',id:'clonejump',jump:true,index:choice.slot});assert.match((await fail).message,/clone válido/i);
+ assert.ok(Math.hypot(warp.x-oldPosition.x,warp.z-oldPosition.z)>1,'The player moves to the running clone');
+ assert.ok(Math.hypot(choice.x-oldPosition.x,choice.z-oldPosition.z)<1,'The clone trades places with the player');
+ const fail=listen(a,m=>m.type==='power-error');send(a,{type:'power',id:'clonejump',jump:true,index:choice.slot});assert.match((await fail).message,/Clone móvel/i);
  assert.ok(powerSnapshot(p).cloneJumpUsed);
  // The 10-second recharge cannot be bypassed just by equipping a power again.
  const equipped=listen(a,m=>m.type==='power-state'&&m.powers.loadout[0]==='flight');send(a,{type:'equip',loadout:['flight','clonejump']});await equipped;

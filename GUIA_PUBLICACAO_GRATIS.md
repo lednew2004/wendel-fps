@@ -1,29 +1,29 @@
-# Publicar TITAN PROTOCOL 2.2 gratuitamente (GitHub + Render)
+# Publicar TITAN PROTOCOL 2.3 gratuitamente (GitHub + Render)
 
-1. Descompacte o arquivo ZIP e substitua os arquivos da versão anterior no repositório GitHub atual. Mantenha `public/`, `server/`, `package.json` e `render.yaml` na raiz.
-2. Envie os arquivos para o GitHub usando:
+1. **Descompacte o ZIP** e substitua os arquivos da versão anterior no repositório GitHub. Mantenha as pastas `public/`, `server/` e os arquivos `render.yaml`, `package.json` e `README.md` na **raiz**.
+2. Use os comandos abaixo na pasta do projeto:
 
    ```powershell
    git add .
-   git commit -m "TITAN PROTOCOL 2.2 - Teleporte por mapa e 13 superpoderes"
+   git commit -m "TITAN PROTOCOL 2.3 - Clone movel, teia e copiar"
    git push origin main
    ```
 
-3. No painel da Render, abra o Web Service existente. Se o deploy automático estiver ativado, aguarde `Live`; caso contrário, use **Manual Deploy → Deploy latest commit**.
-4. Confira o status em `https://SEU-ENDERECO.onrender.com/health` e jogue abrindo o endereço principal.
-5. Teste com dois navegadores: um cria sala com código de seis caracteres, outro entra. Abra **PODERES**, equipe as novas habilidades e teste o teleporte pelo mapa.
+3. No painel **Render**, abra seu serviço Web existente. Aguarde o deploy automático aparecer como **Live**. Se o deploy não começar, use **Manual Deploy → Deploy latest commit**.
+4. Abra `https://SEU-ENDERECO.onrender.com/health`. Se aparecer `"ok":true` e `"version":"2.3.0"`, o servidor atualizado está ativo.
+5. Abra o site e teste com **dois dispositivos/navegadores**, criando uma sala com código de seis caracteres e entrando com outro jogador.
 
-O servidor roda com Node.js 22+ e utiliza a porta definida automaticamente pela variável `PORT` da Render. O WebSocket `/ws` usa o mesmo endereço do site (WSS em HTTPS). Não há Redis na versão gratuita integrada.
+## Como testar as novas habilidades
 
-**Importante:** o plano gratuito pode hibernar ou reiniciar. O servidor preserva salas durante reconexões breves, mas não após reinicialização do processo. Para uso público de longa duração, considere um plano sem suspensão ou armazenamento persistente. Testes de sintaxe e rede não substituem testes em Android, iOS e navegadores WebGL reais.
+- **Clone Móvel:** equipe o clone e pressione uma vez. Um holograma percorre o mapa. Durante 12 s, pressione novamente e os dois trocam de lugar. Diferente de Clones Fantasmas, essa habilidade cria **um** clone que se movimenta.
+- **Buraco Negro Extremo:** aponte para uma área próxima de outros jogadores e ative. O efeito deve puxá-los intensamente durante 4,8 s.
+- **Reverter Tempo:** jogue por pelo menos 10 s, mude de posição ou sofra dano e ative. A posição, a vida e o escudo retornam aos valores de dez segundos antes.
+- **Teia Oscilante:** mire numa parede a até 40 m. No PC, pressione `Z` ou `V`; no celular, segure o botão do poder, arraste para mirar e solte. Balance por até 10 s; **PULAR** solta a corda com impulso.
+- **Copiar:** mire em um jogador e marque-o. Elimine **o mesmo jogador** em até 14 s; seus dois poderes equipados serão copiados por 25 s. Contra inimigos da campanha, são copiados dois poderes determinados pelo tipo do inimigo.
 
+## Estrutura técnica
 
-## NOVO: MOBILE COMBAT 2.2
-
-- 14 habilidades, incluindo **Clone Salto** (3 hologramas; reative e escolha um para teleportar).
-- **Todos os cooldowns têm teto de 10 segundos** para partidas mais intensas; durações e janelas de retorno permanecem específicas.
-- Mobile horizontal: PODER 1/PODER 2 à direita, com **segurar → arrastar mira → soltar** para poderes direcionais. Deslize para cima para cancelar sem recarga. Poderes instantâneos ativam com um toque.
-- Clones: primeiro toque cria 3 hologramas; reativação durante 7,5 s envia você para o da esquerda, centro ou direita. No celular, deslize horizontalmente antes de soltar; no PC, o jogo seleciona o clone central.
-- Barra de duração e tempo restante durante poderes ativos, recarga numérica após término.
-- ATIRAR deslocado para a esquerda e acima do botão PULAR no celular; minimapa e painel SALA preservados.
-- Servidor autoritativo para teleporte de clone, recarga, colisão e status multiplayer.
+- Hospedagem Render: **um único serviço Node.js** com HTTP e WebSocket; Node 22+, porta `PORT` automática, `/ws` no mesmo domínio do site.
+- Não é necessário Redis. O plano gratuito pode suspender ou reiniciar; como salas ficam em memória, serão perdidas após um reinício do processo.
+- Mantenha o minimapa, o painel SALA, as barras de vida e os controles de mira móveis. A recarga máxima das 16 habilidades continua em 10 s.
+- **Testes automatizados não substituem validar a física da teia e os efeitos 3D em celulares e desktops reais.**

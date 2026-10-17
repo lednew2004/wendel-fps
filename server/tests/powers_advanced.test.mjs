@@ -6,8 +6,8 @@ import {POWER_RULES,isGroundedDestination} from '../powers.mjs';
 import {PowerMenu} from '../../public/src/powerMenu.js';
 
 const colliders=JSON.parse(fs.readFileSync(new URL('../colliders.json',import.meta.url)));
-test('13 skills, map distance and collision-checked destinations',()=>{
- assert.equal(Object.keys(POWER_RULES).length,14);
+test('16 skills, map distance and collision-checked destinations',()=>{
+ assert.equal(Object.keys(POWER_RULES).length,16);
  assert.equal(POWER_RULES.teleport.range,410);
  assert.equal(POWER_RULES.teleport.returnWindow,12000);
  assert.ok(isGroundedDestination(-135,.09,-135,colliders));
@@ -54,7 +54,7 @@ test('2 online clients: long teleport, rewind, shield, black hole, chain, gravit
  await equipA(['blackhole','rewind']);
  const hole=read(a,m=>m.type==='power-vfx'&&m.kind==='blackhole');send(a,{type:'power',id:'blackhole'});await hole;assert.equal(rooms.get('ULT321').hazards.length,1);
  // Rewind restores the server's historical state, never client-supplied life values.
- p.powers.history=[{t:Date.now()-4000,x:0,y:0,z:18,hp:58,shield:15}];Object.assign(p,{x:2,y:0,z:22,hp:9,shield:0});
+ p.powers.history=[{t:Date.now()-10000,x:0,y:0,z:18,hp:58,shield:15}];Object.assign(p,{x:2,y:0,z:22,hp:9,shield:0});
  const rewind=read(a,m=>m.type==='power-effect'&&m.kind==='rewind');send(a,{type:'power',id:'rewind'});await rewind;
  assert.equal(p.hp,58);assert.equal(p.shield,15);assert.equal(p.x,0);
  await equipA(['chain','gravity']);

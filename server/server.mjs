@@ -173,13 +173,13 @@ function fire(p,data){
   send(p.socket,{type:'hit',victim:victim.id,hp:victim.hp,shield:victim.shield});
   broadcast(p.room,{type:'health',id:victim.id,hp:victim.hp,shield:victim.shield});
   if(victim.hp>0){send(victim.socket,{type:'damaged',hp:victim.hp,shield:victim.shield,attacker:p.name});return;}
-  victim.alive=false;victim.deaths++;p.kills++;
+  victim.alive=false;victim.deaths++;p.kills++;completeMarkedCopy(p,victim,now);
   const death={type:'kill',attacker:p.id,attackerName:p.name,victim:victim.id,victimName:victim.name,kills:p.kills,deaths:victim.deaths};
   broadcast(p.room,death);
   setTimeout(()=>{
     if(victim.room.players.get(victim.id)!==victim||victim.alive)return;
     const s=spawn(victim.deaths%SPAWNS.length);Object.assign(victim,s,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
-    victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];
+    victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];victim.powers.webUntil=0;victim.powers.copyMark=null;victim.powers.copiedUntil=0;if(victim.powers.originalLoadout){victim.powers.loadout=sanitizeLoadout(victim.powers.originalLoadout);victim.powers.originalLoadout=null;}
     send(victim.socket,{type:'respawn',spawn:s,hp:100,shield:40,powers:powerSnapshot(victim)});
     broadcast(p.room,{type:'revived',player:publicPlayer(victim)},victim.socket);
   },2200);
@@ -203,17 +203,49 @@ function applyAbilityDamage(attacker,victim,damage,now=Date.now()){
  broadcast(attacker.room,{type:'health',id:victim.id,hp:victim.hp,shield:victim.shield});
  send(victim.socket,{type:'damaged',hp:victim.hp,shield:victim.shield,attacker:attacker.name});
  if(victim.hp===0){
-   victim.alive=false;victim.deaths++;attacker.kills++;
+   victim.alive=false;victim.deaths++;attacker.kills++;completeMarkedCopy(attacker,victim,now);
    broadcast(attacker.room,{type:'kill',attacker:attacker.id,attackerName:attacker.name,victim:victim.id,victimName:victim.name,kills:attacker.kills,deaths:victim.deaths});
    setTimeout(()=>{
      if(victim.room.players.get(victim.id)!==victim||victim.alive)return;
      const sp=spawn(victim.deaths%SPAWNS.length);Object.assign(victim,sp,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
-     const selected=victim.powers.loadout;victim.powers=freshPowerState();victim.powers.loadout=sanitizeLoadout(selected);
+     const selected=victim.powers.originalLoadout||victim.powers.loadout;victim.powers=freshPowerState();victim.powers.loadout=sanitizeLoadout(selected);
      send(victim.socket,{type:'respawn',spawn:sp,hp:100,shield:40,powers:powerSnapshot(victim)});
      broadcast(attacker.room,{type:'revived',player:publicPlayer(victim)},victim.socket);
    },2200);
  }
  return true;
+}
+function completeMarkedCopy(attacker,victim,now){
+ const state=attacker.powers,mark=state.copyMark;
+ if(!mark||mark.id!==victim.id||mark.until<now)return;
+ state.copyMark=null;
+ if(!state.originalLoadout)state.originalLoadout=[...state.loadout];
+ // Copied skills come from the defeated player's actual server-side equipped powers.
+ state.loadout=sanitizeLoadout([...victim.powers.loadout]);
+ state.copiedUntil=now+POWER_RULES.copy.stealDuration;
+ send(attacker.socket,{type:'power-copy',from:victim.name,until:state.copiedUntil,powers:powerSnapshot(attacker)});
+ notifyPower(attacker,'copy');
+}
+function isWallAnchor(player,anchor){
+ if(!anchor||!finite(anchor.x,-142,142)||!finite(anchor.z,-142,142)||!finite(anchor.y,1,37))return false;
+ const dist=Math.hypot(anchor.x-player.x,anchor.z-player.z,anchor.y-(player.y+1.5));
+ if(dist>POWER_RULES.web.range||dist<3)return false;
+ const nearby=colliders.some(b=>anchor.y>=b.minY-.5&&anchor.y<=b.maxY+.5&&
+ (Math.abs(Math.abs(anchor.x-b.x)-b.hx)<1.1&&Math.abs(anchor.z-b.z)<=b.hz+1.0 ||
+ Math.abs(Math.abs(anchor.z-b.z)-b.hz)<1.1&&Math.abs(anchor.x-b.x)<=b.hx+1.0));
+ if(!nearby)return false;
+ const origin=[player.x,player.y+1.65,player.z];
+ const dx=anchor.x-origin[0],dy=anchor.y-origin[1],dz=anchor.z-origin[2],len=Math.hypot(dx,dy,dz);
+ return len>1&&!obscured(origin,[dx/len,dy/len,dz/len],len-.65);
+}
+function advanceClone(c,dt){
+ let nextX=c.x+Math.sin(c.angle)*c.speed*dt;
+ let nextZ=c.z+Math.cos(c.angle)*c.speed*dt;
+ if(!locationValid(nextX,c.y,nextZ,colliders)){
+   c.angle+=(c.turn||1)*Math.PI*.55;c.turn=-(c.turn||1);
+   nextX=c.x+Math.sin(c.angle)*c.speed*dt;nextZ=c.z+Math.cos(c.angle)*c.speed*dt;
+ }
+ if(locationValid(nextX,c.y,nextZ,colliders)){c.x=nextX;c.z=nextZ;}
 }
 function aimPoint(p,range){
  const cp=Math.cos(p.pitch),distance=Math.min(range,20);
@@ -224,13 +256,14 @@ function castPower(p,data){
   if(!rule){send(p.socket,{type:'power-error',message:'Habilidade desconhecida.'});return;}
   // Reativação autorizada: escolha apenas clones seus, existentes e ainda ativos.
   if(id==='clonejump'&&data.jump===true){
-    const own=p.room.clones.filter(c=>c.owner===p.id&&c.power==='clonejump'&&c.until>now);
-    const index=Number(data.index);
-    if(!p.alive||state.frozenUntil>now||state.gravityUntil>now||state.phaseUntil>now||!state.loadout.includes(id)||state.cloneJumpUsed||!Number.isInteger(index)||index<0||index>2){send(p.socket,{type:'power-error',message:'Escolha um clone válido.'});return;}
-    const selected=own.find(c=>c.slot===index);
-    if(!selected||!locationValid(selected.x,selected.y,selected.z,colliders)){send(p.socket,{type:'power-error',message:'Este clone não está disponível.'});return;}
-    Object.assign(p,{x:selected.x,y:selected.y,z:selected.z,lastMove:now});state.cloneJumpUsed=true;state.activeUntil.clonejump=0;
-    broadcast(p.room,{type:'power-effect',kind:'clonejump',player:p.id,x:p.x,y:p.y,z:p.z,index});
+    const clone=p.room.clones.find(c=>c.owner===p.id&&c.power==='clonejump'&&c.until>now);
+    if(!p.alive||state.frozenUntil>now||state.gravityUntil>now||state.phaseUntil>now||!state.loadout.includes(id)||state.cloneJumpUsed||!clone){send(p.socket,{type:'power-error',message:'Clone móvel indisponível.'});return;}
+    if(!locationValid(clone.x,clone.y,clone.z,colliders)){send(p.socket,{type:'power-error',message:'O clone está em uma posição bloqueada.'});return;}
+    const origin={x:p.x,y:p.y,z:p.z};
+    Object.assign(p,{x:clone.x,y:clone.y,z:clone.z,lastMove:now});
+    Object.assign(clone,origin);state.cloneJumpUsed=true;state.activeUntil.clonejump=0;
+    broadcast(p.room,{type:'clone-move',id:clone.id,x:clone.x,y:clone.y,z:clone.z,until:clone.until});
+    broadcast(p.room,{type:'power-effect',kind:'clonejump',player:p.id,x:p.x,y:p.y,z:p.z});
     notifyPower(p,id);return;
   }
   if(id==='teleport'&&data.back===true){
@@ -253,12 +286,13 @@ function castPower(p,data){
     }
     target={x:t.x,y:t.y,z:t.z};
   }
-  if(id==='freeze'||id==='chain'||id==='gravity'||id==='swap'){
+  if(id==='freeze'||id==='chain'||id==='gravity'||id==='swap'||id==='copy'){
     target=projectedVictim(p,rule.range,.77);
     if(!target){send(p.socket,{type:'power-error',message:'Mire em um adversário próximo.'});return;}
   }
   if(id==='swap'&&(!isGroundedDestination(p.x,p.y,p.z,colliders)||!isGroundedDestination(target.x,target.y,target.z,colliders))){send(p.socket,{type:'power-error',message:'Troca indisponível nestas posições.'});return;}
-  if(id==='rewind'&&!state.history.length){send(p.socket,{type:'power-error',message:'Histórico ainda indisponível.'});return;}
+  if(id==='web'&&!isWallAnchor(p,data.anchor)){send(p.socket,{type:'power-error',message:'A teia precisa atingir uma parede ao alcance.'});return;}
+  if(id==='rewind'&&(!state.history.length||state.history[0].t>now-rule.history+600)){send(p.socket,{type:'power-error',message:'Aguarde 10 segundos para acumular o histórico.'});return;}
   state.cooldowns[id]=now+rule.cooldown;
   if(rule.duration)state.activeUntil[id]=now+rule.duration;
   if(id==='push'){
@@ -279,6 +313,14 @@ function castPower(p,data){
     state.teleportReturn={x:p.x,y:p.y,z:p.z,until:now+rule.returnWindow};
     Object.assign(p,target,{lastMove:now});
     broadcast(p.room,{type:'power-effect',kind:'teleport',player:p.id,...target});
+  }else if(id==='copy'){
+    state.copyMark={id:target.id,until:now+rule.markDuration};
+    state.activeUntil.copy=state.copyMark.until;
+    send(p.socket,{type:'power-effect',kind:'copy-mark',player:p.id,target:target.id,until:state.copyMark.until});
+    broadcast(p.room,{type:'power-vfx',kind:'copy-mark',player:p.id,x:target.x,y:target.y,z:target.z},p.socket);
+  }else if(id==='web'){
+    state.webUntil=now+rule.duration;state.webAnchor={x:data.anchor.x,y:data.anchor.y,z:data.anchor.z};
+    broadcast(p.room,{type:'power-vfx',kind:'web',player:p.id,anchor:state.webAnchor,x:p.x,y:p.y,z:p.z,until:state.webUntil});
   }else if(id==='blackhole'){
     const center=aimPoint(p,rule.range);const hazard={id:crypto.randomBytes(4).toString('hex'),x:center.x,z:center.z,until:now+rule.duration,radius:rule.radius,owner:p.id};
     p.room.hazards.push(hazard);broadcast(p.room,{type:'power-vfx',kind:'blackhole',player:p.id,...hazard});
@@ -313,19 +355,23 @@ function castPower(p,data){
     broadcast(p.room,{type:'power-effect',kind:'swap',player:target.id,...origin});
   }else if(id==='clones'||id==='clonejump'){
     const clones=[];
-    if(id==='clonejump')state.cloneJumpUsed=false;
-    for(let i=0;i<3;i++){
+    if(id==='clonejump'){
+      state.cloneJumpUsed=false;
+      for(const old of p.room.clones.filter(c=>c.owner===p.id&&c.power==='clonejump'))broadcast(p.room,{type:'clone-destroy',id:old.id});
+      p.room.clones=p.room.clones.filter(c=>c.owner!==p.id||c.power!=='clonejump');
+    }
+    const count=id==='clonejump'?1:3;
+    for(let i=0;i<count;i++){
       const forwardX=-Math.sin(p.yaw),forwardZ=-Math.cos(p.yaw),sideX=-forwardZ,sideZ=forwardX;
-      const distance=id==='clonejump'?7:2;
-      const lateral=id==='clonejump'?(i-1)*5:(i-1)*3;
+      const distance=id==='clonejump'?4:2,lateral=id==='clonejump'?0:(i-1)*3;
       const x=limit(p.x+forwardX*distance+sideX*lateral,-140,140);
       const z=limit(p.z+forwardZ*distance+sideZ*lateral,-140,140);
       if(locationValid(x,p.y,z,colliders)){
-        const clone={id:crypto.randomBytes(4).toString('hex'),owner:p.id,power:id,slot:i,x,z,y:p.y,until:now+rule.duration};
+        const clone={id:crypto.randomBytes(4).toString('hex'),owner:p.id,power:id,slot:i,x,z,y:p.y,until:now+rule.duration,angle:p.yaw+Math.PI,speed:id==='clonejump'?7.5:0,turn:1};
         p.room.clones.push(clone);clones.push(clone);
       }
     }
-    if(id==='clonejump'&&!clones.length){delete state.cooldowns[id];delete state.activeUntil[id];send(p.socket,{type:'power-error',message:'Sem espaço para criar clones.'});return;}
+    if(id==='clonejump'&&!clones.length){delete state.cooldowns[id];delete state.activeUntil[id];send(p.socket,{type:'power-error',message:'Sem espaço para criar o clone móvel.'});return;}
     broadcast(p.room,{type:'power-vfx',kind:'clones',player:p.id,clones});
   }else if(id==='shield'){state.shieldUntil=now+rule.duration;
   }else if(id==='flight'){state.flightUntil=now+rule.duration;
@@ -343,7 +389,7 @@ function onMessage(ws,data){
   }
   else if(data.type==='move')move(p,data);
   else if(data.type==='fire')fire(p,data);
-  else if(data.type==='equip'){p.powers.loadout=sanitizeLoadout(data.loadout);send(ws,{type:'power-state',powers:powerSnapshot(p)});}
+  else if(data.type==='equip'){p.powers.loadout=sanitizeLoadout(data.loadout);p.powers.copiedUntil=0;p.powers.originalLoadout=null;p.powers.copyMark=null;send(ws,{type:'power-state',powers:powerSnapshot(p)});}
   else if(data.type==='power')castPower(p,data);
   else if(data.type==='leave'){depart(ws,true);ws.end(Buffer.from([0x88,0x00]));}
 }
@@ -388,7 +434,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.2.0'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.3.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';
@@ -425,7 +471,7 @@ const tick=setInterval(()=>{
       if(!p.alive)continue;
       const hist=p.powers.history;
       hist.push({t:now,x:p.x,y:p.y,z:p.z,hp:p.hp,shield:p.shield});
-      while(hist.length>0&&hist[0].t<now-5200)hist.shift();
+      while(hist.length>0&&hist[0].t<now-11500)hist.shift();
     }
     for(let i=room.hazards.length-1;i>=0;i--){
       const h=room.hazards[i];if(h.until<now){room.hazards.splice(i,1);continue;}
@@ -433,14 +479,30 @@ const tick=setInterval(()=>{
         if(q.id===h.owner||!q.alive||q.powers.phaseUntil>now)continue;
         const distance=Math.hypot(q.x-h.x,q.z-h.z);
         if(distance<.6||distance>h.radius)continue;
-        const step=Math.min(.28,(h.radius-distance)*.035);
-        const x=q.x+(h.x-q.x)/distance*step,z=q.z+(h.z-q.z)/distance*step;
-        if(locationValid(x,q.y,z,colliders)){q.x=x;q.z=z;q.lastMove=now;send(q.socket,{type:'power-effect',kind:'blackhole-pull',player:q.id,x:q.x,y:q.y,z:q.z});}
+        // Strong implosion: ~15-23 meters / second; obey the map's collision volumes.
+        const pull=Math.min(2.2,Math.max(.8,(h.radius-distance)*.18));
+        let px=q.x,pz=q.z;
+        const travelSteps=Math.ceil(pull/.30);
+        for(let j=0;j<travelSteps;j++){
+          const remain=Math.hypot(h.x-px,h.z-pz);
+          if(remain<=.65)break;
+          const step=Math.min(.30,pull/travelSteps,remain-.65);
+          const nx=px+(h.x-px)/remain*step,nz=pz+(h.z-pz)/remain*step;
+          if(!locationValid(nx,q.y,nz,colliders))break;
+          px=nx;pz=nz;
+        }
+        if(px!==q.x||pz!==q.z){q.x=px;q.z=pz;q.lastMove=now;broadcast(room,{type:'power-effect',kind:'blackhole-pull',player:q.id,x:q.x,y:q.y,z:q.z});}
       }
     }
+    for(const clone of room.clones){if(clone.power==='clonejump'&&clone.until>now){advanceClone(clone,.1);broadcast(room,{type:'clone-move',id:clone.id,x:clone.x,y:clone.y,z:clone.z,until:clone.until});}}
     const expired=room.clones.filter(c=>c.until<=now);
     room.clones=room.clones.filter(c=>c.until>now);
     for(const clone of expired)broadcast(room,{type:'clone-destroy',id:clone.id});
+    for(const player of room.players.values()){
+      const powers=player.powers;
+      if(powers.copyMark?.until<=now)powers.copyMark=null;
+      if(powers.copiedUntil&&powers.copiedUntil<=now){powers.loadout=sanitizeLoadout(powers.originalLoadout);powers.originalLoadout=null;powers.copiedUntil=0;notifyPower(player,'copy');}
+    }
     const list=livePlayers(room).map(publicPlayer);
     broadcast(room,{type:'snapshot',players:list});
   }

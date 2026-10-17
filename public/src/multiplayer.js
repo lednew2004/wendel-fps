@@ -285,6 +285,7 @@ export class MultiplayerClient {
       }
       case 'power-state':this.game.powers.onServerState(msg.powers);break;
       case 'power-error':this.game.toast(msg.message||'PODER NÃO ATIVADO');break;
+      case 'power-copy':this.game.powers.onServerState(msg.powers);this.game.toast('PODERES COPIADOS DE '+msg.from+' · 25 SEGUNDOS');break;
       case 'power-effect':{
         this.game.powers.onServerEffect(msg);
         if(msg.kind==='gravity'&&Array.isArray(msg.affected)&&msg.affected.includes(this.id)){this.game.powers.status.gravity=Date.now()+2000;this.game.parkour.y+=3.5;this.game.parkour.vy=0;}
@@ -300,14 +301,24 @@ export class MultiplayerClient {
             if(this.decoys.has(clone.id))continue;
             const root=remoteAvatar('HOLOGRAMA');root.position.set(clone.x,clone.y,clone.z);
             root.traverse(o=>{if(o.isMesh&&o.material?.clone){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.55;}});
-            this.game.world.scene.add(root);this.decoys.set(clone.id,{group:root,until:clone.until});
+            this.game.world.scene.add(root);this.decoys.set(clone.id,{group:root,until:clone.until,target:new THREE.Vector3(clone.x,clone.y,clone.z)});
           }
+        }else if(msg.kind==='web'){
+          if(msg.player===this.id&&msg.anchor)this.game.powers.activateWeb(msg.anchor);
+          else this.game.powers.flash(0x9feafb,5,msg);
+        }else if(msg.kind==='copy-mark'){
+          this.game.powers.flash(0xff7dda,6,msg);
         }else if(msg.kind==='chain'){
           for(const v of msg.targets||[])this.game.powers.flash(0x76eaff,4,v);
         }else if(msg.kind==='blackhole')this.game.powers.flash(0x997bff,11,msg);
         else if(msg.kind==='gravity')this.game.powers.flash(0xdab8ff,10,msg);
         else if(msg.kind==='shield-hit')this.game.powers.flash(0x8af8cd,4,msg);
         else this.game.powers.flash(0x80dbff,9,msg);
+        break;
+      }
+      case 'clone-move':{
+        const decoy=this.decoys.get(msg.id);if(decoy){if(!decoy.target)decoy.target=new THREE.Vector3();decoy.target.set(msg.x,msg.y,msg.z);decoy.until=msg.until;}
+        const own=this.game.powers.cloneTargets.find(c=>c.id===msg.id);if(own){own.x=msg.x;own.y=msg.y;own.z=msg.z;}
         break;
       }
       case 'clone-destroy':this.removeDecoy(msg.id);this.game.powers.onCloneDestroy(msg.id);break;
@@ -413,7 +424,7 @@ export class MultiplayerClient {
       this.syncTick=.09;
       this.syncState();
     }
-    for(const [id,item] of this.decoys)if(item.until<Date.now())this.removeDecoy(id);
+    for(const [id,item] of this.decoys){if(item.until<Date.now())this.removeDecoy(id);else if(item.target)item.group.position.lerp(item.target,Math.min(1,dt*13));}
     // Keepalive now runs on a separate timer; do not depend on the render loop.
     for(const entry of this.others.values()){
       entry.flash=Math.max(0,entry.flash-dt);entry.group.userData.flash.visible=entry.flash>0;
