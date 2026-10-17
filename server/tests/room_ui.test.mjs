@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const uiFile=new URL('../../public/src/multiplayer.js',import.meta.url);
-const source=readFileSync(uiFile,'utf8').replace(/^import \* as THREE from 'three';/, 'const THREE={};');
+const source=readFileSync(uiFile,'utf8')
+  .replace(/^import \* as THREE from 'three';/, 'const THREE={};')
+  .replace("import {MultiplayerMinimap} from './minimap.js';", 'class MultiplayerMinimap {show(){} hide(){} draw(){}}');
 const {MultiplayerClient}=await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
 
 class FakeClassList {

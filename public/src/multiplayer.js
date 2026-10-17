@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {MultiplayerMinimap} from './minimap.js';
 
 const byId=id=>document.getElementById(id);
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
@@ -28,6 +29,10 @@ function remoteAvatar(name){
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
   const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthWrite:false,transparent:true,depthTest:true}));
   tag.position.set(0,2.83,0);tag.scale.set(2.6,.87,1);root.add(tag);
+  // Ice marker is local 3D feedback only; authoritative frozen state comes from the server.
+  const iceMat=new THREE.MeshBasicMaterial({color:0x83e8ff,transparent:true,opacity:.34,depthWrite:false,side:THREE.DoubleSide});
+  const ice=new THREE.Mesh(new THREE.CylinderGeometry(.56,.56,2.35,9,1,true),iceMat);
+  ice.position.y=1.15;ice.visible=false;root.add(ice);root.userData.ice=ice;
   root.userData.lifeTag={ctx,texture,name:name.slice(0,18),hp:-1,shield:-1};
   updateLifeTag(root,100,40);
   return root;
@@ -54,7 +59,7 @@ function updateLifeTag(group,hp,shield){
 
 export class MultiplayerClient {
   constructor(game){
-    this.game=game;this.socket=null;this.connected=false;this.id=null;this.room='';this.alive=true;
+    this.game=game;this.minimap=new MultiplayerMinimap(game);this.socket=null;this.connected=false;this.id=null;this.room='';this.alive=true;
     this.others=new Map();this.syncTick=0;this.isJoining=false;this.players=[];this.heartbeat=0;this.reconnectAttempts=0;this.reconnectTimer=null;this.reconnectSession=(globalThis.crypto?.randomUUID?.()||('titan-'+Date.now()+'-'+Math.random().toString(36).slice(2)));this.wantReconnect=false;
     // Keep the reconnect token on the same tab if the mobile browser reloads it.
     try{
@@ -200,7 +205,7 @@ export class MultiplayerClient {
       this.lastServerMessage=Date.now();
       this.startKeepAlive(socket);
       this.setStatus('Entrando na sala...');
-      socket.send(JSON.stringify({type:'join',name,create,room,session:this.reconnectSession}));
+      socket.send(JSON.stringify({type:'join',name,create,room,session:this.reconnectSession,loadout:this.game.powers?.loadout||['push','freeze']}));
     });
     socket.addEventListener('message',e=>{
       if(this.socket!==socket)return;
@@ -213,7 +218,7 @@ export class MultiplayerClient {
       if(this.socket!==socket)return;
       const shouldRetry=this.wantReconnect && this.room && this.game.mode==='multiplayer';
       this.connected=false;this.isJoining=false;this.socket=null;this.alive=false;
-      this.removeAll();
+      this.minimap.hide();this.removeAll();
       if(shouldRetry){
         if(this.panelOpen){this.panelOpen=false;byId('mp-room-panel').classList.add('hidden');this.game.setState('playing');}
         byId('mp-respawn').textContent='REESTABELECENDO CONEXÃO...';
@@ -264,13 +269,29 @@ export class MultiplayerClient {
         const self=msg.players.find(p=>p.id===msg.id);
         this.game.player.health=self?.hp??100;this.game.player.shield=self?.shield??40;
         this.alive=self?.alive!==false;
+        if(msg.powers){this.game.powers.onServerState(msg.powers);this.game.powers.loadout=msg.powers.loadout||this.game.powers.loadout;this.game.powers.refreshSelects();this.game.powers.refreshButtons();}
         byId('multiplayer-lobby').classList.add('hidden');
         byId('mp-hud').classList.remove('hidden');
+        this.minimap.show();
         byId('mp-respawn').classList.toggle('hidden',this.alive);
         byId('mp-room-code-input').value=this.room;
         if(this.panelOpen){byId('mp-hud').classList.add('hidden');byId('mp-room-panel').classList.remove('hidden');}
         this.receive({type:'snapshot',players:msg.players});
         this.game.toast(msg.resumed?'CONEXÃO RESTABELECIDA · PARTIDA RETOMADA':'PARTIDA ONLINE · TOQUE EM SALA PARA CONVIDAR');
+        break;
+      }
+      case 'power-state':this.game.powers.onServerState(msg.powers);break;
+      case 'power-error':this.game.toast(msg.message||'PODER NÃO ATIVADO');break;
+      case 'power-effect':{
+        this.game.powers.onServerEffect(msg);
+        if(msg.kind==='push'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x))entry.target.set(msg.x,msg.y,msg.z);}
+        if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='phase-exit'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
+        break;
+      }
+      case 'power-vfx':this.game.powers.flash(0x80dbff,9,msg);break;
+      case 'power-status':{
+        if(msg.player===this.id)this.game.powers.onServerState(msg.powers);
+        const entry=this.others.get(msg.player);if(entry){entry.group.visible=(!msg.powers.invisible&&!msg.powers.phased);entry.group.userData.ice.visible=!!msg.powers.frozen;}
         break;
       }
       case 'pong':
@@ -348,7 +369,8 @@ export class MultiplayerClient {
     }
     if(Number.isFinite(data.x)&&Number.isFinite(data.y)&&Number.isFinite(data.z))entry.target.set(data.x,data.y,data.z);
     entry.yaw=Number.isFinite(data.yaw)?data.yaw:0;
-    entry.group.visible=data.alive!==false;
+    entry.group.visible=data.alive!==false&&data.invisible!==true&&data.phased!==true;
+    entry.group.userData.ice.visible=data.frozen===true;
     if(Number.isFinite(data.hp))updateLifeTag(entry.group,data.hp,data.shield);
   }
   removeRemote(id){const entry=this.others.get(id);if(!entry)return;this.game.world.scene.remove(entry.group);entry.group.traverse(o=>{if(o.isMesh)o.geometry.dispose();if(o.isSprite){o.material.map?.dispose();o.material.dispose();}});this.others.delete(id);}
@@ -357,7 +379,10 @@ export class MultiplayerClient {
     const pk=this.game.parkour;
     this.send({type:'move',x:pk.x,y:pk.y,z:pk.z,yaw:this.game.yaw,pitch:this.game.pitch,weapon:this.game.weapons.index});
   }
-  fire(){if(this.connected&&this.alive){this.syncState();this.send({type:'fire'});}}
+  fire(){if(this.connected&&this.alive&&!this.game.powers.frozen()&&!this.game.powers.isActive('phase')){this.syncState();this.send({type:'fire'});}}
+  drawMinimap(){
+    if(this.connected&&this.game.mode==='multiplayer')this.minimap.draw(this.players,this.id);
+  }
   update(dt){
     if(!this.connected||this.game.mode!=='multiplayer')return;
     this.syncTick-=dt;
@@ -377,6 +402,6 @@ export class MultiplayerClient {
     this.stopKeepAlive();
     this.connected=false;this.isJoining=false;this.alive=false;this.id=null;
     if(this.socket){const old=this.socket;this.socket=null;try{if(manual&&old.readyState===WebSocket.OPEN)old.send(JSON.stringify({type:'leave'}));old.close();}catch{}}
-    this.removeAll();this.panelOpen=false;byId('mp-room-panel').classList.add('hidden');byId('mp-respawn').classList.add('hidden');byId('mp-hud').classList.add('hidden');
+    this.game.powers?.resetOnDeath();this.removeAll();this.minimap.hide();this.panelOpen=false;byId('mp-room-panel').classList.add('hidden');byId('mp-respawn').classList.add('hidden');byId('mp-hud').classList.add('hidden');
   }
 }

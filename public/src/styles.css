@@ -425,3 +425,38 @@ html.touch-playing #mobile-controls,html.touch-playing #mobile-controls *{touch-
 @media (pointer:coarse) and (orientation:landscape){
   .mode-multiplayer #m-more,.mode-multiplayer #m-slide,.mode-multiplayer #m-grenade,.mode-multiplayer #m-pulse,.mode-multiplayer #m-trial{display:none!important}
 }
+
+
+/* 1.9 — minimapa multiplayer, compacto e legível em PC e celular. */
+#mp-minimap{
+  position:fixed;z-index:15;top:105px;left:clamp(12px,2vw,28px);
+  width:clamp(132px,11.8vw,159px);padding:8px;
+  background:rgba(9,21,28,.86);border:1px solid rgba(144,170,162,.68);
+  box-shadow:0 5px 20px rgba(0,0,0,.38);border-radius:10px;
+  color:#e9eee6;pointer-events:none;touch-action:none;
+  font:800 10px Rajdhani,system-ui,sans-serif;letter-spacing:.75px;
+}
+#mp-minimap.hidden{display:none!important}
+.mp-minimap-head{display:flex;justify-content:space-between;align-items:center;gap:4px;white-space:nowrap}
+.mp-minimap-head span{color:#b4d5bc;font-size:9px}
+#mp-minimap-canvas{display:block;width:100%;aspect-ratio:1/1;margin:5px auto 2px;border-radius:5px;image-rendering:auto}
+.mp-minimap-legend{display:flex;justify-content:space-between;gap:3px;color:#b6c5bf;font-size:9px;white-space:nowrap}
+.mp-minimap-legend span{display:flex;align-items:center;gap:4px}
+.mp-minimap-legend i{width:6px;height:6px;display:inline-block;border-radius:50%}
+.mp-minimap-legend .mm-self{background:#74ffe0}
+.mp-minimap-legend .mm-other{background:#fb886c}
+@media (pointer:coarse) and (orientation:landscape){
+  #mp-minimap{
+    top:max(43px,calc(env(safe-area-inset-top) + 42px));
+    left:max(5px,env(safe-area-inset-left));
+    width:clamp(86px,23.5vh,111px);padding:5px;border-radius:7px;
+    font-size:8px;letter-spacing:.35px;
+  }
+  #mp-minimap-canvas{margin:3px auto 2px}
+  .mp-minimap-head span{font-size:7px}
+  .mp-minimap-legend{font-size:7px;gap:2px}
+  .mp-minimap-legend i{width:5px;height:5px}
+}
+@media (pointer:coarse) and (orientation:landscape) and (max-height:330px){
+  #mp-minimap{width:80px;top:38px}
+}

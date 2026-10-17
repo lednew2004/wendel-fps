@@ -1,0 +1,31 @@
+
+/* Power HUD: touch-first; do not obscure the right-side aim and fire region. */
+.power-loadout{padding:10px;border:1px solid #587c78;background:#12242c;border-radius:9px;display:flex;flex-direction:column;gap:6px;margin:9px 0;color:#e5f2ec}
+.power-loadout>strong{font:800 12px system-ui,sans-serif;letter-spacing:1px}
+.power-loadout p{font:500 11px/1.2 system-ui,sans-serif;color:#b3c8c5;margin:0}
+.power-choices{display:flex;gap:8px;flex-wrap:wrap}
+.power-choices label{display:grid;gap:3px;flex:1 1 140px;font:700 10px system-ui,sans-serif}
+.power-choices select{width:100%;min-height:34px;padding:5px;background:#0c1b21;color:#eaf7f4;border:1px solid #587c78;border-radius:5px;font:600 12px system-ui,sans-serif}
+#power-hud{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:17;pointer-events:none}
+#power-hud.hidden{display:none!important}
+.power-slot{min-width:99px;padding:5px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#effff6;background:#10242bbd;border:1px solid #71a99f;border-radius:9px;font:800 10px system-ui,sans-serif;pointer-events:none}
+.power-slot .power-symbol{font-size:22px;color:#a3eaff}.power-slot .power-time{color:#8ff7cd}
+.power-slot.cooling .power-time{color:#f3bb7c}.power-slot.active{border-color:#9feaff;box-shadow:0 0 12px #5fafff70}
+.power-key{color:#b5b5a7;font-size:9px}
+@media(pointer:coarse) and (orientation:landscape){
+ #power-hud{left:max(135px,17vw);top:max(52px,env(safe-area-inset-top));bottom:auto;transform:none;gap:5px;pointer-events:auto}
+ .power-slot{min-width:54px;max-width:73px;height:56px;padding:3px 4px;gap:0;pointer-events:auto;background:#15343fcf;border-radius:12px;touch-action:none;font-size:8px}
+ .power-slot .power-symbol{font-size:17px}.power-slot .power-name{font-size:7px;white-space:nowrap}.power-key{display:none}.power-slot .power-time{font-size:8px}
+ .power-loadout{padding:7px;gap:4px;margin:5px 0}.power-loadout p{font-size:9px}.power-choices label{flex-basis:125px}.power-choices select{min-height:32px}
+}
+@media(pointer:coarse) and (orientation:landscape) and (max-height:355px){#power-hud{top:48px}.power-slot{height:45px;max-width:64px}.power-slot .power-symbol{font-size:14px}}
+
+.menu-card{max-height:95dvh;overflow-y:auto;overscroll-behavior:contain}
+#power-descend{display:none}
+@media(pointer:coarse) and (orientation:landscape){#power-descend.visible{display:grid;place-items:center;min-width:56px;max-height:56px;border-radius:12px;background:#395b6ee0;border:1px solid #aadbf0;color:white;font:800 9px system-ui;touch-action:none}}
+/* Keep the existing room roster beside the invitation and the equipment below. */
+.mp-room-main > .mp-room-players{grid-column:2;grid-row:1}
+.mp-room-main > .power-loadout{grid-column:1 / -1;grid-row:2;margin:0}
+@media(pointer:coarse) and (orientation:landscape){
+  .mp-room-main > .power-loadout{grid-column:1 / -1}
+}

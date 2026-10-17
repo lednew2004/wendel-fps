@@ -52,7 +52,7 @@ export class MobileControls {
     this.move.x=this.move.y=0;this.lookFilter.x=this.lookFilter.y=0;
     this.activeMove=null;this.activeLook=null;this.moveBase=null;this.aimFingers.clear();
     this.game.mouseDown=false;this.game.rightDown=false;
-    this.game.keys.Space=false;this.game.keys.KeyF=false;
+    this.game.keys.Space=false;this.game.keys.KeyF=false;this.game.keys.ControlLeft=false;
     this.sprintTouch=false;this.aimToggle=false;this.moreOpen=false;
     this.root?.classList.remove('more-open');
     const more=document.getElementById('m-more');if(more)more.setAttribute('aria-expanded','false');

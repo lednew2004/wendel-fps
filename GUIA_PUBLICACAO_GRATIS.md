@@ -1,60 +1,31 @@
-# TITAN PROTOCOL 1.7 — Multiplayer estável + Mira móvel
+# Como publicar TITAN PROTOCOL 2.0 — GitHub + Render (grátis)
 
-Atualização incremental sobre a **1.5**. Preserva campanha, sobrevivência, parkour, armas, dash sem recarga, salas por código, menu SALA, cópia/compartilhamento de convites e o serviço gratuito Render.
+1. Faça backup dos arquivos atuais de seu projeto.
+2. Extraia `TITAN_PROTOCOL_V20_RENDER_GITHUB.zip` e coloque o conteúdo do ZIP **na raiz do repositório**, substituindo arquivos anteriores (não crie uma pasta extra ao redor).
+3. Confirme que a raiz tem `public/`, `server/`, `package.json`, `render.yaml` e `README.md`.
+4. Execute estes comandos no PowerShell, dentro da pasta do repositório:
 
-## Melhorias realizadas
-
-### Multiplayer
-- Heartbeat WebSocket de controle ping/pong a cada 15s, sem depender do frame rate do jogo; acompanhamento de inatividade real.
-- Keepalive do navegador a cada 8s, mesmo em telas com FPS muito baixo ou quando o painel de sala está aberto.
-- **Retomada de sessão por até 90 segundos** quando a conexão cai: sala, identificação, pontuação, mortes e posição são preservadas em RAM no servidor.
-- Reconexão progressiva com a sessão anterior sem reiniciar a câmera e a partida quando ela ainda está carregada.
-- Redução de snapshots de 15 para 10 por segundo e de posições do cliente para ~11/s, descartando snapshots obsoletos sob fila de rede acumulada.
-- Código da sala salvo temporariamente na aba do navegador, facilitando voltar após recarregar a página.
-- Estado da conexão e ping acessíveis pelo painel **SALA**, sem bloquear o campo de visão.
-- Arquivos HTML/CSS/JS usam cache com revalidação para evitar telas antigas após atualizar o deploy.
-
-### Jogabilidade no celular
-- Sensibilidade de mira inicial aumentada de 1.9× para **3.3×**, com pequena aceleração para deslizes rápidos.
-- Ajuste de **0.8× a 6.0×**, salvo no celular e disponível no painel SALA durante o multiplayer.
-- Analógico flutuante, com centro no ponto do toque, zona morta menor e deslocamento melhor aproveitado.
-- Mira por deslize na área direita **ou pelo dedo que mantém ATIRAR**, mantendo movimentação simultânea com outro dedo.
-- Controles, câmera, modos de jogo e interface da versão 1.5 preservados.
-
-## Deploy gratuito Render
-
-1. Substitua no seu repositório GitHub os arquivos com os deste ZIP (a raiz deve conter `public/`, `server/`, `render.yaml` e `package.json`).
-2. Rode `git add .`, `git commit -m "TITAN 1.7 correção de salas e edição do nome"` e `git push origin main` (ajuste a branch se necessário).
-3. Aguarde a Render concluir o deploy automático, ou faça **Manual Deploy → Deploy latest commit**.
-4. Abra `https://SEU-SERVICO.onrender.com/health` e confirme `ok: true`.
-5. Atualize o jogo no computador e no telefone; abra **MULTIPLAYER ONLINE**, crie uma sala, copie o convite pelo botão **SALA** e teste com dois ou mais jogadores.
-7. No celular, entre na sala e clique em **SALA → VELOCIDADE DA MIRA** para ajustar os dedos (comece com 3.3×).
-
-## Limitações importantes
-
-- **Render Free não garante partidas sem quedas.** O servidor pode adormecer quando ocioso, reiniciar, ou sofrer interrupções de rede. A reserva de sessão funciona apenas enquanto **o mesmo processo Node.js permanece em execução**; em reinicializações completas, as salas mantidas em RAM são perdidas. Persistência de partidas entre reinicializações requer armazenamento externo.
-- A reconexão preserva a vaga por até 90s, porém, ao ultrapassar o limite, o usuário precisará criar ou entrar em uma nova sala.
-- Não foi possível verificar FPS, toque e WebGL em um Android/iPhone real neste ambiente; o desempenho deve ser validado no dispositivo.
-
-## Testes
-
-Com **Node.js 22+**:
-
-```bash
-npm test
+```powershell
+git add .
+git commit -m "TITAN PROTOCOL 2.0 - Superpoderes e minimapa"
+git push origin main
 ```
 
-Testes automatizados de criação de salas, tiros, respawn, reconexão de 3 jogadores, retomar identificação/pontuação, sair da sala, controles touch e anatomia do deploy.
+5. No painel Render, espere o deploy automático finalizar (ou clique em **Manual Deploy → Deploy latest commit**).
+6. Abra `https://SEU-SITE.onrender.com/health` e verifique que `ok` é `true`.
+7. Limpe o cache da página/recarregue no celular. Crie uma sala e convide amigos. Verifique que os dois jogadores estão usando a mesma versão do jogo.
+8. Escolha seus poderes no menu ou em **SALA**. Experimente Repulsão e Congelamento, depois Teleporte/Voo e Invisibilidade/Intangibilidade.
 
-### Código personalizado de sala (v1.7)
+> A Render Free pode suspender o servidor quando inativo. Salas em memória podem desaparecer em reinicializações, independentemente do código. Para disponibilidade permanente é necessário um ambiente de produção mais robusto.
 
-- Escreva um nickname e use **LIMPAR** para apagá-lo, se necessário.
-- Digite exatamente 6 letras ou números no campo código e clique em **CRIAR SALA** para reservar esse código.
-- Deixe o campo código **vazio** e clique em **CRIAR SALA** para gerar um automaticamente.
-- Para entrar com um amigo, digite o código dele e clique em **ENTRAR NA SALA**.
-- Se o código já estiver em uso, escolha outro ou use **ENTRAR NA SALA**.
+> O código preserva os ajustes anteriores de nickname editável, sala com código próprio, botão de compartilhamento, reconexão, minimapa, barras de vida e controles touch.
 
+## Diagnóstico
 
-## Atualização 1.8
+- Se abrir o jogo mas não conectar: visite `/health`, confira os logs no Render e redeploy.
+- Se os poderes não aparecerem: confirme os arquivos `public/src/powers.js` e `public/src/powers.css`; recarregue a página sem cache.
+- Se o teleporte não confirmar: o marcador de destino deve ficar **verde**, sobre um piso ou telhado válido, dentro do alcance permitido.
+- Se o voo ficar preso: pressione salto para subir, use Ctrl / DESCER para descer.
+- Se o celular estiver lento: mantenha a qualidade Baixa e o FPS adaptativo ativado.
 
-Substitua o conteúdo do repositório pelo pacote 1.8 e execute `git add .`, `git commit -m "Titan 1.8 - controles mobile e barras de vida"`, `git push origin main`. O Render deve refazer o deploy automaticamente quando conectado. O servidor continua sem exigir Redis. Teste a sala com dois ou mais jogadores e ajuste a sensibilidade em **SALA → VELOCIDADE DA MIRA**.
+Os testes de rede e sintaxe passaram, mas a partida WebGL completa precisa ser validada manualmente em um dispositivo real.

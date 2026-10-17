@@ -140,6 +140,9 @@ export class ParkourController {
     if(this.hudCooldown<=0){this.updateHud();this.hudCooldown=.095;}
   }
   step(dt){
+    const powers=this.game.powers;
+    const phased=!!powers?.isActive('phase');
+    const flying=!!powers?.isActive('flight');
     const k=this.game.keys;
     const dir=this.direction();
     if(this.running)this.elapsed+=dt;
@@ -167,12 +170,13 @@ export class ParkourController {
       const fric=(this.grounded?CFG.frictionGround:CFG.frictionAir)*dt;
       this.vx=approach(this.vx,0,fric);this.vz=approach(this.vz,0,fric);
     }
-    if(this.buffer>0&&(this.grounded||this.coyote>0)){
+    if(flying){this.grounded=false;this.vy=(k.Space?9:0)-(k.ControlLeft||k.ControlRight||k.KeyC?9:0);if(!k.Space&&!k.ControlLeft&&!k.ControlRight&&!k.KeyC)this.vy=1.0;}
+    if(!flying&&this.buffer>0&&(this.grounded||this.coyote>0)){
       this.vy=CFG.jumpSpeed+(isSprint?0.4:0);
       this.grounded=false;this.coyote=0;this.buffer=0;
       this.prompt=isSprint?'SALTO COM IMPULSO':'SALTO';
     }
-    if(!this.grounded){
+    if(!this.grounded&&!flying){
       const wall=this.city.wallNear(this.x,this.z,this.y,.76);
       const canRun=!!wall&&isSprint&&dir.mag>0&&Math.hypot(this.vx,this.vz)>5&&this.vy<3;
       if(canRun&&this.wallRun<CFG.wallRunTime){
@@ -195,11 +199,11 @@ export class ParkourController {
     const height=this.slide>0?1.08:CFG.characterHeight;
     const radius=CFG.characterRadius;
     const nx=this.x+this.vx*dt,nz=this.z+this.vz*dt;
-    if(this.city.canOccupy(nx,this.z,this.y,height,radius))this.x=nx;else this.vx=0;
-    if(this.city.canOccupy(this.x,nz,this.y,height,radius))this.z=nz;else this.vz=0;
+    if(phased||this.city.canOccupy(nx,this.z,this.y,height,radius))this.x=nx;else this.vx=0;
+    if(phased||this.city.canOccupy(this.x,nz,this.y,height,radius))this.z=nz;else this.vz=0;
     // Degraus/rampas só elevam o jogador quando ele está realmente no solo;
     // evita snap vertical através de telhados ou paredes.
-    if(this.grounded && this.vy<=0){
+    if(this.grounded && this.vy<=0&&!flying){
       const stairY=this.city.floorAt(this.x,this.z,this.y,CFG.stairStep);
       if(stairY>=this.y-.47 && stairY<=this.y+CFG.stairStep){
         this.y=stairY;this.vy=0;this.coyote=CFG.coyote;
@@ -208,13 +212,13 @@ export class ParkourController {
       this.grounded=false;this.coyote=CFG.coyote;
     }
     const nextY=this.y+this.vy*dt;
-    const landed=this.vy<=0?this.city.landingAt(this.x,this.z,prevY,nextY):-Infinity;
+    const landed=!flying&&this.vy<=0?this.city.landingAt(this.x,this.z,prevY,nextY):-Infinity;
     if(landed!==-Infinity){
       this.y=landed;this.vy=0;this.grounded=true;this.wallRun=0;this.coyote=CFG.coyote;
       if(prevY-landed>2.0)this.prompt='ATERRISSAGEM — SEGURE CTRL PARA DESLIZAR';
       if((k.ControlLeft||k.ControlRight)&&this.slide<=0)this.slide=.34;
     }else{
-      this.y=Math.max(-12,nextY);
+      this.y=Math.min(37,Math.max(-12,nextY));
       if(this.grounded){
         const ground=this.city.floorAt(this.x,this.z,this.y,CFG.stairStep);
         if(ground>=this.y-.50&&ground<=this.y+CFG.stairStep&&this.vy<=0){
