@@ -11,10 +11,10 @@ export class MobileControls {
     this.activeMove=null;
     this.activeLook=null;
     this.aimFingers=new Map();
-    let savedSensitivity=3.3;
-    try{savedSensitivity=Number(localStorage.getItem('titan-touch-sensitivity')||3.3);}catch{}
-    this.touchSensitivity=Math.max(.8,Math.min(6,Number.isFinite(savedSensitivity)?savedSensitivity:3.3));
-    this.moveBase=null;this.sprintTouch=false;
+    let savedSensitivity=3.8;
+    try{savedSensitivity=Number(localStorage.getItem('titan-touch-sensitivity')||3.8);}catch{}
+    this.touchSensitivity=Math.max(.8,Math.min(6,Number.isFinite(savedSensitivity)?savedSensitivity:3.8));
+    this.moveBase=null;this.sprintTouch=false;this.lookFilter={x:0,y:0};
     this.moreOpen=false;this.aimToggle=false;
     this.landscape=true;
     if(!this.enabled)return;
@@ -49,7 +49,7 @@ export class MobileControls {
   }
   clear(){
     if(!this.enabled)return;
-    this.move.x=this.move.y=0;
+    this.move.x=this.move.y=0;this.lookFilter.x=this.lookFilter.y=0;
     this.activeMove=null;this.activeLook=null;this.moveBase=null;this.aimFingers.clear();
     this.game.mouseDown=false;this.game.rightDown=false;
     this.game.keys.Space=false;this.game.keys.KeyF=false;
@@ -99,7 +99,7 @@ export class MobileControls {
       e.preventDefault();e.stopPropagation();this.activeMove=e.pointerId;
       const box=pad.getBoundingClientRect();
       const centerX=box.left+box.width/2,centerY=box.top+box.height*.43;
-      const radius=Math.max(32,Math.min(box.width,box.height)*.41);
+      const radius=Math.max(32,Math.min(box.width,box.height)*.43);
       // Floating joystick centre: touch anywhere inside the pad, then drag naturally.
       this.moveBase={x:e.clientX,y:e.clientY,radius};
       ring.style.transform=`translate(${e.clientX-centerX}px,${e.clientY-centerY}px)`;
@@ -133,14 +133,19 @@ export class MobileControls {
       previous.x=e.clientX;previous.y=e.clientY;
       // Ignore implausible touch deltas after device rotation or browser gesture.
       if(Math.abs(dx)>180||Math.abs(dy)>180)return;
-      // Faster swipes accelerate slightly; small movements remain accurate.
-      const speed=Math.hypot(dx,dy);
-      const acceleration=1.12+Math.min(.55,speed/24);
-      const scale=this.touchSensitivity*acceleration;
-      if(this.game.look.move(dx*scale,this.game.invertY?-dy*scale:dy*scale,this.game.sensitivity))this.game.positionCamera();
+      // Predictable 1:1 aim: no variable speed boost or artificial delay.
+      // A light 85/15 filter suppresses finger jitter while keeping fast turns responsive.
+      const smooth=.85;
+      const sx=dx*smooth+this.lookFilter.x*(1-smooth);
+      const sy=dy*smooth+this.lookFilter.y*(1-smooth);
+      this.lookFilter.x=dx;this.lookFilter.y=dy;
+      // Touch pixels are scaled relative to viewport height so small phones are usable.
+      const screenFactor=Math.max(.85,Math.min(1.32,390/window.innerHeight));
+      const scale=this.touchSensitivity*1.32*screenFactor;
+      if(this.game.look.move(sx*scale,this.game.invertY?-sy*scale:sy*scale,this.game.sensitivity))this.game.positionCamera();
       e.preventDefault();
     },true);
-    const release=e=>{this.aimFingers.delete(e.pointerId);};
+    const release=e=>{this.aimFingers.delete(e.pointerId);if(this.aimFingers.size===0){this.lookFilter.x=0;this.lookFilter.y=0;}};
     document.addEventListener('pointerup',release,true);
     document.addEventListener('pointercancel',release,true);
     document.addEventListener('lostpointercapture',release,true);
@@ -152,7 +157,8 @@ export class MobileControls {
     this.bindAction('m-jump',()=>{this.game.keys.Space=true;this.game.parkour.jump();},()=>{this.game.keys.Space=false;});
     this.bindAction('m-dash',()=>this.game.dash());
     this.bindAction('m-reload',()=>this.game.weapons.reload());
-    this.bindAction('m-interact',()=>this.game.parkour.interact());
+    // One contextual USAR button handles ladders, ledges and mission objectives.
+    this.bindAction('m-interact',()=>{this.game.parkour.interact();this.game.keys.KeyF=true;},()=>{this.game.keys.KeyF=false;});
     this.bindAction('m-objective',()=>{this.game.keys.KeyF=true;},()=>{this.game.keys.KeyF=false;});
     this.bindAction('m-sprint',()=>{this.sprintTouch=true;},()=>{this.sprintTouch=false;});
     this.bindAction('m-more',()=>{this.moreOpen=!this.moreOpen;this.root.classList.toggle('more-open',this.moreOpen);document.getElementById('m-more').setAttribute('aria-expanded',String(this.moreOpen));});
@@ -168,7 +174,7 @@ export class MobileControls {
     const touchSlider=document.getElementById('touch-sensitivity');
     const roomSlider=document.getElementById('mp-touch-sensitivity');
     const setTouchSensitivity=value=>{
-      this.touchSensitivity=Math.max(.8,Math.min(6,Number(value)||3.3));
+      this.touchSensitivity=Math.max(.8,Math.min(6,Number(value)||3.8));
       try{localStorage.setItem('titan-touch-sensitivity',String(this.touchSensitivity));}catch{}
       for(const slider of [touchSlider,roomSlider])if(slider)slider.value=String(this.touchSensitivity);
       for(const id of ['touch-sensitivity-label','mp-touch-sensitivity-label']){

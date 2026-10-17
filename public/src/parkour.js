@@ -157,7 +157,7 @@ export class ParkourController {
     this.slide=Math.max(0,this.slide-dt);
     this.buffer=Math.max(0,this.buffer-dt);
     this.coyote=Math.max(0,this.coyote-dt);
-    const isSprint=!!(k.ShiftLeft||k.ShiftRight||this.game.mobile?.sprintTouch)||(!!this.game.mobile?.enabled&&this.game.mobile.move.y>.85&&Math.abs(this.game.mobile.move.x)<.65);
+    const isSprint=!!(k.ShiftLeft||k.ShiftRight||this.game.mobile?.sprintTouch)||(!!this.game.mobile?.enabled&&this.game.mobile.move.y>.72&&Math.abs(this.game.mobile.move.x)<.65);
     const speed=(this.slide>0?CFG.slideSpeed:isSprint?CFG.sprintSpeed:CFG.walkSpeed)*(this.game.player.speedBonus||1);
     const ax=dir.x*speed,az=dir.z*speed;
     const accel=(this.grounded?CFG.accelGround:CFG.accelAir)*dt;

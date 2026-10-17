@@ -19,10 +19,11 @@ class FakeElement {
   click(){for(const cb of this.handlers.click??[])cb({});}
   setAttribute(){}
   focus(){}
+  select(){}
   replaceChildren(...items){this.items=items;}
 }
 
-const keys=['mp-server','mp-open','mp-close','mp-create','mp-join','mp-copy','mp-name','mp-code',
+const keys=['mp-server','mp-open','mp-close','mp-create','mp-join','mp-copy','mp-name','mp-name-clear','mp-code','mp-code-clear',
   'mp-status','multiplayer-lobby','mp-hud','mp-room-panel','mp-room-code-input','mp-room-resume',
   'mp-room-open','mp-room-close','mp-room-leave','mp-share','mp-share-status',
   'mp-count','mp-roster-count','mp-scores','mp-respawn'];
@@ -94,4 +95,47 @@ test('game pause delegates to room panel rather than disconnect',()=>{
   const gameSource=readFileSync(new URL('../../public/src/game.js',import.meta.url),'utf8');
   assert.match(gameSource,/pause\(\)\{[^}]*this\.mode==='multiplayer'\)\{this\.multiplayer\.openRoomPanel\(\);return;/);
   assert.match(gameSource,/resume\(\)\{[^}]*this\.multiplayer\.closeRoomPanel\(\)/);
+});
+
+
+test('lobby clear buttons erase nickname and room code without changing multiplayer state',()=>{
+  const {elements,client}=createEnvironment();
+  elements['mp-name'].value='Pessoa 12';
+  elements['mp-code'].value='ABC123';
+  elements['mp-name-clear'].click();
+  assert.equal(elements['mp-name'].value,'');
+  elements['mp-code-clear'].click();
+  assert.equal(elements['mp-code'].value,'');
+  assert.equal(client.connected,true);
+});
+
+test('creating a room keeps the exact custom code and validates it without silently modifying input',()=>{
+  const {elements,client}=createEnvironment();
+  elements['mp-code'].value='ab12cd';
+  elements['mp-name'].value='Eu';
+  let sent=null;
+  client.url=()=> 'ws://localhost/ws';
+  client.connected=false;
+  const originalDisconnect=client.disconnect.bind(client);
+  client.disconnect=()=>{};
+  // A fake WebSocket captures the join message when the server handshake opens.
+  const previous=globalThis.WebSocket;
+  class FakeWebSocket {
+    constructor(){this.events={};FakeWebSocket.last=this;}
+    addEventListener(name,fn){this.events[name]=fn;}
+    send(raw){sent=JSON.parse(raw);}
+    close(){}
+  }
+  globalThis.WebSocket=FakeWebSocket;
+  try{
+    client.connect(true);
+    assert.equal(elements['mp-code'].value,'AB12CD');
+    FakeWebSocket.last.events.open();
+    assert.equal(sent.create,true);
+    assert.equal(sent.room,'AB12CD');
+    client.stopKeepAlive();
+    client.socket=null;
+    FakeWebSocket.last.events.close(); // clears the connection timeout, without reconnecting
+    client.disconnect=originalDisconnect;
+  }finally{globalThis.WebSocket=previous;client.stopKeepAlive();}
 });

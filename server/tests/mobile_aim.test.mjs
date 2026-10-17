@@ -32,13 +32,14 @@ function setup(){
   return {mobile,game,node,emitDoc,moveRecords,stored};
 }
 
-test('mobile camera: faster right swipe, simultaneous moving, saved sensitivity',()=>{
+test('mobile camera: predictable fluid swipe, simultaneous moving, saved sensitivity',()=>{
   const {mobile,node,emitDoc,moveRecords,stored}=setup();
-  assert.equal(mobile.touchSensitivity,3.3);
+  assert.equal(mobile.touchSensitivity,3.8);
   emitDoc('pointerdown',{pointerId:101,clientX:620,clientY:120});
   emitDoc('pointermove',{pointerId:101,clientX:645,clientY:118});
   assert.equal(moveRecords.length,1);
-  assert.ok(moveRecords[0].dx>25*3.3,'swipe receives acceleration and higher base sensitivity');
+  assert.ok(moveRecords[0].dx>25*3.8*.8,'swipe remains responsive');
+  assert.ok(moveRecords[0].dx<25*3.8*1.5,'swipe does not accelerate excessively');
   const pad=node('mobile-move');
   pad.emit('pointerdown',{pointerId:102,clientX:76,clientY:280});
   pad.emit('pointermove',{pointerId:102,clientX:109,clientY:247});

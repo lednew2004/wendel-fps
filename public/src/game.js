@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {isTypingIntoField} from './keyboard.js';
 import {World} from './world.js';
 import {EnemySystem} from './enemies.js';
 import {Weapons} from './weapons.js';
@@ -66,7 +67,7 @@ export class Game {
     el('enable-ao').addEventListener('change',e=>this.world.setAO(e.target.checked));
     el('enable-reflections').addEventListener('change',e=>this.world.setReflections(e.target.checked));
     el('enable-bloom').addEventListener('change',e=>this.world.setBloom(e.target.checked));
-    window.addEventListener('keydown',e=>{if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace'].includes(e.code))e.preventDefault();this.keys[e.code]=true;if(e.repeat)return;if(e.code==='Escape'){if(this.state==='playing')this.pause();else if(this.state==='paused')this.resume();return;}if(this.state!=='playing')return;
+    window.addEventListener('keydown',e=>{if(isTypingIntoField(e.target)||isTypingIntoField(document.activeElement))return;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace'].includes(e.code))e.preventDefault();this.keys[e.code]=true;if(e.repeat)return;if(e.code==='Escape'){if(this.state==='playing')this.pause();else if(this.state==='paused')this.resume();return;}if(this.state!=='playing')return;
       if(e.code==='Space')this.parkour.jump();
       if(e.code==='KeyE')this.parkour.interact();
       if(e.code==='KeyT'){const active=this.parkour.toggleTrial();document.body.classList.toggle('trial-active',active);this.toast(active?'PERCURSO OPCIONAL ATIVADO':'PERCURSO DESATIVADO');}

@@ -23,8 +23,9 @@ test('HTTP health, WebSocket room, positions, authoritative hit and respawn',asy
   const p1=players.get([...players.keys()][0]);const p2=players.get([...players.keys()][1]);
   Object.assign(p1,{x:0,y:0,z:18,yaw:0,pitch:0,weapon:2,lastFire:0});
   Object.assign(p2,{x:0,y:0,z:11,shield:0,hp:70,spawnUntil:0});
-  const killMsg=next(first,'kill');const respawnMsg=next(second,'respawn',3800);
+  const healthMsg=next(first,'health');const killMsg=next(first,'kill');const respawnMsg=next(second,'respawn',3800);
   send(first,{type:'fire'});
+  const update=await healthMsg;assert.equal(update.id,p2.id);assert.equal(update.hp,0);
   const kill=await killMsg;assert.equal(kill.attacker,p1.id);assert.equal(kill.victim,p2.id);assert.equal(p1.kills,1);
   const respawn=await respawnMsg;assert.equal(respawn.hp,100);assert.equal(respawn.shield,40);
   const s=next(second,'snapshot');assert.equal((await s).players.length,2);

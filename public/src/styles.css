@@ -372,3 +372,56 @@ html.touch-playing #mobile-controls,html.touch-playing #mobile-controls *{touch-
   .stick-knob{transition:none;will-change:transform}
   #m-fire{width:clamp(72px,20vh,98px);height:clamp(72px,20vh,98px)}
 }
+
+/* 1.7 — Native text editing and clear buttons in the multiplayer lobby. */
+.mp-dialog input,
+.mp-dialog textarea{
+  user-select:text;
+  -webkit-user-select:text;
+  touch-action:auto;
+  -webkit-touch-callout:default;
+}
+.mp-input-row{display:flex;gap:6px;align-items:stretch;min-width:0}
+.mp-input-row input{flex:1;min-width:0;width:auto}
+.mp-input-row button{
+  flex:0 0 auto;min-width:54px;padding:5px 9px;
+  color:#efe4d1;background:#253a40;border:1px solid #87908b;
+  border-radius:5px;font:700 11px Rajdhani,system-ui;
+}
+.mp-input-row button:hover,.mp-input-row button:focus-visible{background:#3c5458}
+.mp-field-help{font-size:11px;line-height:1.25;display:block;margin-bottom:3px}
+@media (pointer:coarse) and (orientation:landscape){
+  .mp-input-row button{min-width:51px;padding:2px 5px;font-size:10px}
+  .mp-field-help{font-size:9px}
+}
+
+
+/* v1.8 — dedos livres para a câmera. Somente comandos essenciais na borda. */
+@media (pointer:coarse) and (orientation:landscape){
+  .touch-playing #mobile-look{inset:0 0 0 auto;width:65%;pointer-events:auto;touch-action:none}
+  .touch-playing #mobile-controls .mobile-action{border-color:rgba(240,227,204,.55);background:rgba(12,26,34,.62);box-shadow:0 2px 12px rgba(0,0,0,.25)}
+  .touch-playing #mobile-controls .mobile-action.pressed{background:rgba(212,163,99,.85)}
+  /* right thumb: fire, jump and dash only */
+  .touch-playing #m-fire{right:max(10px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));width:clamp(70px,18vh,89px);height:clamp(70px,18vh,89px);font-size:clamp(12px,3.4vh,17px);background:rgba(164,85,59,.77);border-color:#f3c793}
+  .touch-playing #m-jump{right:clamp(104px,29vh,146px);bottom:max(12px,env(safe-area-inset-bottom));width:clamp(48px,13vh,60px);height:clamp(48px,13vh,60px)}
+  .touch-playing #m-dash{right:clamp(101px,28vh,146px);bottom:clamp(75px,21vh,112px);width:clamp(48px,13vh,60px);height:clamp(48px,13vh,60px)}
+  /* left thumb: context action, compact weapon controls; never cover aim region */
+  .touch-playing #m-interact{right:auto;left:clamp(132px,36vh,188px);bottom:clamp(66px,19vh,92px);width:clamp(44px,11vh,52px);height:clamp(44px,11vh,52px)}
+  .touch-playing #m-weapon{right:auto;left:clamp(133px,36vh,188px);top:clamp(54px,16vh,78px);width:clamp(43px,11vh,51px);height:clamp(43px,11vh,51px)}
+  .touch-playing #m-reload{right:auto;left:clamp(193px,52vh,253px);top:clamp(54px,16vh,78px);bottom:auto;width:clamp(43px,11vh,51px);height:clamp(43px,11vh,51px)}
+  .touch-playing #m-aim{right:auto;left:clamp(193px,52vh,253px);bottom:clamp(18px,5vh,26px);width:clamp(43px,11vh,51px);height:clamp(43px,11vh,51px)}
+  .touch-playing #m-slide,.touch-playing #m-objective,.touch-playing #m-sprint,.touch-playing #m-grenade,.touch-playing #m-pulse,.touch-playing #m-trial{display:none!important}
+  .touch-playing #m-more{right:auto;left:clamp(193px,52vh,253px);top:clamp(112px,31vh,137px);width:43px;height:43px}
+  .touch-playing #mobile-controls.more-open #m-slide,.touch-playing #mobile-controls.more-open #m-grenade,
+  .touch-playing #mobile-controls.more-open #m-pulse,.touch-playing #mobile-controls.more-open #m-trial{display:grid!important}
+  .touch-playing #mobile-controls.more-open #m-slide{right:auto;left:clamp(250px,69vh,338px);top:clamp(112px,31vh,137px);bottom:auto}
+  .touch-playing #mobile-controls.more-open #m-grenade{right:auto;left:clamp(250px,69vh,338px);top:clamp(54px,16vh,78px)}
+  .touch-playing #mobile-controls.more-open #m-pulse{right:auto;left:clamp(306px,85vh,409px);top:clamp(54px,16vh,78px)}
+  .touch-playing #mobile-controls.more-open #m-trial{right:auto;left:clamp(306px,85vh,409px);top:clamp(112px,31vh,137px)}
+  .touch-playing .mode-multiplayer #m-more{display:none!important}
+  .touch-playing #mobile-tip{display:none!important}
+}
+
+@media (pointer:coarse) and (orientation:landscape){
+  .mode-multiplayer #m-more,.mode-multiplayer #m-slide,.mode-multiplayer #m-grenade,.mode-multiplayer #m-pulse,.mode-multiplayer #m-trial{display:none!important}
+}

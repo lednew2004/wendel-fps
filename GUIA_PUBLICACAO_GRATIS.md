@@ -1,4 +1,4 @@
-# TITAN PROTOCOL 1.6 — Multiplayer estável + Mira móvel
+# TITAN PROTOCOL 1.7 — Multiplayer estável + Mira móvel
 
 Atualização incremental sobre a **1.5**. Preserva campanha, sobrevivência, parkour, armas, dash sem recarga, salas por código, menu SALA, cópia/compartilhamento de convites e o serviço gratuito Render.
 
@@ -24,7 +24,7 @@ Atualização incremental sobre a **1.5**. Preserva campanha, sobrevivência, pa
 ## Deploy gratuito Render
 
 1. Substitua no seu repositório GitHub os arquivos com os deste ZIP (a raiz deve conter `public/`, `server/`, `render.yaml` e `package.json`).
-2. Rode `git add .`, `git commit -m "TITAN 1.6 estabilidade multiplayer e mira"` e `git push origin main` (ajuste a branch se necessário).
+2. Rode `git add .`, `git commit -m "TITAN 1.7 correção de salas e edição do nome"` e `git push origin main` (ajuste a branch se necessário).
 3. Aguarde a Render concluir o deploy automático, ou faça **Manual Deploy → Deploy latest commit**.
 4. Abra `https://SEU-SERVICO.onrender.com/health` e confirme `ok: true`.
 5. Atualize o jogo no computador e no telefone; abra **MULTIPLAYER ONLINE**, crie uma sala, copie o convite pelo botão **SALA** e teste com dois ou mais jogadores.
@@ -45,3 +45,16 @@ npm test
 ```
 
 Testes automatizados de criação de salas, tiros, respawn, reconexão de 3 jogadores, retomar identificação/pontuação, sair da sala, controles touch e anatomia do deploy.
+
+### Código personalizado de sala (v1.7)
+
+- Escreva um nickname e use **LIMPAR** para apagá-lo, se necessário.
+- Digite exatamente 6 letras ou números no campo código e clique em **CRIAR SALA** para reservar esse código.
+- Deixe o campo código **vazio** e clique em **CRIAR SALA** para gerar um automaticamente.
+- Para entrar com um amigo, digite o código dele e clique em **ENTRAR NA SALA**.
+- Se o código já estiver em uso, escolha outro ou use **ENTRAR NA SALA**.
+
+
+## Atualização 1.8
+
+Substitua o conteúdo do repositório pelo pacote 1.8 e execute `git add .`, `git commit -m "Titan 1.8 - controles mobile e barras de vida"`, `git push origin main`. O Render deve refazer o deploy automaticamente quando conectado. O servidor continua sem exigir Redis. Teste a sala com dois ou mais jogadores e ajuste a sensibilidade em **SALA → VELOCIDADE DA MIRA**.

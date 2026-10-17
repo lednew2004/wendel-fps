@@ -22,13 +22,34 @@ function remoteAvatar(name){
   block(.11,.14,.70,.18,1.22,-.46,vest);
   const flashMat=new THREE.MeshBasicMaterial({color:0xffdb8c,transparent:true,opacity:.85,depthWrite:false});
   const flash=new THREE.Mesh(new THREE.SphereGeometry(.16,6,5),flashMat);flash.position.set(.18,1.22,-.86);flash.visible=false;root.add(flash);root.userData.flash=flash;
-  // Screen-facing name tag, readable in the distance.
-  const canvas=document.createElement('canvas');canvas.width=256;canvas.height=64;
-  const ctx=canvas.getContext('2d');ctx.fillStyle='rgba(8,21,25,.8)';ctx.fillRect(0,0,256,64);
-  ctx.fillStyle='#f3e1bd';ctx.font='bold 29px Arial';ctx.textAlign='center';ctx.fillText(name.slice(0,16),128,42);
+  // Screen-facing health and shield bars; updated from server-authoritative state.
+  const canvas=document.createElement('canvas');canvas.width=384;canvas.height=128;
+  const ctx=canvas.getContext('2d');
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
-  const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthWrite:false,transparent:true}));tag.position.set(0,2.55,0);tag.scale.set(2.25,.57,1);root.add(tag);
+  const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthWrite:false,transparent:true,depthTest:true}));
+  tag.position.set(0,2.83,0);tag.scale.set(2.6,.87,1);root.add(tag);
+  root.userData.lifeTag={ctx,texture,name:name.slice(0,18),hp:-1,shield:-1};
+  updateLifeTag(root,100,40);
   return root;
+}
+
+function updateLifeTag(group,hp,shield){
+  const v=group.userData.lifeTag;
+  if(!v)return;
+  hp=clamp(Number(hp)||0,0,100);shield=clamp(Number(shield)||0,0,40);
+  if(v.hp===hp&&v.shield===shield)return;
+  v.hp=hp;v.shield=shield;
+  const ctx=v.ctx;
+  ctx.clearRect(0,0,384,128);
+  ctx.fillStyle='rgba(6,16,22,.88)';ctx.fillRect(7,3,370,122);
+  ctx.fillStyle='#f4f0dc';ctx.font='bold 37px Arial';ctx.textAlign='center';
+  ctx.fillText(v.name,192,42,350);
+  ctx.fillStyle='#1d2c2e';ctx.fillRect(25,53,334,30);
+  ctx.fillStyle=hp>35?'#62da8d':'#e76d55';ctx.fillRect(27,55,330*hp/100,26);
+  ctx.fillStyle='#e7f4d9';ctx.font='bold 19px Arial';ctx.fillText(`${Math.ceil(hp)} HP`,192,76);
+  ctx.fillStyle='#1b303f';ctx.fillRect(25,91,334,15);
+  ctx.fillStyle='#78bddf';ctx.fillRect(27,93,330*shield/40,11);
+  v.texture.needsUpdate=true;
 }
 
 export class MultiplayerClient {
@@ -51,12 +72,23 @@ export class MultiplayerClient {
     byId('mp-close').addEventListener('click',()=>this.closeLobby());
     byId('mp-create').addEventListener('click',()=>this.connect(true));
     byId('mp-join').addEventListener('click',()=>this.connect(false));
+    // Dedicated clear controls help on mobile, even when the virtual keyboard is hidden.
+    byId('mp-name-clear').addEventListener('click',()=>this.clearLobbyField('mp-name'));
+    byId('mp-code-clear').addEventListener('click',()=>this.clearLobbyField('mp-code'));
+    byId('mp-name').addEventListener('focus',e=>{
+      if(e.target.value==='Operador')e.target.select();
+    });
     byId('mp-room-open').addEventListener('click',()=>this.openRoomPanel());
     byId('mp-room-close').addEventListener('click',()=>this.closeRoomPanel());
     byId('mp-room-resume').addEventListener('click',()=>this.closeRoomPanel());
     byId('mp-room-leave').addEventListener('click',()=>this.leaveRoom());
     byId('mp-copy').addEventListener('click',()=>this.copyRoomCode());
     byId('mp-share').addEventListener('click',()=>this.shareRoomInvite());
+  }
+  clearLobbyField(id){
+    const input=byId(id);
+    input.value='';
+    input.focus({preventScroll:true});
   }
   setStatus(message,isError=false){const el=byId('mp-status');el.textContent=message;el.classList.toggle('error',isError);}
   roomInviteURL(){
@@ -134,7 +166,7 @@ export class MultiplayerClient {
   }
   openLobby(){
     byId('multiplayer-lobby').classList.remove('hidden');
-    this.setStatus('Crie uma sala ou digite o código enviado por um amigo.');
+    this.setStatus('Criar: código opcional (6 caracteres). Entrar: informe o código enviado pelo amigo.');
     fetch('/api/health',{cache:'no-store'}).then(r=>r.json()).then(info=>{
       if(info.ok===false)this.setStatus(info.message||'Servidor multiplayer indisponível. Aguarde o servidor gratuito iniciar e tente novamente.',true);
     }).catch(()=>{}); // Health check é servido pelo mesmo servidor Node.js.
@@ -151,9 +183,14 @@ export class MultiplayerClient {
     if(this.isJoining||this.connected)return;
     if(!isReconnect){this.wantReconnect=false;this.reconnectAttempts=0;}
     let url;try{url=this.url();}catch(err){this.setStatus(err.message,true);return;}
-    const name=(byId('mp-name').value||'Operador').trim().slice(0,18);
-    const room=byId('mp-code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
-    if(!create && room.length!==6){this.setStatus('Digite um código de 6 caracteres.',true);return;}
+    const name=(byId('mp-name').value.trim()||'Operador').slice(0,18);
+    const room=byId('mp-code').value.trim().toUpperCase();
+    if((!create||room.length>0)&&!/^[A-Z0-9]{6}$/.test(room)){
+      this.setStatus(create?'Use 6 letras ou números para criar com um código próprio, ou deixe em branco para gerar automaticamente.':'Digite um código válido de 6 letras ou números para entrar.',true);
+      return;
+    }
+    // Show the exact code requested by the player, instead of silently removing characters.
+    byId('mp-code').value=room;
     this.disconnect(false);this.isJoining=true;this.joinStarted=Date.now();this.setStatus('Conectando ao servidor...');
     if(isReconnect){byId('mp-respawn').textContent='REESTABELECENDO CONEXÃO...';byId('mp-respawn').classList.remove('hidden');}
     let socket;try{socket=new WebSocket(url);}catch(err){this.isJoining=false;this.setStatus('Não foi possível abrir a conexão.',true);return;}
@@ -252,6 +289,12 @@ export class MultiplayerClient {
       case 'joined':if(this.connected){this.setRemote(msg.player);const i=this.players.findIndex(p=>p.id===msg.player.id);if(i>=0)this.players[i]=msg.player;else this.players.push(msg.player);this.updateScore();this.game.toast(`${msg.player.name} ENTROU NA PARTIDA`);}break;
       case 'moved':if(this.connected){this.setRemote(msg.player);const i=this.players.findIndex(p=>p.id===msg.player.id);if(i>=0)this.players[i]=msg.player;else this.players.push(msg.player);}break;
       case 'left':this.removeRemote(msg.id);this.players=this.players.filter(p=>p.id!==msg.id);this.updateScore();break;
+      case 'health':{
+        const p=this.players.find(p=>p.id===msg.id);if(p){p.hp=msg.hp;p.shield=msg.shield;}
+        if(msg.id===this.id){this.game.player.health=msg.hp;this.game.player.shield=msg.shield;this.game.updateHud();}
+        else{const remote=this.others.get(msg.id);if(remote)updateLifeTag(remote.group,msg.hp,msg.shield);}
+        break;
+      }
       case 'damaged':this.game.player.health=msg.hp;this.game.player.shield=msg.shield;this.game.damageFlash=.8;this.game.audio.play('hurt');this.game.updateHud();break;
       case 'hit':this.game.hitmarker(msg.hp<=0);break;
       case 'kill':{
@@ -306,6 +349,7 @@ export class MultiplayerClient {
     if(Number.isFinite(data.x)&&Number.isFinite(data.y)&&Number.isFinite(data.z))entry.target.set(data.x,data.y,data.z);
     entry.yaw=Number.isFinite(data.yaw)?data.yaw:0;
     entry.group.visible=data.alive!==false;
+    if(Number.isFinite(data.hp))updateLifeTag(entry.group,data.hp,data.shield);
   }
   removeRemote(id){const entry=this.others.get(id);if(!entry)return;this.game.world.scene.remove(entry.group);entry.group.traverse(o=>{if(o.isMesh)o.geometry.dispose();if(o.isSprite){o.material.map?.dispose();o.material.dispose();}});this.others.delete(id);}
   removeAll(){for(const id of [...this.others.keys()])this.removeRemote(id);this.players=[];}

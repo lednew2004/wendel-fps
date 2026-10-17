@@ -1,47 +1,21 @@
-# TITAN PROTOCOL 1.6 — Multiplayer estável + Mira móvel
+# TITAN PROTOCOL 1.8 — Mobile Smooth Combat
 
-Atualização incremental sobre a **1.5**. Preserva campanha, sobrevivência, parkour, armas, dash sem recarga, salas por código, menu SALA, cópia/compartilhamento de convites e o serviço gratuito Render.
+**Atualização sobre a versão 1.7**, mantendo o deploy gratuito GitHub → Render, multiplayer, controles PC, painel SALA, reconexão, dash livre, modo campanha e parkour.
 
-## Melhorias realizadas
+## Alterações
 
-### Multiplayer
-- Heartbeat WebSocket de controle ping/pong a cada 15s, sem depender do frame rate do jogo; acompanhamento de inatividade real.
-- Keepalive do navegador a cada 8s, mesmo em telas com FPS muito baixo ou quando o painel de sala está aberto.
-- **Retomada de sessão por até 90 segundos** quando a conexão cai: sala, identificação, pontuação, mortes e posição são preservadas em RAM no servidor.
-- Reconexão progressiva com a sessão anterior sem reiniciar a câmera e a partida quando ela ainda está carregada.
-- Redução de snapshots de 15 para 10 por segundo e de posições do cliente para ~11/s, descartando snapshots obsoletos sob fila de rede acumulada.
-- Código da sala salvo temporariamente na aba do navegador, facilitando voltar após recarregar a página.
-- Estado da conexão e ping acessíveis pelo painel **SALA**, sem bloquear o campo de visão.
-- Arquivos HTML/CSS/JS usam cache com revalidação para evitar telas antigas após atualizar o deploy.
+- Mira do celular mais previsível, com filtro de tremor leve e sem aceleração variável.
+- Sensibilidade de toque padrão 3.8× e ajuste de 0.8× a 6× no painel SALA (persistente no aparelho).
+- Comandos principais afastados da região de mira: disparar, pular, dash à direita; arma, recarregar, mira e usar à esquerda.
+- Botão **USAR** reúne a ação de escadas/parkour e objetivos da campanha.
+- Controles secundários ficam ocultos; o analógico já inicia corrida quando empurrado para a frente.
+- Barras de **HP e escudo sobre os outros jogadores**, atualizadas por evento de dano enviado pelo servidor (vida do jogador local permanece no HUD).
+- Mantidas as correções 1.7: apagar/editar nickname e código, gerar código automático quando vazio e criar com código personalizado de 6 caracteres.
 
-### Jogabilidade no celular
-- Sensibilidade de mira inicial aumentada de 1.9× para **3.3×**, com pequena aceleração para deslizes rápidos.
-- Ajuste de **0.8× a 6.0×**, salvo no celular e disponível no painel SALA durante o multiplayer.
-- Analógico flutuante, com centro no ponto do toque, zona morta menor e deslocamento melhor aproveitado.
-- Mira por deslize na área direita **ou pelo dedo que mantém ATIRAR**, mantendo movimentação simultânea com outro dedo.
-- Controles, câmera, modos de jogo e interface da versão 1.5 preservados.
+## Publicação
 
-## Deploy gratuito Render
+Extraia os arquivos na raiz do seu repositório GitHub, substitua os anteriores, commit e push. O `render.yaml` mantém o mesmo serviço e comando de inicialização. Faça recarregamento completo da página após o deploy.
 
-1. Substitua no seu repositório GitHub os arquivos com os deste ZIP (a raiz deve conter `public/`, `server/`, `render.yaml` e `package.json`).
-2. Rode `git add .`, `git commit -m "TITAN 1.6 estabilidade multiplayer e mira"` e `git push origin main` (ajuste a branch se necessário).
-3. Aguarde a Render concluir o deploy automático, ou faça **Manual Deploy → Deploy latest commit**.
-4. Abra `https://SEU-SERVICO.onrender.com/health` e confirme `ok: true`.
-5. Atualize o jogo no computador e no telefone; abra **MULTIPLAYER ONLINE**, crie uma sala, copie o convite pelo botão **SALA** e teste com dois ou mais jogadores.
-7. No celular, entre na sala e clique em **SALA → VELOCIDADE DA MIRA** para ajustar os dedos (comece com 3.3×).
+## Limites de teste
 
-## Limitações importantes
-
-- **Render Free não garante partidas sem quedas.** O servidor pode adormecer quando ocioso, reiniciar, ou sofrer interrupções de rede. A reserva de sessão funciona apenas enquanto **o mesmo processo Node.js permanece em execução**; em reinicializações completas, as salas mantidas em RAM são perdidas. Persistência de partidas entre reinicializações requer armazenamento externo.
-- A reconexão preserva a vaga por até 90s, porém, ao ultrapassar o limite, o usuário precisará criar ou entrar em uma nova sala.
-- Não foi possível verificar FPS, toque e WebGL em um Android/iPhone real neste ambiente; o desempenho deve ser validado no dispositivo.
-
-## Testes
-
-Com **Node.js 22+**:
-
-```bash
-npm test
-```
-
-Testes automatizados de criação de salas, tiros, respawn, reconexão de 3 jogadores, retomar identificação/pontuação, sair da sala, controles touch e anatomia do deploy.
+Rode `npm test` em Node.js 22+; são testes de lógica e rede, não garantem ergonomia perfeita em aparelho real. O WebGL e o multitouch precisam ser conferidos em Android/iPhone. O plano gratuito da Render pode hibernar/reiniciar, interrompendo salas em memória.

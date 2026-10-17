@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="screen-orientation" content="landscape">
   <meta name="theme-color" content="#070b10">
-  <meta name="description" content="TITAN PROTOCOL 1.6 — FPS multiplayer para PC e celular, mira por toque, parkour e convites de sala">
-  <title>TITAN PROTOCOL 1.6 · Multiplayer para celular</title>
+  <meta name="description" content="TITAN PROTOCOL 1.7 — FPS multiplayer para PC e celular, mira por toque, parkour e convites de sala">
+  <title>TITAN PROTOCOL 1.7 · Multiplayer para celular</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -80,7 +80,7 @@
       <button type="button" id="m-dash" class="mobile-action dash" aria-label="Dash">DASH</button>
       <button type="button" id="m-reload" class="mobile-action" aria-label="Recarregar">REC.</button>
       <button type="button" id="m-aim" class="mobile-action" aria-label="Mirar">MIRA</button>
-      <button type="button" id="m-interact" class="mobile-action" aria-label="Interagir ou usar escada">E</button>
+      <button type="button" id="m-interact" class="mobile-action" aria-label="Interagir com escada ou objetivo">USAR</button>
       <button type="button" id="m-objective" class="mobile-action" aria-label="Interagir com objetivo">USAR</button>
       <button type="button" id="m-sprint" class="mobile-action" aria-label="Correr">CORRER</button>
       <button type="button" id="m-slide" class="mobile-action" aria-label="Deslizar">SLIDE</button>
@@ -90,7 +90,7 @@
       <button type="button" id="m-trial" class="mobile-action" aria-label="Desafio de parkour">T</button>
       <button type="button" id="m-more" class="mobile-action" aria-label="Mais ações" aria-expanded="false">＋</button>
     </div>
-    <div id="mobile-tip">ESQUERDA: ANDAR · DESLIZE À DIREITA OU NO ATIRAR PARA MIRAR</div>
+    <div id="mobile-tip">ESQUERDA: ANDAR · DIREITA: MIRAR LIVREMENTE · SEGURE ATIRAR</div>
   </section>
   <!-- O código da sala e o placar só aparecem quando o jogador abre o painel. -->
   <div id="mp-hud" class="hidden"><button id="mp-room-open" type="button" aria-label="Abrir informações da sala" aria-haspopup="dialog" aria-controls="mp-room-panel">☰ SALA <b id="mp-count">1/8</b></button></div>
@@ -98,7 +98,7 @@
     <div class="mp-room-card">
       <header class="mp-room-header"><div><small>PARTIDA MULTIPLAYER</small><h2 id="mp-panel-heading">SUA SALA</h2></div><button type="button" id="mp-room-close" class="mp-room-x" aria-label="Fechar informações da sala">✕</button></header>
       <div class="mp-room-main">
-        <div class="mp-room-invite"><label for="mp-room-code-input">CÓDIGO PARA SEUS AMIGOS</label><input id="mp-room-code-input" type="text" value="------" readonly spellcheck="false" aria-label="Código da sala"><p>Envie o código ou o convite. Seus amigos poderão entrar na mesma partida.</p><div class="mp-room-buttons"><button type="button" id="mp-copy">COPIAR CÓDIGO</button><button type="button" id="mp-share">COMPARTILHAR CONVITE</button></div><small id="mp-share-status" role="status" aria-live="polite"></small><div class="mp-mobile-tuning"><label for="mp-touch-sensitivity">VELOCIDADE DA MIRA <b id="mp-touch-sensitivity-label">3.3×</b></label><input id="mp-touch-sensitivity" type="range" min="0.8" max="6" value="3.3" step="0.1"></div></div>
+        <div class="mp-room-invite"><label for="mp-room-code-input">CÓDIGO PARA SEUS AMIGOS</label><input id="mp-room-code-input" type="text" value="------" readonly spellcheck="false" aria-label="Código da sala"><p>Envie o código ou o convite. Seus amigos poderão entrar na mesma partida.</p><div class="mp-room-buttons"><button type="button" id="mp-copy">COPIAR CÓDIGO</button><button type="button" id="mp-share">COMPARTILHAR CONVITE</button></div><small id="mp-share-status" role="status" aria-live="polite"></small><div class="mp-mobile-tuning"><label for="mp-touch-sensitivity">VELOCIDADE DA MIRA <b id="mp-touch-sensitivity-label">3.8×</b></label><input id="mp-touch-sensitivity" type="range" min="0.8" max="6" value="3.8" step="0.1"></div></div>
         <div class="mp-room-players"><h3>JOGADORES <b id="mp-roster-count">1/8</b></h3><div id="mp-scores" role="list"></div></div>
       </div>
       <footer class="mp-room-footer"><button type="button" id="mp-room-resume">VOLTAR AO JOGO</button><button type="button" id="mp-room-leave">SAIR DA SALA</button></footer>
@@ -111,9 +111,12 @@
       <button type="button" id="mp-close" class="mp-close" aria-label="Fechar">×</button>
       <span class="mp-kicker">TITAN NETWORK · TEMPO REAL</span>
       <h2>MULTIPLAYER <span>ONLINE</span></h2>
-      <p>Jogue com amigos em salas privadas de até 8 pessoas. Quem criar recebe um código para compartilhar.</p>
-      <label for="mp-name">NOME DO JOGADOR</label><input id="mp-name" maxlength="18" value="Operador" autocomplete="nickname">
-      <label for="mp-code">CÓDIGO DA SALA (PARA ENTRAR)</label><input id="mp-code" maxlength="6" autocomplete="off" placeholder="EX: A1B2C3" spellcheck="false">
+      <p>Escolha seu nome. Para <b>criar</b>, use um código de 6 caracteres ou deixe vazio para gerar automaticamente. Para <b>entrar</b>, digite o código do amigo.</p>
+      <label for="mp-name">NOME DO JOGADOR</label>
+      <div class="mp-input-row"><input id="mp-name" type="text" maxlength="18" value="Operador" autocomplete="nickname" spellcheck="false"><button id="mp-name-clear" type="button" aria-label="Limpar nome">LIMPAR</button></div>
+      <label for="mp-code">CÓDIGO DA SALA (OPCIONAL AO CRIAR)</label>
+      <div class="mp-input-row"><input id="mp-code" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" autocorrect="off" placeholder="EX: A1B2C3" spellcheck="false"><button id="mp-code-clear" type="button" aria-label="Limpar código">LIMPAR</button></div>
+      <small class="mp-field-help">Criar com campo vazio = código automático. Criar com 6 caracteres = código escolhido. Entrar = código obrigatório.</small>
       <div class="mp-actions"><button type="button" id="mp-create">CRIAR SALA</button><button type="button" id="mp-join">ENTRAR NA SALA</button></div>
       <details><summary>Configuração do servidor</summary><label for="mp-server">ENDEREÇO WEBSOCKET (WSS)</label><input id="mp-server" type="url" placeholder="wss://servidor.exemplo.com/ws"><small>Deixe vazio para usar automaticamente o multiplayer do mesmo endereço deste jogo.</small></details>
       <p id="mp-status" role="status">Conecte-se ao servidor para jogar.</p>
@@ -123,7 +126,7 @@
   <section id="start-screen" class="screen" aria-label="Menu principal">
     <div class="menu-side left-side"><div>PROTOCOLO<br>DE DEFESA<br>AUTÔNOMA</div><small>TEATRO DE OPERAÇÕES // SETOR DELTA</small></div>
     <div class="menu-card">
-      <div class="eyebrow"><span class="live-dot"></span> OPERAÇÃO TÁTICA EM ANDAMENTO <span class="edition">BUILD 1.6 · STABLE ONLINE</span></div>
+      <div class="eyebrow"><span class="live-dot"></span> OPERAÇÃO TÁTICA EM ANDAMENTO <span class="edition">BUILD 1.7 · ROOM FIX</span></div>
       <div class="card-topline"></div>
       <p class="pretitle">ACESSO AUTORIZADO <span>〰</span> UNIDADE DE ELITE</p>
       <h1>TITAN<br><span>PROTOCOL</span><b class="title-period">.</b></h1>
@@ -151,7 +154,7 @@
 
   <section id="victory-screen" class="screen hidden" aria-label="Campanha concluída"><div class="dialog ending-panel"><div class="dialog-kicker">GROUND REALISM // TRANSMISSÃO RESTABELECIDA</div><h2>MISSÃO <span>CUMPRIDA</span></h2><p>Os três setores foram recuperados. O Colossus caiu, o núcleo da rede TITAN foi isolado e os sobreviventes podem retornar. O sinal da resistência continua ativo.</p><div class="epilogue">TITAN PROTOCOL 1.0 <span>— FIM DA CAMPANHA —</span></div><button id="victory-replay" class="primary-btn"><span>JOGAR NOVAMENTE</span><b>↗</b></button><button id="victory-menu" class="secondary-btn">VOLTAR AO MENU</button></div></section>
 
-  <section id="pause-screen" class="screen hidden" aria-label="Jogo pausado"><div class="dialog"><div class="dialog-kicker">SISTEMA SUSPENSO</div><h2>OPERAÇÃO<br><span>PAUSADA</span></h2><p>A simulação foi interrompida. Seus inimigos aguardam o retorno do operador.</p><button id="resume-btn" class="primary-btn"><span>RETOMAR MISSÃO</span><b>↗</b></button><button id="restart-from-pause" class="secondary-btn">REINICIAR PARTIDA</button><div class="setting"><label for="sensitivity">SENSIBILIDADE DE MIRA <span id="sensitivity-value">1.0×</span></label><input id="sensitivity" type="range" min="0.4" max="2.5" value="1" step="0.1"></div><div class="setting"><label for="touch-sensitivity">VELOCIDADE DO DEDO NO CELULAR <span id="touch-sensitivity-label">3.3×</span></label><input id="touch-sensitivity" type="range" min="0.8" max="6" value="3.3" step="0.1"></div><div class="setting"><label for="invert-y" class="check-option"><input id="invert-y" type="checkbox"> INVERTER EIXO VERTICAL DO MOUSE</label></div><div class="setting"><label for="quality">QUALIDADE GRÁFICA</label><select id="quality"><option value="low">BAIXA · PERFORMANCE</option><option value="medium" selected>MÉDIA · EQUILIBRADA</option><option value="high">ALTA · PBR + SMAA</option><option value="ultra">ULTRA · AO + SOMBRAS</option><option value="cinematic">CINEMATOGRÁFICA · MÁXIMO</option></select></div><div class="advanced-settings"><div class="setting-row"><label for="render-scale">RESOLUÇÃO DE RENDERIZAÇÃO <b id="render-scale-label">100%</b></label><input id="render-scale" type="range" min="50" max="135" step="5" value="100"></div>
+  <section id="pause-screen" class="screen hidden" aria-label="Jogo pausado"><div class="dialog"><div class="dialog-kicker">SISTEMA SUSPENSO</div><h2>OPERAÇÃO<br><span>PAUSADA</span></h2><p>A simulação foi interrompida. Seus inimigos aguardam o retorno do operador.</p><button id="resume-btn" class="primary-btn"><span>RETOMAR MISSÃO</span><b>↗</b></button><button id="restart-from-pause" class="secondary-btn">REINICIAR PARTIDA</button><div class="setting"><label for="sensitivity">SENSIBILIDADE DE MIRA <span id="sensitivity-value">1.0×</span></label><input id="sensitivity" type="range" min="0.4" max="2.5" value="1" step="0.1"></div><div class="setting"><label for="touch-sensitivity">VELOCIDADE DO DEDO NO CELULAR <span id="touch-sensitivity-label">3.8×</span></label><input id="touch-sensitivity" type="range" min="0.8" max="6" value="3.8" step="0.1"></div><div class="setting"><label for="invert-y" class="check-option"><input id="invert-y" type="checkbox"> INVERTER EIXO VERTICAL DO MOUSE</label></div><div class="setting"><label for="quality">QUALIDADE GRÁFICA</label><select id="quality"><option value="low">BAIXA · PERFORMANCE</option><option value="medium" selected>MÉDIA · EQUILIBRADA</option><option value="high">ALTA · PBR + SMAA</option><option value="ultra">ULTRA · AO + SOMBRAS</option><option value="cinematic">CINEMATOGRÁFICA · MÁXIMO</option></select></div><div class="advanced-settings"><div class="setting-row"><label for="render-scale">RESOLUÇÃO DE RENDERIZAÇÃO <b id="render-scale-label">100%</b></label><input id="render-scale" type="range" min="50" max="135" step="5" value="100"></div>
 <div class="setting-row"><label for="fov">CAMPO DE VISÃO <b id="fov-label">78°</b></label><input id="fov" type="range" min="65" max="105" step="1" value="78"></div>
 <div class="setting-row"><label for="draw-distance">DISTÂNCIA DE RENDERIZAÇÃO</label><select id="draw-distance"><option value="150">CURTA · 150 M</option><option value="190" selected>MÉDIA · 190 M</option><option value="250">LONGA · 250 M</option><option value="290">ULTRA · 290 M</option><option value="320">ULTRA · 320 M</option></select></div>
 <div class="setting-row"><label for="shadows">SOMBRAS</label><select id="shadows"><option value="0">DESLIGADAS</option><option value="1024" selected>BAIXAS · 1024</option><option value="2048">ALTAS · 2048</option><option value="3072">ULTRA · 3072</option><option value="4096">CINEMATOGRÁFICAS · 4096</option></select></div>

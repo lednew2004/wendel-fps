@@ -38,7 +38,7 @@ function send(ws,data){
 function broadcast(room,msg,except=null){for(const p of room.players.values())if(p.socket&&p.socket!==except)send(p.socket,msg);}
 const cleanName=n=>String(n||'Operador').replace(/[^\p{L}\p{N} _-]/gu,'').trim().slice(0,18)||'Operador';
 const cleanRoom=n=>String(n||'').replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6);
-function createRoom(){let code;do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));const room={code,players:new Map(),born:Date.now()};rooms.set(code,room);return room;}
+function createRoom(preferredCode=''){let code=preferredCode;if(!code){do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));}const room={code,players:new Map(),born:Date.now()};rooms.set(code,room);return room;}
 function spawn(i){const [x,z]=SPAWNS[i%SPAWNS.length];return {x,y:0,z};}
 function publicPlayer(p){return {id:p.id,name:p.name,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,weapon:p.weapon,hp:p.hp,shield:p.shield,kills:p.kills,deaths:p.deaths,alive:p.alive};}
 const livePlayers=room=>[...room.players.values()].filter(p=>p.socket);
@@ -48,7 +48,17 @@ function join(ws,data){
   const name=cleanName(data.name);
   const session=cleanSession(data.session);
   let room;
-  if(data.create===true)room=createRoom();else room=rooms.get(cleanRoom(data.room));
+  if(data.create===true){
+    const requested=typeof data.room==='string'?data.room.trim():'';
+    if(requested&&!/^[A-Za-z0-9]{6}$/.test(requested)){
+      send(ws,{type:'error',message:'Para criar uma sala com código próprio, use exatamente 6 letras ou números.'});return;
+    }
+    const code=requested.toUpperCase();
+    if(code&&rooms.has(code)){
+      send(ws,{type:'error',message:'Este código já está em uso. Escolha outro ou clique em ENTRAR NA SALA.'});return;
+    }
+    room=createRoom(code);
+  }else room=rooms.get(cleanRoom(data.room));
   if(!room){send(ws,{type:'error',message:'Sala não encontrada ou expirada. Peça um novo código ao anfitrião.'});return;}
 
   // The session token lives only on the player's browser, never in public room snapshots.
@@ -142,6 +152,7 @@ function fire(p,data){
   if(p.weapon===1)damage=Math.max(12,Math.round(damage*(1-nearest/45)));
   const absorbed=Math.min(victim.shield,damage);victim.shield-=absorbed;victim.hp=Math.max(0,victim.hp-(damage-absorbed));
   send(p.socket,{type:'hit',victim:victim.id,hp:victim.hp,shield:victim.shield});
+  broadcast(p.room,{type:'health',id:victim.id,hp:victim.hp,shield:victim.shield});
   if(victim.hp>0){send(victim.socket,{type:'damaged',hp:victim.hp,shield:victim.shield,attacker:p.name});return;}
   victim.alive=false;victim.deaths++;p.kills++;
   const death={type:'kill',attacker:p.id,attackerName:p.name,victim:victim.id,victimName:victim.name,kills:p.kills,deaths:victim.deaths};
@@ -206,7 +217,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'1.6.0'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'1.8.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';
