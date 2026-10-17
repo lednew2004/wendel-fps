@@ -29,6 +29,9 @@ function remoteAvatar(name){
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
   const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthWrite:false,transparent:true,depthTest:true}));
   tag.position.set(0,2.83,0);tag.scale.set(2.6,.87,1);root.add(tag);
+  // Persistent shield aura from server-authoritative status.
+  const shieldBubble=new THREE.Mesh(new THREE.SphereGeometry(1.23,14,10),new THREE.MeshBasicMaterial({color:0x73e8c7,transparent:true,opacity:.15,depthWrite:false,side:THREE.DoubleSide}));
+  shieldBubble.position.y=1.15;shieldBubble.visible=false;root.add(shieldBubble);root.userData.shieldBubble=shieldBubble;
   // Ice marker is local 3D feedback only; authoritative frozen state comes from the server.
   const iceMat=new THREE.MeshBasicMaterial({color:0x83e8ff,transparent:true,opacity:.34,depthWrite:false,side:THREE.DoubleSide});
   const ice=new THREE.Mesh(new THREE.CylinderGeometry(.56,.56,2.35,9,1,true),iceMat);
@@ -60,7 +63,7 @@ function updateLifeTag(group,hp,shield){
 export class MultiplayerClient {
   constructor(game){
     this.game=game;this.minimap=new MultiplayerMinimap(game);this.socket=null;this.connected=false;this.id=null;this.room='';this.alive=true;
-    this.others=new Map();this.syncTick=0;this.isJoining=false;this.players=[];this.heartbeat=0;this.reconnectAttempts=0;this.reconnectTimer=null;this.reconnectSession=(globalThis.crypto?.randomUUID?.()||('titan-'+Date.now()+'-'+Math.random().toString(36).slice(2)));this.wantReconnect=false;
+    this.others=new Map();this.decoys=new Map();this.syncTick=0;this.isJoining=false;this.players=[];this.heartbeat=0;this.reconnectAttempts=0;this.reconnectTimer=null;this.reconnectSession=(globalThis.crypto?.randomUUID?.()||('titan-'+Date.now()+'-'+Math.random().toString(36).slice(2)));this.wantReconnect=false;
     // Keep the reconnect token on the same tab if the mobile browser reloads it.
     try{
       const saved=sessionStorage.getItem('titan-online-session');
@@ -284,14 +287,32 @@ export class MultiplayerClient {
       case 'power-error':this.game.toast(msg.message||'PODER NÃO ATIVADO');break;
       case 'power-effect':{
         this.game.powers.onServerEffect(msg);
+        if(msg.kind==='gravity'&&Array.isArray(msg.affected)&&msg.affected.includes(this.id)){this.game.powers.status.gravity=Date.now()+2000;this.game.parkour.y+=3.5;this.game.parkour.vy=0;}
+        if(msg.kind==='gravity-land'&&msg.player===this.id&&Number.isFinite(msg.y))this.game.parkour.spawn(msg.x,msg.y,msg.z);
         if(msg.kind==='push'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x))entry.target.set(msg.x,msg.y,msg.z);}
-        if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='phase-exit'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
+        if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='rewind'||msg.kind==='swap'||msg.kind==='phase-exit'||msg.kind==='gravity-land'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
         break;
       }
-      case 'power-vfx':this.game.powers.flash(0x80dbff,9,msg);break;
+      case 'power-vfx':{
+        if(msg.kind==='clones'){
+          for(const clone of msg.clones||[]){
+            if(this.decoys.has(clone.id))continue;
+            const root=remoteAvatar('HOLOGRAMA');root.position.set(clone.x,clone.y,clone.z);
+            root.traverse(o=>{if(o.isMesh&&o.material?.clone){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.55;}});
+            this.game.world.scene.add(root);this.decoys.set(clone.id,{group:root,until:clone.until});
+          }
+        }else if(msg.kind==='chain'){
+          for(const v of msg.targets||[])this.game.powers.flash(0x76eaff,4,v);
+        }else if(msg.kind==='blackhole')this.game.powers.flash(0x997bff,11,msg);
+        else if(msg.kind==='gravity')this.game.powers.flash(0xdab8ff,10,msg);
+        else if(msg.kind==='shield-hit')this.game.powers.flash(0x8af8cd,4,msg);
+        else this.game.powers.flash(0x80dbff,9,msg);
+        break;
+      }
+      case 'clone-destroy':this.removeDecoy(msg.id);break;
       case 'power-status':{
         if(msg.player===this.id)this.game.powers.onServerState(msg.powers);
-        const entry=this.others.get(msg.player);if(entry){entry.group.visible=(!msg.powers.invisible&&!msg.powers.phased);entry.group.userData.ice.visible=!!msg.powers.frozen;}
+        const entry=this.others.get(msg.player);if(entry){entry.group.visible=(!msg.powers.invisible&&!msg.powers.phased);entry.group.userData.ice.visible=!!msg.powers.frozen;entry.group.userData.shieldBubble.visible=!!msg.powers.shielded;}
         break;
       }
       case 'pong':
@@ -370,11 +391,12 @@ export class MultiplayerClient {
     if(Number.isFinite(data.x)&&Number.isFinite(data.y)&&Number.isFinite(data.z))entry.target.set(data.x,data.y,data.z);
     entry.yaw=Number.isFinite(data.yaw)?data.yaw:0;
     entry.group.visible=data.alive!==false&&data.invisible!==true&&data.phased!==true;
-    entry.group.userData.ice.visible=data.frozen===true;
+    entry.group.userData.ice.visible=data.frozen===true;entry.group.userData.shieldBubble.visible=data.shielded===true;
     if(Number.isFinite(data.hp))updateLifeTag(entry.group,data.hp,data.shield);
   }
   removeRemote(id){const entry=this.others.get(id);if(!entry)return;this.game.world.scene.remove(entry.group);entry.group.traverse(o=>{if(o.isMesh)o.geometry.dispose();if(o.isSprite){o.material.map?.dispose();o.material.dispose();}});this.others.delete(id);}
-  removeAll(){for(const id of [...this.others.keys()])this.removeRemote(id);this.players=[];}
+  removeDecoy(id){const item=this.decoys.get(id);if(!item)return;this.game.world.scene.remove(item.group);item.group.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}if(o.isSprite){o.material.map?.dispose();o.material.dispose();}});this.decoys.delete(id);}
+  removeAll(){for(const id of [...this.others.keys()])this.removeRemote(id);for(const id of [...this.decoys.keys()])this.removeDecoy(id);this.players=[];}
   syncState(){
     const pk=this.game.parkour;
     this.send({type:'move',x:pk.x,y:pk.y,z:pk.z,yaw:this.game.yaw,pitch:this.game.pitch,weapon:this.game.weapons.index});
@@ -390,6 +412,7 @@ export class MultiplayerClient {
       this.syncTick=.09;
       this.syncState();
     }
+    for(const [id,item] of this.decoys)if(item.until<Date.now())this.removeDecoy(id);
     // Keepalive now runs on a separate timer; do not depend on the render loop.
     for(const entry of this.others.values()){
       entry.flash=Math.max(0,entry.flash-dt);entry.group.userData.flash.visible=entry.flash>0;

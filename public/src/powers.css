@@ -29,3 +29,29 @@
 @media(pointer:coarse) and (orientation:landscape){
   .mp-room-main > .power-loadout{grid-column:1 / -1}
 }
+/* Habilidades avançadas: o seletor não ocupa a área de mira. */
+#titan-power-picker{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);z-index:19;padding:7px 13px;border:1px solid #65afa1;border-radius:10px;background:#17333bde;color:#f0fffb;font:800 11px system-ui;cursor:pointer}
+#titan-abilities-dialog{position:fixed;inset:0;z-index:140;background:#061015e8;display:grid;place-items:center;padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));touch-action:auto}
+#titan-abilities-dialog.hidden{display:none!important}
+.titan-overlay-inner{width:min(94vw,780px);max-height:94dvh;overflow:auto;background:#101f27;border:1px solid #6f9b9b;border-radius:15px;padding:12px;display:grid;gap:10px;box-shadow:0 10px 60px #0009}
+.titan-overlay-inner h2{margin:0;color:#ecfff5;font:bold 19px system-ui}
+.titan-overlay-inner p{margin:0;color:#b1d0c7;font:12px system-ui}
+.titan-map-content,.titan-wheel-content{display:none}
+.is-teleport .titan-map-content{display:grid;gap:8px}
+.is-wheel .titan-wheel-content{display:grid;gap:8px}
+#titan-teleport-map{height:min(55dvh,410px);width:min(55dvh,410px);max-width:100%;aspect-ratio:1;display:block;margin:auto;border:1px solid #829da0;border-radius:12px;touch-action:none;cursor:crosshair}
+#titan-map-feedback{color:#83ffbd;font:700 11px system-ui;text-align:center}#titan-map-feedback.invalid{color:#ff9a9e}
+.titan-map-buttons,.titan-wheel-slots{display:flex;justify-content:center;gap:10px}
+.titan-overlay-inner button{touch-action:manipulation;padding:9px 14px;border:1px solid #638e92;color:#f0fff7;background:#1c3945;border-radius:9px;font:800 12px system-ui;cursor:pointer}
+.titan-overlay-inner button:disabled{opacity:.4;cursor:not-allowed}
+.titan-overlay-inner button.selected{background:#3d7771}
+#titan-abilities-wheel{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.titan-power-option{display:flex;flex-direction:column;gap:4px;align-items:center;min-height:72px;padding:7px!important}
+.titan-power-option span{font-size:22px}.titan-power-option strong{font:800 11px system-ui}.titan-power-option small{font:10px/1.2 system-ui;color:#bfd7ce;text-align:center}
+.titan-power-option.equipped{outline:2px solid #75e8b4}
+@media(pointer:coarse) and (orientation:landscape){
+ #titan-power-picker{left:max(185px,27vw);top:max(114px,env(safe-area-inset-top));bottom:auto;transform:none;font-size:9px;padding:5px 7px}
+ .titan-overlay-inner{width:min(94vw,850px);max-height:96dvh;gap:5px;padding:8px}.titan-overlay-inner h2{font-size:15px}
+ #titan-teleport-map{height:min(57dvh,300px);width:min(57dvh,300px)}
+ #titan-abilities-wheel{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}.titan-power-option{min-height:50px}.titan-power-option small{display:none}.titan-power-option span{font-size:17px}.titan-power-option strong{font-size:9px}
+}

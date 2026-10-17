@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,within} from './powers.mjs';
+import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,isGroundedDestination,within} from './powers.mjs';
 
 const root=path.resolve(fileURLToPath(new URL('../public/',import.meta.url)));
 const port=Number(process.env.PORT||3000);
@@ -39,9 +39,9 @@ function send(ws,data){
 function broadcast(room,msg,except=null){for(const p of room.players.values())if(p.socket&&p.socket!==except)send(p.socket,msg);}
 const cleanName=n=>String(n||'Operador').replace(/[^\p{L}\p{N} _-]/gu,'').trim().slice(0,18)||'Operador';
 const cleanRoom=n=>String(n||'').replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6);
-function createRoom(preferredCode=''){let code=preferredCode;if(!code){do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));}const room={code,players:new Map(),born:Date.now()};rooms.set(code,room);return room;}
+function createRoom(preferredCode=''){let code=preferredCode;if(!code){do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));}const room={code,players:new Map(),born:Date.now(),hazards:[],clones:[]};rooms.set(code,room);return room;}
 function spawn(i){const [x,z]=SPAWNS[i%SPAWNS.length];return {x,y:0,z};}
-function publicPlayer(p){const powers=powerSnapshot(p);return {id:p.id,name:p.name,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,weapon:p.weapon,hp:p.hp,shield:p.shield,kills:p.kills,deaths:p.deaths,alive:p.alive,invisible:powers.invisible,phased:powers.phased,flying:powers.flying,frozen:powers.frozen};}
+function publicPlayer(p){const powers=powerSnapshot(p);return {id:p.id,name:p.name,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,weapon:p.weapon,hp:p.hp,shield:p.shield,kills:p.kills,deaths:p.deaths,alive:p.alive,shielded:powers.shielded,invisible:powers.invisible,phased:powers.phased,flying:powers.flying,frozen:powers.frozen};}
 const livePlayers=room=>[...room.players.values()].filter(p=>p.socket);
 const cleanSession=s=>typeof s==='string'&&/^[a-zA-Z0-9-]{20,100}$/.test(s)?s:null;
 function join(ws,data){
@@ -118,7 +118,7 @@ function obscured(origin,dir,dist){
   return false;
 }
 function move(p,data){
-  if(!p.alive||p.powers.frozenUntil>Date.now())return;
+  if(!p.alive||p.powers.frozenUntil>Date.now()||p.powers.gravityUntil>Date.now())return;
   const {x,y,z,yaw,pitch,weapon}=data;
   if(!finite(x,-143,143)||!finite(z,-143,143)||!finite(y,-1,40)||!finite(yaw,-1e7,1e7)||!finite(pitch,-1.48,1.48)||!Number.isInteger(weapon)||weapon<0||weapon>3)return;
   const now=Date.now();const dt=limit((now-p.lastMove)/1000,.01,.35);
@@ -134,7 +134,7 @@ function move(p,data){
 function fire(p,data){
   if(!p.alive)return;
   const now=Date.now();
-  if(p.powers.frozenUntil>now||p.powers.phaseUntil>now)return;
+  if(p.powers.frozenUntil>now||p.powers.gravityUntil>now||p.powers.phaseUntil>now)return;
   if(p.powers.invisibleUntil>now){p.powers.invisibleUntil=0;broadcast(p.room,{type:'power-status',player:p.id,powers:powerSnapshot(p)});}
   const w=WEAPONS[p.weapon];
   if(now-p.lastFire<Math.max(45,w.interval*1000*.85))return;
@@ -153,11 +153,22 @@ function fire(p,data){
     if(side>.82**2||obscured(origin,dir,projection))continue;
     nearest=projection;victim=target;
   }
+  // A decoy intercepts hits before an actual player if it is closer to the shooter.
+  let cloneHit=null,cloneDistance=nearest;
+  for(const clone of p.room.clones){
+    if(clone.owner===p.id||clone.until<now)continue;
+    const diff=[clone.x-origin[0],clone.y+1.08-origin[1],clone.z-origin[2]];
+    const proj=diff[0]*dir[0]+diff[1]*dir[1]+diff[2]*dir[2];
+    const side=diff[0]**2+diff[1]**2+diff[2]**2-proj**2;
+    if(proj>0&&proj<cloneDistance&&side<.82**2&&!obscured(origin,dir,proj)){cloneDistance=proj;cloneHit=clone;}
+  }
   broadcast(p.room,{type:'shot',id:p.id,weapon:p.weapon});
+  if(cloneHit){p.room.clones=p.room.clones.filter(c=>c!==cloneHit);broadcast(p.room,{type:'clone-destroy',id:cloneHit.id});return;}
   if(!victim)return;
   let damage=w.damage;
   // Shotgun is strong at close range and weaker at distance.
   if(p.weapon===1)damage=Math.max(12,Math.round(damage*(1-nearest/45)));
+  if(victim.powers.shieldUntil>now){send(p.socket,{type:'power-vfx',kind:'shield-hit',player:victim.id,x:victim.x,y:victim.y,z:victim.z});return;}
   const absorbed=Math.min(victim.shield,damage);victim.shield-=absorbed;victim.hp=Math.max(0,victim.hp-(damage-absorbed));
   send(p.socket,{type:'hit',victim:victim.id,hp:victim.hp,shield:victim.shield});
   broadcast(p.room,{type:'health',id:victim.id,hp:victim.hp,shield:victim.shield});
@@ -168,7 +179,7 @@ function fire(p,data){
   setTimeout(()=>{
     if(victim.room.players.get(victim.id)!==victim||victim.alive)return;
     const s=spawn(victim.deaths%SPAWNS.length);Object.assign(victim,s,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
-    victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;
+    victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];
     send(victim.socket,{type:'respawn',spawn:s,hp:100,shield:40,powers:powerSnapshot(victim)});
     broadcast(p.room,{type:'revived',player:publicPlayer(victim)},victim.socket);
   },2200);
@@ -186,6 +197,28 @@ function projectedVictim(p,range,angle=.55){
   return nearest;
 }
 function notifyPower(p,id){send(p.socket,{type:'power-state',powers:powerSnapshot(p)});broadcast(p.room,{type:'power-status',player:p.id,powers:powerSnapshot(p)},p.socket);}
+function applyAbilityDamage(attacker,victim,damage,now=Date.now()){
+ if(!victim.alive||victim.powers.phaseUntil>now||victim.powers.shieldUntil>now)return false;
+ const absorbed=Math.min(victim.shield,damage);victim.shield-=absorbed;victim.hp=Math.max(0,victim.hp-damage+absorbed);
+ broadcast(attacker.room,{type:'health',id:victim.id,hp:victim.hp,shield:victim.shield});
+ send(victim.socket,{type:'damaged',hp:victim.hp,shield:victim.shield,attacker:attacker.name});
+ if(victim.hp===0){
+   victim.alive=false;victim.deaths++;attacker.kills++;
+   broadcast(attacker.room,{type:'kill',attacker:attacker.id,attackerName:attacker.name,victim:victim.id,victimName:victim.name,kills:attacker.kills,deaths:victim.deaths});
+   setTimeout(()=>{
+     if(victim.room.players.get(victim.id)!==victim||victim.alive)return;
+     const sp=spawn(victim.deaths%SPAWNS.length);Object.assign(victim,sp,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
+     const selected=victim.powers.loadout;victim.powers=freshPowerState();victim.powers.loadout=sanitizeLoadout(selected);
+     send(victim.socket,{type:'respawn',spawn:sp,hp:100,shield:40,powers:powerSnapshot(victim)});
+     broadcast(attacker.room,{type:'revived',player:publicPlayer(victim)},victim.socket);
+   },2200);
+ }
+ return true;
+}
+function aimPoint(p,range){
+ const cp=Math.cos(p.pitch),distance=Math.min(range,20);
+ return {x:limit(p.x-Math.sin(p.yaw)*cp*distance,-139,139),z:limit(p.z-Math.cos(p.yaw)*cp*distance,-139,139)};
+}
 function castPower(p,data){
   const id=data.id,now=Date.now(),state=p.powers,rule=POWER_RULES[id];
   if(!rule){send(p.socket,{type:'power-error',message:'Habilidade desconhecida.'});return;}
@@ -193,7 +226,7 @@ function castPower(p,data){
     const ret=state.teleportReturn;
     if(!ret||ret.until<now){send(p.socket,{type:'power-error',message:'Tempo de retorno expirou.'});return;}
     state.teleportReturn=null;
-    if(locationValid(ret.x,ret.y,ret.z,colliders)){
+    if(isGroundedDestination(ret.x,ret.y,ret.z,colliders)){
       Object.assign(p,{x:ret.x,y:ret.y,z:ret.z,lastMove:now});
       broadcast(p.room,{type:'power-effect',kind:'teleport-back',player:p.id,x:p.x,y:p.y,z:p.z});
     }
@@ -204,18 +237,17 @@ function castPower(p,data){
   let target=null;
   if(id==='teleport'){
     const t=data.target||{};
-    if(!within(Number(t.x),Number(t.z),p,rule.range)||!locationValid(t.x,t.y,t.z,colliders)){
+    if(!within(Number(t.x),Number(t.z),p,rule.range)||!isGroundedDestination(t.x,t.y,t.z,colliders)){
       send(p.socket,{type:'power-error',message:'Destino inválido ou longe demais.'});return;
     }
-    // A teleport must land on the street or on an actual roof, never in mid-air.
-    const roof=colliders.some(b=>Math.abs(t.x-b.x)<b.hx+.2&&Math.abs(t.z-b.z)<b.hz+.2&&Math.abs(t.y-b.maxY)<.65);
-    if(!(t.y<=.55||roof)){send(p.socket,{type:'power-error',message:'Escolha um piso ou telhado válido.'});return;}
     target={x:t.x,y:t.y,z:t.z};
   }
-  if(id==='freeze'){
+  if(id==='freeze'||id==='chain'||id==='gravity'||id==='swap'){
     target=projectedVictim(p,rule.range,.77);
     if(!target){send(p.socket,{type:'power-error',message:'Mire em um adversário próximo.'});return;}
   }
+  if(id==='swap'&&(!isGroundedDestination(p.x,p.y,p.z,colliders)||!isGroundedDestination(target.x,target.y,target.z,colliders))){send(p.socket,{type:'power-error',message:'Troca indisponível nestas posições.'});return;}
+  if(id==='rewind'&&!state.history.length){send(p.socket,{type:'power-error',message:'Histórico ainda indisponível.'});return;}
   state.cooldowns[id]=now+rule.cooldown;
   if(id==='push'){
     for(const v of p.room.players.values()){
@@ -235,6 +267,45 @@ function castPower(p,data){
     state.teleportReturn={x:p.x,y:p.y,z:p.z,until:now+rule.returnWindow};
     Object.assign(p,target,{lastMove:now});
     broadcast(p.room,{type:'power-effect',kind:'teleport',player:p.id,...target});
+  }else if(id==='blackhole'){
+    const center=aimPoint(p,rule.range);const hazard={id:crypto.randomBytes(4).toString('hex'),x:center.x,z:center.z,until:now+rule.duration,radius:rule.radius,owner:p.id};
+    p.room.hazards.push(hazard);broadcast(p.room,{type:'power-vfx',kind:'blackhole',player:p.id,...hazard});
+  }else if(id==='rewind'){
+    const targetTime=now-rule.history;
+    const point=state.history.reduce((best,h)=>Math.abs(h.t-targetTime)<Math.abs(best.t-targetTime)?h:best,state.history[0]);
+    if(point&&isGroundedDestination(point.x,point.y,point.z,colliders)){
+      Object.assign(p,{x:point.x,y:point.y,z:point.z,hp:Math.min(100,point.hp),shield:Math.min(40,point.shield),lastMove:now});
+      send(p.socket,{type:'health',id:p.id,hp:p.hp,shield:p.shield});
+      broadcast(p.room,{type:'health',id:p.id,hp:p.hp,shield:p.shield});
+      broadcast(p.room,{type:'power-effect',kind:'rewind',player:p.id,x:p.x,y:p.y,z:p.z});
+    }
+  }else if(id==='chain'){
+    const victims=[target];const dealt=new Set([p.id,target.id]);
+    while(victims.length<3){let next=null,dist=Infinity;const prev=victims[victims.length-1];
+      for(const q of p.room.players.values()){const d=Math.hypot(q.x-prev.x,q.z-prev.z);if(!dealt.has(q.id)&&q.alive&&q.powers.phaseUntil<now&&d<rule.chainRadius&&d<dist){next=q;dist=d;}}
+      if(!next)break;victims.push(next);dealt.add(next.id);
+    }
+    victims.forEach((v,i)=>applyAbilityDamage(p,v,[65,48,32][i],now));
+    broadcast(p.room,{type:'power-vfx',kind:'chain',player:p.id,targets:victims.map(v=>({x:v.x,y:v.y,z:v.z,id:v.id}))});
+  }else if(id==='gravity'){
+    const affected=[];
+    for(const q of p.room.players.values())if(q.id!==p.id&&q.alive&&q.powers.phaseUntil<now&&Math.hypot(q.x-target.x,q.z-target.z)<=rule.radius){
+      q.powers.gravityUntil=now+rule.duration;q.powers.gravityOrigin=q.y;q.y=Math.min(37,q.y+3.5);q.lastMove=now;
+      affected.push(q.id);
+    }
+    broadcast(p.room,{type:'power-vfx',kind:'gravity',player:p.id,x:target.x,y:target.y,z:target.z,affected});
+  }else if(id==='swap'){
+    const origin={x:p.x,y:p.y,z:p.z};const destination={x:target.x,y:target.y,z:target.z};
+    Object.assign(p,destination,{lastMove:now});Object.assign(target,origin,{lastMove:now});
+    broadcast(p.room,{type:'power-effect',kind:'swap',player:p.id,...destination});
+    broadcast(p.room,{type:'power-effect',kind:'swap',player:target.id,...origin});
+  }else if(id==='clones'){
+    const clones=[];
+    for(let i=0;i<3;i++){const x=limit(p.x+(i-1)*3,-140,140),z=limit(p.z+((i%2)*2-1)*2,-140,140);
+      if(locationValid(x,p.y,z,colliders)){const clone={id:crypto.randomBytes(4).toString('hex'),owner:p.id,x,z,y:p.y,until:now+rule.duration};p.room.clones.push(clone);clones.push(clone);}
+    }
+    broadcast(p.room,{type:'power-vfx',kind:'clones',player:p.id,clones});
+  }else if(id==='shield'){state.shieldUntil=now+rule.duration;
   }else if(id==='flight'){state.flightUntil=now+rule.duration;
   }else if(id==='invisible'){state.invisibleUntil=now+rule.duration;
   }else if(id==='phase'){state.phaseUntil=now+rule.duration;state.safe=locationValid(p.x,p.y,p.z,colliders)?{x:p.x,y:p.y,z:p.z}:state.safe;}
@@ -295,7 +366,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.0.0'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.1.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';
@@ -322,6 +393,32 @@ const tick=setInterval(()=>{
   for(const room of rooms.values()){
     const now=Date.now();
     for(const p of room.players.values()){if(p.powers.phaseUntil&&p.powers.phaseUntil<=now){p.powers.phaseUntil=0;const safe=p.powers.safe;if(!locationValid(p.x,p.y,p.z,colliders)&&safe&&locationValid(safe.x,safe.y,safe.z,colliders)){Object.assign(p,safe,{lastMove:now});broadcast(room,{type:'power-effect',kind:'phase-exit',player:p.id,...safe});}}}
+    for(const p of room.players.values()){
+      if(p.powers.gravityUntil&&p.powers.gravityUntil<=now){
+        p.powers.gravityUntil=0;
+        if(Number.isFinite(p.powers.gravityOrigin)){p.y=p.powers.gravityOrigin;p.powers.gravityOrigin=null;}
+        p.lastMove=now;
+        broadcast(room,{type:'power-effect',kind:'gravity-land',player:p.id,x:p.x,y:p.y,z:p.z});
+      }
+      if(!p.alive)continue;
+      const hist=p.powers.history;
+      hist.push({t:now,x:p.x,y:p.y,z:p.z,hp:p.hp,shield:p.shield});
+      while(hist.length>0&&hist[0].t<now-5200)hist.shift();
+    }
+    for(let i=room.hazards.length-1;i>=0;i--){
+      const h=room.hazards[i];if(h.until<now){room.hazards.splice(i,1);continue;}
+      for(const q of room.players.values()){
+        if(q.id===h.owner||!q.alive||q.powers.phaseUntil>now)continue;
+        const distance=Math.hypot(q.x-h.x,q.z-h.z);
+        if(distance<.6||distance>h.radius)continue;
+        const step=Math.min(.28,(h.radius-distance)*.035);
+        const x=q.x+(h.x-q.x)/distance*step,z=q.z+(h.z-q.z)/distance*step;
+        if(locationValid(x,q.y,z,colliders)){q.x=x;q.z=z;q.lastMove=now;send(q.socket,{type:'power-effect',kind:'blackhole-pull',player:q.id,x:q.x,y:q.y,z:q.z});}
+      }
+    }
+    const expired=room.clones.filter(c=>c.until<=now);
+    room.clones=room.clones.filter(c=>c.until>now);
+    for(const clone of expired)broadcast(room,{type:'clone-destroy',id:clone.id});
     const list=livePlayers(room).map(publicPlayer);
     broadcast(room,{type:'snapshot',players:list});
   }
