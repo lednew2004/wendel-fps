@@ -4,13 +4,24 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export class PowerMenu{
  constructor(system,abilities){
   this.system=system;this.game=system.game;this.abilities=abilities;this.mode=null;this.slot=0;this.target=null;
-  this.dialog=$('titan-abilities-dialog');this.wheel=$('titan-abilities-wheel');this.map=$('titan-teleport-map');this.ctx=this.map.getContext('2d');
+  this.page=0;this.pageSize=8;this.hoverIndex=-1;this.holdToSelect=false;this.dialog=$('titan-abilities-dialog');this.wheel=$('titan-abilities-wheel');this.map=$('titan-teleport-map');this.ctx=this.map.getContext('2d');
   this.map.addEventListener('pointerdown',e=>{this.map.setPointerCapture?.(e.pointerId);this.selectPoint(e);});
   this.map.addEventListener('pointermove',e=>{if(e.buttons||e.pointerType==='touch')this.selectPoint(e);});
   $('titan-power-pick').addEventListener('click',()=>this.confirmTeleport());
   $('titan-power-cancel').addEventListener('click',()=>this.close());
   $('titan-wheel-close').addEventListener('click',()=>this.close());
-  $('titan-power-picker').addEventListener('click',()=>this.openWheel());
+  $('titan-power-picker').addEventListener('click',()=>this.openWheel(false));
+  $('titan-wheel-prev').addEventListener('click',()=>this.setPage(this.page-1));
+  $('titan-wheel-next').addEventListener('click',()=>this.setPage(this.page+1));
+  this.wheel.addEventListener('pointermove',e=>{
+    if(this.mode!=='wheel')return;
+    const rect=this.wheel.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
+    const dx=e.clientX-cx,dy=e.clientY-cy,r=Math.hypot(dx,dy);
+    if(r<rect.width*.13||r>rect.width*.49)return;
+    const index=(Math.round((Math.atan2(dy,dx)+Math.PI/2)/(Math.PI/4))+8)%8;
+    this.setHovered(index);
+  });
+  this.wheel.addEventListener('pointerup',e=>{if(this.mode==='wheel'&&e.pointerType==='touch'&&this.hoverIndex>=0){e.preventDefault();this.releaseWheel();}});
   for(const b of document.querySelectorAll('[data-power-target-slot]'))b.addEventListener('click',()=>{this.slot=Number(b.dataset.powerTargetSlot);this.renderWheel();});
  }
  open(mode){
@@ -21,28 +32,39 @@ export class PowerMenu{
   if(mode==='teleport'){this.target=null;this.updateInfo();this.renderMap();}
   else this.renderWheel();
  }
- openWheel(){if(!this.mode)this.open('wheel');else if(this.mode==='wheel')this.close();}
+ openWheel(hold=false){if(!this.mode){this.holdToSelect=hold;this.open('wheel');}else if(this.mode==='wheel'&&!hold)this.close();}
+ setPage(next){const max=Math.ceil(Object.keys(this.abilities).length/this.pageSize);this.page=(next+max)%max;this.renderWheel();}
+ setHovered(index){this.hoverIndex=index;for(const b of this.wheel.querySelectorAll('.titan-power-option'))b.classList.toggle('hovered',Number(b.dataset.index)===index);const item=Object.entries(this.abilities)[this.page*this.pageSize+index];$('titan-wheel-center').textContent=item?item[1].label:'ESCOLHA O PODER';}
+ releaseWheel(){if(this.mode!=='wheel')return;const entry=Object.entries(this.abilities)[this.page*this.pageSize+this.hoverIndex];if(entry){this.system.equip(this.slot,entry[0]);this.game.toast(entry[1].label+' EQUIPADO EM PODER '+(this.slot+1));}this.close();}
  openTeleport(){this.open('teleport');}
  close(){
   if(!this.mode)return;
-  this.mode=null;this.dialog.classList.add('hidden');this.dialog.classList.remove('is-teleport','is-wheel');
+  this.mode=null;this.holdToSelect=false;this.dialog.classList.add('hidden');this.dialog.classList.remove('is-teleport','is-wheel');
   this.game.setState('playing');this.game.requestLock();
  }
  renderWheel(){
-  const frag=document.createDocumentFragment();
-  for(const [id,p] of Object.entries(this.abilities)){
-   const button=document.createElement('button');button.type='button';button.className='titan-power-option';
+  const entries=Object.entries(this.abilities),max=Math.ceil(entries.length/this.pageSize);
+  const frag=document.createDocumentFragment();this.hoverIndex=-1;
+  $('titan-wheel-center').textContent='ESCOLHA O PODER';
+  const start=this.page*this.pageSize;
+  for(let i=0;i<this.pageSize;i++){
+   const entry=entries[start+i];if(!entry)continue;
+   const [id,p]=entry;
+   const button=document.createElement('button');button.type='button';button.className='titan-power-option';button.dataset.index=String(i);
+   button.style.setProperty('--sector',String(i));
    if(this.system.loadout.includes(id))button.classList.add('equipped');
    const icon=document.createElement('span');icon.textContent=p.icon;
    const name=document.createElement('strong');name.textContent=p.label;
-   const desc=document.createElement('small');desc.textContent=p.help;
-   button.append(icon,name,desc);
-   button.addEventListener('click',()=>{this.system.equip(this.slot,id);this.close();this.game.toast(`${p.label} EQUIPADO NO PODER ${this.slot+1}`);});
+   button.append(icon,name);button.title=p.help;
+   button.addEventListener('pointerenter',()=>this.setHovered(i));
+   button.addEventListener('click',()=>{if(this.mode!=='wheel')return;this.system.equip(this.slot,id);this.close();this.game.toast(p.label+' EQUIPADO EM PODER '+(this.slot+1));});
    frag.appendChild(button);
   }
   this.wheel.replaceChildren(frag);
+  $('titan-wheel-page').textContent=`${this.page+1} / ${max}`;
   for(const b of document.querySelectorAll('[data-power-target-slot]'))b.classList.toggle('selected',Number(b.dataset.powerTargetSlot)===this.slot);
  }
+
  convert(x,z){return {x:(x+143)/286*this.map.width,y:(z+143)/286*this.map.height};}
  worldAt(e){const rect=this.map.getBoundingClientRect();return {x:clamp((e.clientX-rect.left)/rect.width*286-143,-142,142),z:clamp((e.clientY-rect.top)/rect.height*286-143,-142,142)};}
  findLanding(x,z){

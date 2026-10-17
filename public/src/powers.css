@@ -87,3 +87,40 @@ body.power-targeting #power-aim-guide.cancel::after{border-color:#ff7785;box-sha
  #power-hud{right:calc(clamp(225px,56vh,305px) + var(--power-horizontal-shift,0px))!important;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 3px + var(--power-vertical-shift,0px))!important;transform:scale(var(--power-size-scale,1))!important;transform-origin:right bottom!important}
  .power-touch-settings{gap:4px;padding:6px}.power-touch-settings label{font-size:9px}
 }
+
+/* v2.4 - GTA-style radial power wheel, eight skills per page. */
+.titan-wheel-content{justify-items:center;text-align:center}
+.titan-wheel-content p{max-width:600px}
+.titan-wheel-stage{position:relative;width:min(67dvh,380px,78vw);aspect-ratio:1;touch-action:none;overscroll-behavior:contain}
+#titan-abilities-wheel{display:block!important;position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 50%,#0e2830 0 26%,#24424f 27% 31%,#0f232e 31% 100%);box-shadow:inset 0 0 0 2px #5a8a98,0 0 30px #000a;touch-action:none}
+#titan-abilities-wheel::before{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;background:repeating-conic-gradient(from -22.5deg,#85b4c9a0 0deg 0.9deg,transparent 0.9deg 45deg)}
+#titan-abilities-wheel .titan-power-option{position:absolute!important;display:flex;gap:2px;align-items:center;justify-content:center;min-height:0!important;width:23%;height:23%;left:38.5%;top:38.5%;transform:rotate(calc(var(--sector) * 45deg)) translateY(-154%) rotate(calc(var(--sector) * -45deg));border-radius:50%!important;border:1px solid #5f879b!important;padding:3px!important;background:#234456!important;box-shadow:0 4px 11px #0007;touch-action:none;user-select:none}
+#titan-abilities-wheel .titan-power-option span{font-size:clamp(16px,4.7vh,24px);line-height:1}
+#titan-abilities-wheel .titan-power-option strong{font:bold clamp(7px,1.5vh,10px) system-ui;line-height:1.05;max-width:92%;overflow-wrap:anywhere}
+#titan-abilities-wheel .titan-power-option.hovered,#titan-abilities-wheel .titan-power-option:focus-visible{background:#42859c!important;outline:3px solid #a5f5ff;z-index:2}
+#titan-abilities-wheel .titan-power-option.equipped{border:3px solid #83e8b9!important;background:#326658!important}
+#titan-wheel-center{position:absolute;inset:40%;display:grid;place-items:center;font:800 clamp(8px,1.6vh,12px) system-ui;line-height:1.1;color:#c1f6ef;pointer-events:none}
+.titan-wheel-navigation{display:flex;align-items:center;justify-content:center;gap:14px;color:#a3e9eb;font:bold 11px system-ui}
+.titan-wheel-navigation button{font-size:11px}
+@media(pointer:coarse) and (orientation:landscape){
+ .titan-wheel-stage{width:min(72dvh,295px,46vw)}
+ #titan-abilities-wheel .titan-power-option{width:22%;height:22%;left:39%;top:39%;transform:rotate(calc(var(--sector) * 45deg)) translateY(-163%) rotate(calc(var(--sector) * -45deg))}
+ #titan-abilities-wheel .titan-power-option strong{font-size:clamp(6px,1.9vh,9px)}
+ .titan-wheel-navigation button{font-size:9px;padding:5px 8px}
+}
+/* Disguise and automatic resurrection visual indicators, without blocking aim. */
+body.titan-morphed #power-hud::after,body.titan-resurrected #power-hud::after{content:'▣ DISFARCE ATIVO';position:absolute;bottom:100%;left:0;white-space:nowrap;padding:5px 8px;border-radius:7px;background:#1d4c4fc9;color:#c2ffdc;font:800 10px system-ui;pointer-events:none}
+body.titan-resurrected #power-hud::after{content:'✚ IMORTAL TEMPORARIAMENTE';background:#4c6945cc}
+/* Keep the entire wheel visible on short landscape phones without scrolling. */
+@media(pointer:coarse) and (orientation:landscape){
+ .titan-wheel-stage{width:min(51dvh,238px,44vw)}
+ .titan-wheel-content{gap:3px}
+ .titan-wheel-content h2{font-size:13px}
+ .titan-wheel-content p{font-size:9px}
+ .titan-wheel-slots button{padding:5px 9px}
+ #titan-abilities-wheel .titan-power-option span{font-size:clamp(13px,3.6vh,19px)}
+ #titan-abilities-wheel .titan-power-option strong{font-size:clamp(6px,1.7vh,8px)}
+ .titan-wheel-navigation{gap:7px}
+ .titan-wheel-navigation button{font-size:9px;padding:5px 6px}
+ #titan-wheel-close{padding:6px 11px;font-size:9px}
+}

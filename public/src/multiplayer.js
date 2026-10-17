@@ -6,11 +6,12 @@ const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 
 function remoteAvatar(name){
   const root=new THREE.Group();
+  const body=new THREE.Group();root.add(body);
   const suit=new THREE.MeshStandardMaterial({color:0x6a7f74,roughness:.87,metalness:.06});
   const vest=new THREE.MeshStandardMaterial({color:0x242e32,roughness:.83,metalness:.17});
   const helmet=new THREE.MeshStandardMaterial({color:0x3c4846,roughness:.78});
   const skin=new THREE.MeshStandardMaterial({color:0xb08d72,roughness:.92});
-  function block(w,h,d,x,y,z,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=false;root.add(m);return m;}
+  function block(w,h,d,x,y,z,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=false;body.add(m);return m;}
   block(.65,.84,.36,0,1.15,0,suit);
   block(.76,.61,.42,0,1.37,.04,vest);
   block(.36,.39,.37,0,1.85,0,skin);
@@ -22,13 +23,13 @@ function remoteAvatar(name){
   }
   block(.11,.14,.70,.18,1.22,-.46,vest);
   const flashMat=new THREE.MeshBasicMaterial({color:0xffdb8c,transparent:true,opacity:.85,depthWrite:false});
-  const flash=new THREE.Mesh(new THREE.SphereGeometry(.16,6,5),flashMat);flash.position.set(.18,1.22,-.86);flash.visible=false;root.add(flash);root.userData.flash=flash;
+  const flash=new THREE.Mesh(new THREE.SphereGeometry(.16,6,5),flashMat);flash.position.set(.18,1.22,-.86);flash.visible=false;body.add(flash);root.userData.flash=flash;
   // Screen-facing health and shield bars; updated from server-authoritative state.
   const canvas=document.createElement('canvas');canvas.width=384;canvas.height=128;
   const ctx=canvas.getContext('2d');
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
   const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthWrite:false,transparent:true,depthTest:true}));
-  tag.position.set(0,2.83,0);tag.scale.set(2.6,.87,1);root.add(tag);
+  tag.position.set(0,2.83,0);tag.scale.set(2.6,.87,1);root.add(tag);root.userData.lifeSprite=tag;
   // Persistent shield aura from server-authoritative status.
   const shieldBubble=new THREE.Mesh(new THREE.SphereGeometry(1.23,14,10),new THREE.MeshBasicMaterial({color:0x73e8c7,transparent:true,opacity:.15,depthWrite:false,side:THREE.DoubleSide}));
   shieldBubble.position.y=1.15;shieldBubble.visible=false;root.add(shieldBubble);root.userData.shieldBubble=shieldBubble;
@@ -36,11 +37,35 @@ function remoteAvatar(name){
   const iceMat=new THREE.MeshBasicMaterial({color:0x83e8ff,transparent:true,opacity:.34,depthWrite:false,side:THREE.DoubleSide});
   const ice=new THREE.Mesh(new THREE.CylinderGeometry(.56,.56,2.35,9,1,true),iceMat);
   ice.position.y=1.15;ice.visible=false;root.add(ice);root.userData.ice=ice;
+  // Transformed players look like a real drum prop, not an invisible avatar.
+  const barrel=new THREE.Group();
+  const steel=new THREE.MeshStandardMaterial({color:0x48545c,metalness:.62,roughness:.45});
+  const paint=new THREE.MeshStandardMaterial({color:0xa2543f,metalness:.34,roughness:.58});
+  const drum=new THREE.Mesh(new THREE.CylinderGeometry(.68,.68,1.38,12),paint);drum.position.y=.71;barrel.add(drum);
+  for(const y of [.24,1.22]){const ring=new THREE.Mesh(new THREE.CylinderGeometry(.72,.72,.13,12),steel);ring.position.y=y;barrel.add(ring);}
+  barrel.visible=false;root.add(barrel);
+  const truck=new THREE.Group();
+  const truckMat=new THREE.MeshStandardMaterial({color:0x536b70,metalness:.32,roughness:.63});
+  const cabin=new THREE.Mesh(new THREE.BoxGeometry(2.2,2,1.9),truckMat);cabin.position.set(0,1.1,-1.3);truck.add(cabin);
+  const cargo=new THREE.Mesh(new THREE.BoxGeometry(2.5,2.3,3.4),new THREE.MeshStandardMaterial({color:0x82908b,metalness:.22,roughness:.71}));cargo.position.set(0,1.28,1.1);truck.add(cargo);
+  const forklift=new THREE.Group();
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(1.3,1.12,1.7),new THREE.MeshStandardMaterial({color:0xc9a04a,metalness:.38,roughness:.51}));frame.position.set(0,.8,0);forklift.add(frame);
+  const mast=new THREE.Mesh(new THREE.BoxGeometry(1.15,2.55,.2),truckMat);mast.position.set(0,1.4,-1.0);forklift.add(mast);
+  truck.visible=false;forklift.visible=false;root.add(truck,forklift);
+  root.userData.disguises={barrel,truck,forklift};root.userData.body=body;
   root.userData.lifeTag={ctx,texture,name:name.slice(0,18),hp:-1,shield:-1};
   updateLifeTag(root,100,40);
   return root;
 }
 
+function setDisguise(group,type){
+  if(!group?.userData?.body)return;
+  const active=['barrel','truck','forklift'].includes(type)?type:null;
+  group.userData.body.visible=!active;
+  for(const [name,mesh] of Object.entries(group.userData.disguises))mesh.visible=active===name;
+  group.userData.lifeSprite.visible=!active;
+  group.userData.ice.visible=!active&&group.userData.ice.visible;
+}
 function updateLifeTag(group,hp,shield){
   const v=group.userData.lifeTag;
   if(!v)return;
@@ -285,16 +310,19 @@ export class MultiplayerClient {
       }
       case 'power-state':this.game.powers.onServerState(msg.powers);break;
       case 'power-error':this.game.toast(msg.message||'PODER NÃO ATIVADO');break;
-      case 'power-copy':this.game.powers.onServerState(msg.powers);this.game.toast('PODERES COPIADOS DE '+msg.from+' · 25 SEGUNDOS');break;
+      case 'power-copy':this.game.powers.onServerState(msg.powers);this.game.toast('PODERES COPIADOS DE '+msg.from+' · 30 SEGUNDOS');break;
       case 'power-effect':{
         this.game.powers.onServerEffect(msg);
-        if(msg.kind==='gravity'&&Array.isArray(msg.affected)&&msg.affected.includes(this.id)){this.game.powers.status.gravity=Date.now()+2000;this.game.parkour.y+=3.5;this.game.parkour.vy=0;}
+        if(msg.kind==='gravity'&&Array.isArray(msg.affected)&&msg.affected.includes(this.id)){this.game.powers.status.gravity=Date.now()+2700;this.game.parkour.y+=3.5;this.game.parkour.vy=0;}
         if(msg.kind==='gravity-land'&&msg.player===this.id&&Number.isFinite(msg.y))this.game.parkour.spawn(msg.x,msg.y,msg.z);
         if(msg.kind==='push'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x))entry.target.set(msg.x,msg.y,msg.z);}
         if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='clonejump'||msg.kind==='rewind'||msg.kind==='swap'||msg.kind==='phase-exit'||msg.kind==='gravity-land'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
         break;
       }
       case 'power-vfx':{
+        if(msg.kind==='resurrection'&&msg.player===this.id)this.game.toast('RESSURREIÇÃO AUTOMÁTICA · IMORTAL POR 4S');
+        if(msg.kind==='heal'&&msg.player===this.id)this.game.toast('CURA · VIDA E ESCUDO RESTAURADOS');
+        if(msg.kind==='morph'&&msg.player===this.id)this.game.toast('DISFARCE DE OBJETO ATIVADO');
         if(msg.kind==='clones'){
           this.game.powers.onServerClones(msg);
           for(const clone of msg.clones||[]){
@@ -324,7 +352,7 @@ export class MultiplayerClient {
       case 'clone-destroy':this.removeDecoy(msg.id);this.game.powers.onCloneDestroy(msg.id);break;
       case 'power-status':{
         if(msg.player===this.id)this.game.powers.onServerState(msg.powers);
-        const entry=this.others.get(msg.player);if(entry){entry.group.visible=(!msg.powers.invisible&&!msg.powers.phased);entry.group.userData.ice.visible=!!msg.powers.frozen;entry.group.userData.shieldBubble.visible=!!msg.powers.shielded;}
+        const entry=this.others.get(msg.player);if(entry){entry.group.visible=(!msg.powers.invisible&&!msg.powers.phased);setDisguise(entry.group,msg.powers.propType);entry.group.userData.ice.visible=!!msg.powers.frozen&&!msg.powers.propType;entry.group.userData.shieldBubble.visible=!!msg.powers.shielded;}
         break;
       }
       case 'pong':
@@ -403,7 +431,8 @@ export class MultiplayerClient {
     if(Number.isFinite(data.x)&&Number.isFinite(data.y)&&Number.isFinite(data.z))entry.target.set(data.x,data.y,data.z);
     entry.yaw=Number.isFinite(data.yaw)?data.yaw:0;
     entry.group.visible=data.alive!==false&&data.invisible!==true&&data.phased!==true;
-    entry.group.userData.ice.visible=data.frozen===true;entry.group.userData.shieldBubble.visible=data.shielded===true;
+    setDisguise(entry.group,data.prop);
+    entry.group.userData.ice.visible=data.frozen===true&&!data.prop;entry.group.userData.shieldBubble.visible=data.shielded===true;
     if(Number.isFinite(data.hp))updateLifeTag(entry.group,data.hp,data.shield);
   }
   removeRemote(id){const entry=this.others.get(id);if(!entry)return;this.game.world.scene.remove(entry.group);entry.group.traverse(o=>{if(o.isMesh)o.geometry.dispose();if(o.isSprite){o.material.map?.dispose();o.material.dispose();}});this.others.delete(id);}

@@ -7,12 +7,12 @@ import {POWER_RULES} from '../powers.mjs';
 const base=new URL('../../public/src/',import.meta.url);
 const src=n=>fs.readFileSync(new URL(n,base),'utf8');
 test('sixteen combat powers: 10 second rewind, mobile web hook, copy on marked elimination, hardcore black hole',()=>{
- assert.equal(Object.keys(POWER_RULES).length,16);
+ assert.equal(Object.keys(POWER_RULES).length,19);
  assert.equal(POWER_RULES.rewind.history,10000);
  assert.equal(POWER_RULES.web.duration,10000);
- assert.equal(POWER_RULES.copy.markDuration,14000);
- assert.equal(POWER_RULES.copy.stealDuration,25000);
- assert.equal(POWER_RULES.blackhole.radius,16);
+ assert.equal(POWER_RULES.copy.markDuration,18000);
+ assert.equal(POWER_RULES.copy.stealDuration,30000);
+ assert.equal(POWER_RULES.blackhole.radius,18);
  assert.ok(Object.values(POWER_RULES).every(rule=>rule.cooldown<=10000));
  assert.match(src('powers.js'),/timestamp=now\(\)-10000/);
  assert.match(src('powers.js'),/this\.findWebAnchor\(\)/);

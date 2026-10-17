@@ -1,16 +1,16 @@
-# Publicar TITAN PROTOCOL 2.3 gratuitamente (GitHub + Render)
+# Publicar TITAN PROTOCOL 2.4 gratuitamente (GitHub + Render)
 
 1. **Descompacte o ZIP** e substitua os arquivos da versão anterior no repositório GitHub. Mantenha as pastas `public/`, `server/` e os arquivos `render.yaml`, `package.json` e `README.md` na **raiz**.
 2. Use os comandos abaixo na pasta do projeto:
 
    ```powershell
    git add .
-   git commit -m "TITAN PROTOCOL 2.3 - Clone movel, teia e copiar"
+   git commit -m "TITAN PROTOCOL 2.4 - Roda radial e novos poderes"
    git push origin main
    ```
 
 3. No painel **Render**, abra seu serviço Web existente. Aguarde o deploy automático aparecer como **Live**. Se o deploy não começar, use **Manual Deploy → Deploy latest commit**.
-4. Abra `https://SEU-ENDERECO.onrender.com/health`. Se aparecer `"ok":true` e `"version":"2.3.0"`, o servidor atualizado está ativo.
+4. Abra `https://SEU-ENDERECO.onrender.com/health`. Se aparecer `"ok":true` e `"version":"2.4.0"`, o servidor atualizado está ativo.
 5. Abra o site e teste com **dois dispositivos/navegadores**, criando uma sala com código de seis caracteres e entrando com outro jogador.
 
 ## Como testar as novas habilidades
@@ -25,5 +25,5 @@
 
 - Hospedagem Render: **um único serviço Node.js** com HTTP e WebSocket; Node 22+, porta `PORT` automática, `/ws` no mesmo domínio do site.
 - Não é necessário Redis. O plano gratuito pode suspender ou reiniciar; como salas ficam em memória, serão perdidas após um reinício do processo.
-- Mantenha o minimapa, o painel SALA, as barras de vida e os controles de mira móveis. A recarga máxima das 16 habilidades continua em 10 s.
+- Mantenha o minimapa, o painel SALA, as barras de vida e os controles de mira móveis. A recarga máxima das 19 habilidades continua em 10 s.
 - **Testes automatizados não substituem validar a física da teia e os efeitos 3D em celulares e desktops reais.**

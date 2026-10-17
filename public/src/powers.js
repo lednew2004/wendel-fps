@@ -1,22 +1,25 @@
 import * as THREE from 'three';
 import {PowerMenu} from './powerMenu.js';
 export const POWER_DATA={
- push:{label:'REPULSÃO',icon:'◉',cool:10,help:'Empurra inimigos em 11 m'},
- freeze:{label:'CONGELAR',icon:'❄',cool:10,help:'Paralisa por 1 segundo'},
- teleport:{label:'TELEPORTE',icon:'↝',cool:10,help:'Escolha no mapa e retorne em 12 s'},
- flight:{label:'VOAR',icon:'↑',cool:10,help:'Voe durante 5 segundos'},
- invisible:{label:'INVISÍVEL',icon:'◌',cool:10,help:'Desapareça por 3 segundos'},
- phase:{label:'INTANGÍVEL',icon:'◇',cool:10,help:'Atravesse paredes durante 6 segundos'},
- blackhole:{label:'BURACO NEGRO',icon:'◉',cool:10,help:'Sucção extrema de 16 m, por 4,8 s'},
- rewind:{label:'REWIND 10S',icon:'↶',cool:10,help:'Retorna posição e vida de 10 segundos atrás'},
- chain:{label:'RAIO',icon:'ϟ',cool:10,help:'Raio que salta entre 3 alvos'},
- gravity:{label:'GRAVIDADE',icon:'↟',cool:10,help:'Lança adversários para cima'},
- clones:{label:'CLONES',icon:'♧',cool:8,help:'Três cópias por 8 segundos'},
- clonejump:{label:'CLONE MÓVEL',icon:'✧',cool:9,help:'Clone corre pelo mapa; reative para trocar de lugar'},
- shield:{label:'ESCUDO',icon:'⬡',cool:10,help:'Bloqueia disparos por 5 segundos'},
- swap:{label:'TROCA',icon:'⇄',cool:10,help:'Troque de lugar com quem estiver na mira'},
- web:{label:'TEIA',icon:'♜',cool:9,help:'Agarre uma parede e balance durante 10 s'},
- copy:{label:'COPIAR',icon:'⧉',cool:10,help:'Marque um alvo; elimine-o para roubar seus poderes'}
+ push:{label:'REPULSÃO',icon:'◉',cool:7.5,help:'Empurrão extremo em 16 m'},
+ freeze:{label:'CONGELAR',icon:'❄',cool:8,help:'Congela por 1,5 s em até 35 m'},
+ teleport:{label:'TELEPORTE',icon:'↝',cool:8.5,help:'Mapa inteiro; retorno em 15 segundos'},
+ flight:{label:'VOAR',icon:'↑',cool:8.5,duration:7000,help:'Voe durante 7 segundos'},
+ invisible:{label:'INVISÍVEL',icon:'◌',cool:8,duration:5000,help:'Invisível por 5 segundos'},
+ phase:{label:'INTANGÍVEL',icon:'◇',cool:9.5,duration:7000,help:'Atravesse paredes por 7 segundos'},
+ blackhole:{label:'BURACO NEGRO',icon:'◉',cool:9.5,duration:5500,help:'Sucção extrema de 18 m por 5,5 s'},
+ rewind:{label:'REWIND 10S',icon:'↶',cool:9.5,help:'Reverte posição e vida de 10 segundos'},
+ chain:{label:'RAIO',icon:'ϟ',cool:8.5,help:'Raio fortalecido até 42 m'},
+ gravity:{label:'GRAVIDADE',icon:'↟',cool:9,help:'Área de 13 m; suspende 2,7 s'},
+ clones:{label:'CLONES',icon:'♧',cool:7,duration:10000,help:'Três cópias por 10 segundos'},
+ clonejump:{label:'CLONE MÓVEL',icon:'✧',cool:8.5,duration:14000,help:'Clone corre por 14 s; reative para trocar'},
+ shield:{label:'ESCUDO',icon:'⬡',cool:9.5,duration:7000,help:'Proteção por 7 segundos'},
+ swap:{label:'TROCA',icon:'⇄',cool:8.5,help:'Troca dimensional até 60 m'},
+ web:{label:'TEIA',icon:'♜',cool:8.5,duration:10000,help:'Prenda uma teia em paredes a até 50 m'},
+ copy:{label:'COPIAR',icon:'⧉',cool:9,help:'Marque e elimine em 18s; copie por 30s'},
+ resurrection:{label:'RESSURREIÇÃO',icon:'✚',cool:10,duration:4000,help:'Passiva: renasce automaticamente; imortal 4s'},
+ heal:{label:'CURA',icon:'♥',cool:7,help:'Recupera 70 HP e 25 de escudo'},
+ morph:{label:'VIRAR OBJETO',icon:'▣',cool:8,duration:10000,help:'Copie tambor, caminhão ou empilhadeira por 10s'}
 };
 const $=id=>document.getElementById(id);
 const now=()=>Date.now();
@@ -24,7 +27,7 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export class PowerSystem {
  constructor(game){
   this.game=game;this.loadout=['push','teleport'];this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;
-  this.lastSafe={x:0,y:0,z:18};this.teleportMarker=null;this.effects=[];this.flightBefore=false;this.uiTick=0;this.history=[];this.localHazards=[];this.decoys=[];this.cloneTargets=[];this.cloneJumpUsed=false;this.aimTouch=null;this.prevGravity=null;this.copyMark=null;this.copyBuff=null;this.webLine=null;
+  this.lastSafe={x:0,y:0,z:18};this.teleportMarker=null;this.effects=[];this.flightBefore=false;this.uiTick=0;this.history=[];this.localHazards=[];this.decoys=[];this.cloneTargets=[];this.cloneJumpUsed=false;this.aimTouch=null;this.prevGravity=null;this.copyMark=null;this.copyBuff=null;this.webLine=null;this.propLabel=null;
   try{const val=JSON.parse(localStorage.getItem('titan-power-loadout')||'null');if(Array.isArray(val)&&POWER_DATA[val[0]]&&POWER_DATA[val[1]]&&val[0]!==val[1])this.loadout=val;}catch{}
   for(const select of document.querySelectorAll('[data-power-slot]')){
    select.addEventListener('change',()=>this.equip(Number(select.dataset.powerSlot),select.value));
@@ -105,7 +108,7 @@ export class PowerSystem {
   }
   apply();
  }
- reset(){if(this.copyBuff?.original){this.loadout=[...this.copyBuff.original];this.refreshSelects();this.refreshButtons();}this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;this.cleanupMarker();for(const e of this.effects){this.game.world.scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();}this.effects=[];this.lastSafe={x:0,y:0,z:18};this.history=[];this.localHazards=[];this.cloneTargets=[];this.cloneJumpUsed=false;this.copyMark=null;this.copyBuff=null;this.game.parkour.web=null;this.clearWebLine();this.aimTouch=null;this.hideAimGuide();this.clearDecoys();this.menu?.close();this.refreshButtons();}
+ reset(){if(this.copyBuff?.original){this.loadout=[...this.copyBuff.original];this.refreshSelects();this.refreshButtons();}this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;this.cleanupMarker();for(const e of this.effects){this.game.world.scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();}this.effects=[];this.lastSafe={x:0,y:0,z:18};this.history=[];this.localHazards=[];this.cloneTargets=[];this.cloneJumpUsed=false;this.copyMark=null;this.copyBuff=null;this.status.resurrection=0;this.status.morph=0;this.game.parkour.web=null;this.clearWebLine();this.aimTouch=null;this.hideAimGuide();this.clearDecoys();this.menu?.close();this.refreshButtons();}
  equip(slot,id){
   if(!POWER_DATA[id])return;
   if(this.loadout[1-slot]===id){this.game.toast('EQUIPE DUAS HABILIDADES DIFERENTES');this.refreshSelects();return;}
@@ -124,12 +127,15 @@ export class PowerSystem {
   const g=this.game;if(g.state!=='playing'||!POWER_DATA[id]||(g.mode==='multiplayer'&&!g.multiplayer.alive))return;
   if(id==='teleport'&&this.returnPoint?.until>now()){this.returnTeleport();return;}
   if(id==='clonejump'&&this.cloneAvailable()){this.jumpClone();return;}
+  if(id==='resurrection'){g.toast('RESSURREIÇÃO É AUTOMÁTICA AO MORRER');return;}
+  if(id==='morph'&&this.isActive('morph')){this.cancelMorph();return;}
 
   if(this.frozen()){g.toast('CONGELADO!');return;}
   if((this.cooldowns[id]||0)>now()){g.toast('RECARGA · '+Math.ceil((this.cooldowns[id]-now())/1000)+'s');return;}
   if(this.isActive('phase')&&id!=='phase')return;
   if(id==='teleport'){g.mouseDown=false;this.menu.openTeleport();return;}
-  if(id==='web'){const anchor=this.findWebAnchor();if(!anchor){g.toast('MIRE EM UMA PAREDE A ATÉ 40 METROS');return;}if(g.mode==='multiplayer'){g.multiplayer.syncState();g.multiplayer.send({type:'power',id,anchor});}else{this.activateWeb(anchor);this.cooldowns.web=now()+9000;}return;}
+  if(id==='morph'){const target=this.findMorphObject();if(!target){g.toast('APROXIME-SE DE UM TAMBOR, CAMINHÃO OU EMPILHADEIRA');return;}if(g.mode==='multiplayer'){g.multiplayer.syncState();g.multiplayer.send({type:'power',id});}else{this.status.morph=now()+10000;this.cooldowns.morph=now()+8000;g.toast('DISFARCE DE '+({barrel:'TAMBOR',truck:'CAMINHÃO',forklift:'EMPILHADEIRA'})[target.type]+' · 10S');}return;}
+  if(id==='web'){const anchor=this.findWebAnchor();if(!anchor){g.toast('MIRE EM UMA PAREDE A ATÉ 40 METROS');return;}if(g.mode==='multiplayer'){g.multiplayer.syncState();g.multiplayer.send({type:'power',id,anchor});}else{this.activateWeb(anchor);this.cooldowns.web=now()+8500;}return;}
   if(g.mode==='multiplayer'){g.multiplayer.syncState();g.multiplayer.send({type:'power',id});return;}
   if(this.applyLocal(id)!==false)this.cooldowns[id]=now()+POWER_DATA[id].cool*1000;
  }
@@ -144,20 +150,20 @@ export class PowerSystem {
    const dist=Math.hypot(enemy.x-position.x,enemy.z-position.z);if(dist>range)continue;
    if(id==='push'){
     const dx=(enemy.x-position.x)/(dist||1),dz=(enemy.z-position.z)/(dist||1);
-    for(let t=4;t>=1;t--){const x=enemy.x+dx*t,z=enemy.z+dz*t;if(g.world.canMove(x,z,enemy.radius)&&g.urban.canOccupy(x,z,0,2,enemy.radius)){enemy.x=x;enemy.z=z;break;}}
+    for(let t=7;t>=1;t--){const x=enemy.x+dx*t,z=enemy.z+dz*t;if(g.world.canMove(x,z,enemy.radius)&&g.urban.canOccupy(x,z,0,2,enemy.radius)){enemy.x=x;enemy.z=z;break;}}
    }
-   if(id==='freeze')enemy.frozenUntil=now()+1000;
+   if(id==='freeze')enemy.frozenUntil=now()+1500;
   }
  }
  applyLocal(id){
   const g=this.game,p=g.parkour;switch(id){
-   case 'push':this.localArea('push',p,11);this.flash(0x8fdfff,11);break;
-   case 'freeze':this.localArea('freeze',p,25);this.flash(0x9de8ff,6);break;
-   case 'flight':this.status.flight=now()+5000;break;
-   case 'invisible':this.status.invisible=now()+3000;break;
-   case 'phase':this.status.phase=now()+6000;this.lastSafe={x:p.x,y:p.y,z:p.z};break;
+   case 'push':this.localArea('push',p,16);this.flash(0x8fdfff,16);break;
+   case 'freeze':this.localArea('freeze',p,35);this.flash(0x9de8ff,6);break;
+   case 'flight':this.status.flight=now()+7000;break;
+   case 'invisible':this.status.invisible=now()+5000;break;
+   case 'phase':this.status.phase=now()+7000;this.lastSafe={x:p.x,y:p.y,z:p.z};break;
    case 'blackhole':{
-     const center=this.aimLocal(20);this.localHazards.push({...center,until:now()+4800,radius:16});this.status.blackhole=now()+4800;this.flash(0x8b7dff,16,center);break;
+     const center=this.aimLocal(28);this.localHazards.push({...center,until:now()+5500,radius:18});this.status.blackhole=now()+5500;this.flash(0x8b7dff,18,center);break;
    }
    case 'rewind':{
      if(!this.history.length||this.history[0].t>now()-9400){g.toast('AGUARDE 10S PARA ACUMULAR O HISTÓRICO');return false;}
@@ -168,27 +174,28 @@ export class PowerSystem {
      }break;
    }
    case 'chain':{
-     const enemies=[...g.enemies.enemies].filter(e=>Math.hypot(e.x-p.x,e.z-p.z)<33).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
+     const enemies=[...g.enemies.enemies].filter(e=>Math.hypot(e.x-p.x,e.z-p.z)<42).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
      const targets=[];if(enemies.length)targets.push(enemies.shift());
-     while(targets.length>0&&targets.length<3){const end=targets[targets.length-1];const next=enemies.find(e=>Math.hypot(e.x-end.x,e.z-end.z)<14);if(!next)break;targets.push(next);enemies.splice(enemies.indexOf(next),1);}
-     targets.forEach((e,i)=>g.enemies.damage(e,[75,55,38][i],new THREE.Vector3(e.x,e.y,e.z),'pulse'));
+     while(targets.length>0&&targets.length<3){const end=targets[targets.length-1];const next=enemies.find(e=>Math.hypot(e.x-end.x,e.z-end.z)<18);if(!next)break;targets.push(next);enemies.splice(enemies.indexOf(next),1);}
+     targets.forEach((e,i)=>g.enemies.damage(e,[95,72,51][i],new THREE.Vector3(e.x,e.y,e.z),'pulse'));
      this.flash(0x7adaff,9);break;
    }
    case 'gravity':{
-     const enemies=[...g.enemies.enemies].filter(e=>Math.hypot(e.x-p.x,e.z-p.z)<32).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
-     if(enemies.length){const focus=enemies[0];for(const e of g.enemies.enemies)if(Math.hypot(e.x-focus.x,e.z-focus.z)<10){e.frozenUntil=now()+2000;e.gravityUntil=now()+2000;}this.flash(0xd4b2ff,12,{x:focus.x,y:0,z:focus.z});}break;
+     const enemies=[...g.enemies.enemies].filter(e=>Math.hypot(e.x-p.x,e.z-p.z)<40).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
+     if(enemies.length){const focus=enemies[0];for(const e of g.enemies.enemies)if(Math.hypot(e.x-focus.x,e.z-focus.z)<13){e.frozenUntil=now()+2700;e.gravityUntil=now()+2700;}this.flash(0xd4b2ff,12,{x:focus.x,y:0,z:focus.z});}break;
    }
-   case 'clones':this.spawnLocalClones();this.status.clones=now()+8000;break;
-   case 'clonejump':this.spawnLocalClones(true);this.status.clonejump=now()+12000;this.cloneJumpUsed=false;break;
+   case 'clones':this.spawnLocalClones();this.status.clones=now()+10000;break;
+   case 'clonejump':this.spawnLocalClones(true);this.status.clonejump=now()+14000;this.cloneJumpUsed=false;break;
    case 'copy':{
      const pk=g.parkour;const fx=-Math.sin(g.yaw),fz=-Math.cos(g.yaw);
-     const target=g.enemies.enemies.filter(e=>!e.dead&&Math.hypot(e.x-pk.x,e.z-pk.z)<45).map(e=>{const dx=e.x-pk.x,dz=e.z-pk.z,d=Math.hypot(dx,dz)||1;return {e,d,dot:(dx*fx+dz*fz)/d};}).filter(a=>a.dot>.75).sort((a,b)=>a.d-b.d)[0];
+     const target=g.enemies.enemies.filter(e=>!e.dead&&Math.hypot(e.x-pk.x,e.z-pk.z)<60).map(e=>{const dx=e.x-pk.x,dz=e.z-pk.z,d=Math.hypot(dx,dz)||1;return {e,d,dot:(dx*fx+dz*fz)/d};}).filter(a=>a.dot>.75).sort((a,b)=>a.d-b.d)[0];
      if(!target){g.toast('MIRE EM UM INIMIGO PARA MARCAR');return false;}
-     this.copyMark={enemy:target.e,until:now()+14000};this.status.copy=now()+14000;this.flash(0xf7a0e7,5,{x:target.e.x,y:0,z:target.e.z});g.toast('MARCA ATIVA · ELIMINE O ALVO EM 14 S');break;
+     this.copyMark={enemy:target.e,until:now()+18000};this.status.copy=now()+18000;this.flash(0xf7a0e7,5,{x:target.e.x,y:0,z:target.e.z});g.toast('MARCA ATIVA · ELIMINE O ALVO EM 18 S');break;
    }
-   case 'shield':this.status.shield=now()+5000;this.flash(0x82ffd0,4);break;
+   case 'shield':this.status.shield=now()+7000;this.flash(0x82ffd0,4);break;
+   case 'heal':{g.player.health=Math.min(g.player.maxHealth,g.player.health+70);g.player.shield=Math.min(g.player.maxShield,g.player.shield+25);g.updateHud();this.flash(0x82ffb6,5);break;}
    case 'swap':{
-     const candidates=g.enemies.enemies.filter(e=>Math.hypot(e.x-p.x,e.z-p.z)<45).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
+     const candidates=g.enemies.enemies.filter(e=>Math.hypot(e.x-p.x,e.z-p.z)<60).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
      const e=candidates.find(e=>{const dx=e.x-p.x,dz=e.z-p.z,d=Math.hypot(dx,dz)||1;return(dx*(-Math.sin(g.yaw))+dz*(-Math.cos(g.yaw)))/d>.79;});
      if(!e){g.toast('MIRE EM UM INIMIGO PARA TROCAR DE LUGAR');return false;}
      const origin={x:p.x,z:p.z,y:p.y};
@@ -237,7 +244,7 @@ export class PowerSystem {
    if(this.game.mode==='multiplayer'){this.game.multiplayer.syncState();this.game.multiplayer.send({type:'power',id:'teleport',target:{x:dest.x,y:dest.y,z:dest.z}});return;}
    const pk=this.game.parkour;
    if(!this.game.urban.canOccupy(dest.x,dest.z,dest.y,1.77,.48))return;
-   this.returnPoint={x:pk.x,y:pk.y,z:pk.z,until:now()+12000};pk.spawn(dest.x,dest.y,dest.z);this.cooldowns.teleport=now()+10000;this.flash(0xbda7ff,8);
+   this.returnPoint={x:pk.x,y:pk.y,z:pk.z,until:now()+15000};pk.spawn(dest.x,dest.y,dest.z);this.cooldowns.teleport=now()+8500;this.flash(0xbda7ff,8);
  }
  aimLocal(range){const g=this.game,p=g.parkour;return {x:clamp(p.x-Math.sin(g.yaw)*range,-140,140),y:p.y,z:clamp(p.z-Math.cos(g.yaw)*range,-140,140)};}
  spawnLocalClones(jumping=false){
@@ -250,7 +257,7 @@ export class PowerSystem {
      const x=p.x+forwardX*distance+sideX*lateral,z=p.z+forwardZ*distance+sideZ*lateral;
      if(!g.urban.canOccupy(x,z,p.y,1.77,.4))continue;
      const mesh=new THREE.Mesh(new THREE.CapsuleGeometry(.34,1.3,4,8),mat.clone());mesh.position.set(x,p.y+1.05,z);g.world.scene.add(mesh);
-     const item={mesh,x,y:p.y,z,angle:g.yaw+Math.PI,turn:1,speed:7.5,moving:jumping,until:now()+(jumping?12000:8000)};this.decoys.push(item);
+     const item={mesh,x,y:p.y,z,angle:g.yaw+Math.PI,turn:1,speed:7.5,moving:jumping,until:now()+(jumping?14000:10000)};this.decoys.push(item);
      if(jumping)this.cloneTargets.push({slot:i,x,y:p.y,z,until:item.until,decoy:item});
    }
    mat.dispose();
@@ -298,12 +305,35 @@ export class PowerSystem {
     this.copyMark=null;const origin=[...this.loadout];
     const abilities={scout:['flight','push'],gunner:['chain','shield'],sniper:['teleport','invisible'],tank:['shield','gravity'],hunter:['clonejump','phase'],boss:['blackhole','rewind']};
     const stolen=abilities[enemy.type]||(enemy.boss?abilities.boss:['freeze','push']);
-    this.loadout=[...stolen];this.copyBuff={until:now()+25000,original:origin};this.status.copy=0;this.refreshButtons();this.refreshSelects();
-    this.game.toast('HABILIDADES COPIADAS · '+POWER_DATA[stolen[0]].label+' + '+POWER_DATA[stolen[1]].label+' · 25S');
+    this.loadout=[...stolen];this.copyBuff={until:now()+30000,original:origin};this.status.copy=0;this.refreshButtons();this.refreshSelects();
+    this.game.toast('HABILIDADES COPIADAS · '+POWER_DATA[stolen[0]].label+' + '+POWER_DATA[stolen[1]].label+' · 30S');
+  }
+  findMorphObject(){
+    const p=this.game.parkour;
+    const objects=(this.game.world.barrels||[]).filter(b=>b.alive).map(b=>({...b,type:'barrel'}));
+    for(const [type,sites] of [['truck',[[-40,15],[85,93]]],['forklift',[[1,91],[-22,-104]]]]){
+      for(const [x,z] of sites)objects.push({x,z,type});
+    }
+    let chosen=null,best=6;
+    for(const obj of objects){const d=Math.hypot(obj.x-p.x,obj.z-p.z);if(d<best){best=d;chosen=obj;}}
+    return chosen;
+  }
+  cancelMorph(){
+    this.status.morph=0;
+    if(this.game.mode==='multiplayer')this.game.multiplayer.send({type:'power',id:'morph',cancel:true});
+    this.game.toast('DISFARCE ENCERRADO');
+  }
+  tryResurrection(){
+    if(!this.loadout.includes('resurrection')||(this.cooldowns.resurrection||0)>now())return false;
+    this.cooldowns.resurrection=now()+10000;
+    this.status.resurrection=now()+4000;
+    const pl=this.game.player;pl.health=pl.maxHealth;pl.shield=pl.maxShield;
+    pl.invulnerable=4;this.flash(0x9effd8,11);this.game.updateHud();
+    this.game.toast('RESSURREIÇÃO · IMORTAL POR 4 SEGUNDOS');return true;
   }
   findWebAnchor(){
     const g=this.game,origin=new THREE.Vector3(),direction=new THREE.Vector3();g.world.camera.getWorldPosition(origin);g.world.camera.getWorldDirection(direction);
-    const result=new THREE.Raycaster(origin,direction,1,40).intersectObjects(g.urban.rayTargets||[],false);
+    const result=new THREE.Raycaster(origin,direction,1,50).intersectObjects(g.urban.rayTargets||[],false);
     // Grip the first solid WALL. Horizontal rooftops are not anchor points.
     for(const hit of result){if(hit.face&&Math.abs(hit.face.normal.y)<.55){return {x:hit.point.x,y:hit.point.y,z:hit.point.z};}}
     return null;
@@ -324,7 +354,7 @@ export class PowerSystem {
   clearDecoys(){for(const d of this.decoys){this.game.world.scene.remove(d.mesh);d.mesh.geometry.dispose();d.mesh.material.dispose();}this.decoys=[];}
 
  returnTeleport(){const pt=this.returnPoint;if(!pt||pt.until<now())return;this.returnPoint=null;if(this.game.mode==='multiplayer'){this.game.multiplayer.send({type:'power',id:'teleport',back:true});return;}this.game.parkour.spawn(pt.x,pt.y,pt.z);this.flash(0xbda7ff,5);}
- onServerState(state){if(!state)return;for(const id of Object.keys(POWER_DATA)){if(state.cooldowns?.[id])this.cooldowns[id]=state.cooldowns[id];}this.status.freeze=state.frozenUntil||0;this.status.flight=state.flightUntil||0;this.status.invisible=state.invisibleUntil||0;this.status.phase=state.phaseUntil||0;this.status.shield=state.shieldUntil||0;this.status.gravity=state.gravityUntil||0;for(const [id,until] of Object.entries(state.activeUntil||{}))this.status[id]=until;this.cloneJumpUsed=!!state.cloneJumpUsed;if(state.webUntil){this.status.web=state.webUntil;}if(Array.isArray(state.loadout)&&state.loadout.every(id=>POWER_DATA[id])){if(state.loadout.some((id,i)=>this.loadout[i]!==id)){this.loadout=[...state.loadout];this.refreshButtons();this.refreshSelects();}}this.copyBuff=state.copiedUntil>now()?{until:state.copiedUntil}:null;this.returnPoint=state.returnUntil>now()?{until:state.returnUntil}:null;}
+ onServerState(state){if(!state)return;for(const id of Object.keys(POWER_DATA)){if(state.cooldowns?.[id])this.cooldowns[id]=state.cooldowns[id];}this.status.freeze=state.frozenUntil||0;this.status.flight=state.flightUntil||0;this.status.invisible=state.invisibleUntil||0;this.status.phase=state.phaseUntil||0;this.status.shield=state.shieldUntil||0;this.status.gravity=state.gravityUntil||0;this.status.resurrection=state.resurrectionUntil||0;this.status.morph=state.propUntil||0;for(const [id,until] of Object.entries(state.activeUntil||{}))this.status[id]=until;this.cloneJumpUsed=!!state.cloneJumpUsed;if(state.webUntil){this.status.web=state.webUntil;}if(Array.isArray(state.loadout)&&state.loadout.every(id=>POWER_DATA[id])){if(state.loadout.some((id,i)=>this.loadout[i]!==id)){this.loadout=[...state.loadout];this.refreshButtons();this.refreshSelects();}}this.copyBuff=state.copiedUntil>now()?{until:state.copiedUntil}:null;this.returnPoint=state.returnUntil>now()?{until:state.returnUntil}:null;}
  onServerClones(msg){
   if(msg.player!==this.game.multiplayer?.id)return;
   const incoming=(msg.clones||[]).filter(c=>c.power==='clonejump');
@@ -335,15 +365,16 @@ export class PowerSystem {
   if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='rewind'||msg.kind==='swap'||msg.kind==='clonejump'){if(msg.kind==='clonejump')this.cloneJumpUsed=true;pk.spawn(msg.x,msg.y,msg.z);this.flash(0xbda7ff,5);}
   if(msg.kind==='blackhole-pull'){if(Number.isFinite(msg.x)&&Number.isFinite(msg.z)){pk.x=msg.x;pk.z=msg.z;pk.vx*=.16;pk.vz*=.16;}return;}
   if(msg.kind==='push'){if(Number.isFinite(msg.x))pk.spawn(msg.x,msg.y,msg.z);pk.dashTime=.30;pk.dashVX=msg.dx*24;pk.dashVZ=msg.dz*24;pk.vy=Math.max(pk.vy,5);pk.grounded=false;this.flash(0x80caff,5);}
-  if(msg.kind==='copy-mark'){g.toast('ALVO MARCADO · ELIMINE EM 14S PARA COPIAR');return;}
-  if(msg.kind==='freeze'){this.status.freeze=now()+1000;g.mouseDown=false;this.flash(0x8eeaff,3);}
-  if(msg.kind==='gravity'&&Array.isArray(msg.affected)&&msg.affected.includes(g.multiplayer.id)){this.status.gravity=now()+2000;this.flash(0xd4b2ff,8);}
+  if(msg.kind==='copy-mark'){g.toast('ALVO MARCADO · ELIMINE EM 18S PARA COPIAR');return;}
+  if(msg.kind==='freeze'){this.status.freeze=now()+1500;g.mouseDown=false;this.flash(0x8eeaff,3);}
+  if(msg.kind==='gravity'&&Array.isArray(msg.affected)&&msg.affected.includes(g.multiplayer.id)){this.status.gravity=now()+2700;this.flash(0xd4b2ff,8);}
   if(msg.kind==='phase-exit'&&Number.isFinite(msg.x))pk.spawn(msg.x,msg.y,msg.z);
  }
  update(dt){const g=this.game,pk=g.parkour,t=now();
   // O mapa interativo controla a escolha do destino sem travar a mira.
   if(!this.targeting&&this.teleportMarker)this.cleanupMarker();
   if(this.returnPoint&&this.returnPoint.until<t)this.returnPoint=null;
+  document.body.classList.toggle('titan-morphed',this.status.morph>t);document.body.classList.toggle('titan-resurrected',this.status.resurrection>t);
   if(this.cloneTargets.length&&!this.cloneTargets.some(c=>c.until>t))this.cloneTargets=[];
   if(this.copyMark?.until<t)this.copyMark=null;
   if(this.copyBuff?.until<t){if(this.copyBuff.original){this.loadout=[...this.copyBuff.original];this.refreshButtons();this.refreshSelects();g.toast('CÓPIA ENCERRADA · PODERES ORIGINAIS');}this.copyBuff=null;}
@@ -351,7 +382,7 @@ export class PowerSystem {
   if(g.mode!=='multiplayer'&&g.state==='playing'){
     this.history.push({t,x:pk.x,y:pk.y,z:pk.z,hp:g.player.health,shield:g.player.shield});
     while(this.history.length&&this.history[0].t<t-11500)this.history.shift();
-    for(let i=this.localHazards.length-1;i>=0;i--){const h=this.localHazards[i];if(h.until<t){this.localHazards.splice(i,1);continue;}for(const e of g.enemies.enemies){const distance=Math.hypot(e.x-h.x,e.z-h.z);if(distance<.65||distance>h.radius)continue;let mx=e.x,mz=e.z;const pull=Math.min(2.2,Math.max(.8,(h.radius-distance)*.18))*Math.min(.5,dt/.1),steps=Math.ceil(pull/.30);for(let step=0;step<steps;step++){const d=Math.hypot(h.x-mx,h.z-mz);if(d<=.65)break;const speed=Math.min(.30,pull/steps,d-.65),nx=mx+(h.x-mx)/d*speed,nz=mz+(h.z-mz)/d*speed;if(!g.world.canMove(nx,nz,e.radius)||!g.urban.canOccupy(nx,nz,0,2,e.radius))break;mx=nx;mz=nz;}e.x=mx;e.z=mz;}}
+    for(let i=this.localHazards.length-1;i>=0;i--){const h=this.localHazards[i];if(h.until<t){this.localHazards.splice(i,1);continue;}for(const e of g.enemies.enemies){const distance=Math.hypot(e.x-h.x,e.z-h.z);if(distance<.65||distance>h.radius)continue;let mx=e.x,mz=e.z;const pull=Math.min(2.9,Math.max(1,(h.radius-distance)*.2))*Math.min(.5,dt/.1),steps=Math.ceil(pull/.30);for(let step=0;step<steps;step++){const d=Math.hypot(h.x-mx,h.z-mz);if(d<=.65)break;const speed=Math.min(.30,pull/steps,d-.65),nx=mx+(h.x-mx)/d*speed,nz=mz+(h.z-mz)/d*speed;if(!g.world.canMove(nx,nz,e.radius)||!g.urban.canOccupy(nx,nz,0,2,e.radius))break;mx=nx;mz=nz;}e.x=mx;e.z=mz;}}
   }
   for(let i=this.decoys.length-1;i>=0;i--){const d=this.decoys[i];if(d.moving&&d.until>t){this.moveLocalClone(d,dt);d.mesh.position.set(d.x,d.y+1.05,d.z);}if(d.until<t){g.world.scene.remove(d.mesh);d.mesh.geometry.dispose();d.mesh.material.dispose();this.decoys.splice(i,1);}else{d.mesh.rotation.y+=dt*.4;}}
   $('titan-power-picker').classList.toggle('hidden',g.state==='menu');
@@ -362,9 +393,9 @@ export class PowerSystem {
   for(let i=this.effects.length-1;i>=0;i--){const e=this.effects[i];e.ttl-=dt;const f=1-e.ttl/.45;e.mesh.scale.setScalar(1+(e.radius-1)*f);e.mesh.material.opacity=Math.max(0,.7*(1-f));if(e.ttl<=0){g.world.scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();this.effects.splice(i,1);}}
   $('power-descend').classList.toggle('visible',this.isActive('flight')&&!!g.mobile?.enabled);
   this.uiTick-=dt;if(this.uiTick<0){for(let i=0;i<2;i++){const id=this.loadout[i],btn=$('power-'+(i?'b':'a'));const until=this.cooldowns[id]||0;const left=Math.ceil((until-t)/1000);const active=this.isActive(id);const back=id==='teleport'&&this.returnPoint?.until>t;const jump=id==='clonejump'&&this.cloneAvailable();const liveMs=Math.max(0,(this.status[id]||0)-t);
-    const label=btn.querySelector('.power-time');label.textContent=back?'↶ '+Math.ceil((this.returnPoint.until-t)/1000)+'s':jump?'TROCAR '+Math.ceil((Math.max(...this.cloneTargets.map(c=>c.until))-t)/1000)+'s':active?('ATIVO '+(liveMs/1000).toFixed(1)+'s'):left>0?left+'s':'PRONTO';
+    const label=btn.querySelector('.power-time');label.textContent=id==='resurrection'&&!active&&left<=0?'AUTO':back?'↶ '+Math.ceil((this.returnPoint.until-t)/1000)+'s':jump?'TROCAR '+Math.ceil((Math.max(...this.cloneTargets.map(c=>c.until))-t)/1000)+'s':active?('ATIVO '+(liveMs/1000).toFixed(1)+'s'):left>0?left+'s':'PRONTO';
     btn.classList.toggle('cooling',left>0&&!back&&!jump&&!active);btn.classList.toggle('active',active||back||jump);
-    btn.style.setProperty('--power-progress',active?Math.max(0,Math.min(100,liveMs/((id==='clonejump'?12000:id==='web'?10000:id==='copy'?14000:id==='flight'||id==='shield'?5000:id==='phase'?6000:id==='clones'?8000:id==='blackhole'?4800:3000))*100))+'%':left>0?Math.max(0,100-(until-t)/(POWER_DATA[id].cool*10))+'%':'100%');}this.uiTick=.2;}
+    btn.style.setProperty('--power-progress',active?Math.max(0,Math.min(100,liveMs/(POWER_DATA[id].duration||((id==='copy')?18000:3000))*100))+'%':left>0?Math.max(0,100-(until-t)/(POWER_DATA[id].cool*10))+'%':'100%');}this.uiTick=.2;}
  }
- resetOnDeath(){this.cancelTargeting();this.returnPoint=null;this.status={};this.copyMark=null;this.copyBuff=null;this.game.parkour.web=null;this.clearWebLine();}
+ resetOnDeath(){this.cancelTargeting();this.returnPoint=null;this.status={};this.copyMark=null;this.copyBuff=null;this.game.parkour.web=null;this.clearWebLine();document.body.classList.remove('titan-morphed','titan-resurrected');}
 }

@@ -4,7 +4,7 @@ import {once} from 'node:events';
 import {POWER_RULES,sanitizeLoadout,locationValid,freshPowerState,canCast} from '../powers.mjs';
 
 test('six playable abilities and two-slot loadouts are bounded',()=>{
- assert.deepEqual(Object.keys(POWER_RULES),['push','freeze','teleport','flight','invisible','phase','blackhole','rewind','chain','gravity','clones','clonejump','shield','swap','web','copy']);
+ assert.deepEqual(Object.keys(POWER_RULES),['push','freeze','teleport','flight','invisible','phase','blackhole','rewind','chain','gravity','clones','clonejump','shield','swap','web','copy','resurrection','heal','morph']);
  assert.deepEqual(sanitizeLoadout(['teleport','phase']),['teleport','phase']);
  assert.deepEqual(sanitizeLoadout(['flight','flight']),['flight','push']);
  const p={alive:true,powers:freshPowerState()};assert.equal(canCast(p,'push'),null);

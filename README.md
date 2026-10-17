@@ -1,6 +1,6 @@
-# TITAN PROTOCOL 2.3 — CHRONOCLONE
+# TITAN PROTOCOL 2.4 — POWER WHEEL
 
-Jogo FPS 3D para **PC e celular**, com parkour urbano, campanha/sobrevivência, multiplayer em salas, minimapa e **16 habilidades** equipáveis (duas por vez). Implementado em HTML/CSS/JavaScript com Three.js e um servidor HTTP + WebSocket Node.js, sem dependências npm adicionais.
+Jogo FPS 3D para **PC e celular**, com parkour urbano, campanha/sobrevivência, multiplayer em salas, minimapa e **19 habilidades** equipáveis (duas por vez). Implementado em HTML/CSS/JavaScript com Three.js e um servidor HTTP + WebSocket Node.js, sem dependências npm adicionais.
 
 ## Habilidades novas e modificadas
 
@@ -37,3 +37,17 @@ Requer **Node.js 22 ou superior**. Execute `npm start` e abra `http://localhost:
 Para usar **GitHub + Render**, o conteúdo do ZIP deve ficar na raiz do repositório: `public/`, `server/`, `render.yaml` e `package.json`. O servidor HTTP entrega o jogo e o WebSocket de `/ws` no mesmo serviço Render. Não precisa Redis. O plano gratuito pode dormir ou reiniciar; salas ficam em memória e não sobrevivem a um reinício do servidor.
 
 **Validação:** testes Node e WebSocket, análise estática de módulos e endpoints. A execução WebGL completa e o conforto do toque/física devem ser verificados em aparelhos reais antes de considerar o balanceamento final concluído.
+
+## Novidades 2.4 — roda de poderes e três habilidades
+
+- **Roda radial de habilidades:** abra com **TAB (PC)** e aponte/solte para escolher o poder no slot ativo; no celular, toque em **✦ PODERES**, toque ou arraste até o poder. Há oito habilidades por página, com botões anterior/próxima. A roda troca a configuração imediatamente durante a partida, inclusive online.
+- **Ressurreição automática:** equipe **RESSURREIÇÃO** em qualquer slot. Ao receber dano fatal, renasce no mesmo ponto com vida/escudo completos e ganha **4 segundos de invulnerabilidade**. Recarga **10 segundos**. Não funciona se não estiver equipada.
+- **Cura:** restaura até **70 HP e 25 de escudo**, sem exceder o máximo. Recarga 7 s.
+- **Virar Objeto:** aproxime-se de um **objeto compatível da cidade** (tambor, caminhão ou empilhadeira) (até 6 metros) e use o poder. Seu personagem assume o formato do objeto próximo aos outros jogadores por até 10 s. Atirar revela sua identidade; usar de novo encerra o disfarce. Recarga 8 s. O servidor confirma a existência de um tambor próximo. Outros tipos de objetos poderão ser incluídos depois.
+- **Rework:** aumento de alcance, duração e potência das habilidades anteriores. Todas continuam com recarga máxima de 10 s; detalhes em `server/powers.mjs` e `public/src/powers.js`.
+- Os dois slots continuam disponíveis durante campanha, sobrevivência e multiplayer, e os botões móveis permanecem separados de ATIRAR/PULAR.
+
+### Notas técnicas
+- No multiplayer, cura, imortalidade e disfarce têm validação no servidor e replicação para todos os clientes.
+- O modo casual usa os barris reais do cenário para a transformação; o modo online reconhece posições pré-definidas dos objetos disponíveis da cidade.
+- O seletor pausa o controle local enquanto está aberto. No multiplayer, o restante da sala continua em tempo real.

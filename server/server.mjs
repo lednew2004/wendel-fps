@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,isGroundedDestination,within} from './powers.mjs';
+import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,isGroundedDestination,within,nearbyMorphObject,canAutoResurrect} from './powers.mjs';
 
 const root=path.resolve(fileURLToPath(new URL('../public/',import.meta.url)));
 const port=Number(process.env.PORT||3000);
@@ -41,7 +41,7 @@ const cleanName=n=>String(n||'Operador').replace(/[^\p{L}\p{N} _-]/gu,'').trim()
 const cleanRoom=n=>String(n||'').replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6);
 function createRoom(preferredCode=''){let code=preferredCode;if(!code){do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));}const room={code,players:new Map(),born:Date.now(),hazards:[],clones:[]};rooms.set(code,room);return room;}
 function spawn(i){const [x,z]=SPAWNS[i%SPAWNS.length];return {x,y:0,z};}
-function publicPlayer(p){const powers=powerSnapshot(p);return {id:p.id,name:p.name,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,weapon:p.weapon,hp:p.hp,shield:p.shield,kills:p.kills,deaths:p.deaths,alive:p.alive,shielded:powers.shielded,invisible:powers.invisible,phased:powers.phased,flying:powers.flying,frozen:powers.frozen};}
+function publicPlayer(p){const powers=powerSnapshot(p);return {id:p.id,name:p.name,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,weapon:p.weapon,hp:p.hp,shield:p.shield,kills:p.kills,deaths:p.deaths,alive:p.alive,shielded:powers.shielded,invisible:powers.invisible,phased:powers.phased,flying:powers.flying,frozen:powers.frozen,prop:powers.propType,immortal:powers.invulnerable};}
 const livePlayers=room=>[...room.players.values()].filter(p=>p.socket);
 const cleanSession=s=>typeof s==='string'&&/^[a-zA-Z0-9-]{20,100}$/.test(s)?s:null;
 function join(ws,data){
@@ -135,7 +135,7 @@ function fire(p,data){
   if(!p.alive)return;
   const now=Date.now();
   if(p.powers.frozenUntil>now||p.powers.gravityUntil>now||p.powers.phaseUntil>now)return;
-  if(p.powers.invisibleUntil>now){p.powers.invisibleUntil=0;broadcast(p.room,{type:'power-status',player:p.id,powers:powerSnapshot(p)});}
+  if(p.powers.invisibleUntil>now||p.powers.propUntil>now){p.powers.invisibleUntil=0;p.powers.propUntil=0;p.powers.propType=null;broadcast(p.room,{type:'power-status',player:p.id,powers:powerSnapshot(p)});}
   const w=WEAPONS[p.weapon];
   if(now-p.lastFire<Math.max(45,w.interval*1000*.85))return;
   p.lastFire=now;
@@ -168,8 +168,10 @@ function fire(p,data){
   let damage=w.damage;
   // Shotgun is strong at close range and weaker at distance.
   if(p.weapon===1)damage=Math.max(12,Math.round(damage*(1-nearest/45)));
+  if(victim.powers.resurrectionUntil>now)return;
   if(victim.powers.shieldUntil>now){send(p.socket,{type:'power-vfx',kind:'shield-hit',player:victim.id,x:victim.x,y:victim.y,z:victim.z});return;}
   const absorbed=Math.min(victim.shield,damage);victim.shield-=absorbed;victim.hp=Math.max(0,victim.hp-(damage-absorbed));
+  if(victim.hp<=0&&autoResurrect(victim,now)){send(p.socket,{type:'hit',victim:victim.id,hp:victim.hp,shield:victim.shield});return;}
   send(p.socket,{type:'hit',victim:victim.id,hp:victim.hp,shield:victim.shield});
   broadcast(p.room,{type:'health',id:victim.id,hp:victim.hp,shield:victim.shield});
   if(victim.hp>0){send(victim.socket,{type:'damaged',hp:victim.hp,shield:victim.shield,attacker:p.name});return;}
@@ -179,10 +181,20 @@ function fire(p,data){
   setTimeout(()=>{
     if(victim.room.players.get(victim.id)!==victim||victim.alive)return;
     const s=spawn(victim.deaths%SPAWNS.length);Object.assign(victim,s,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
-    victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];victim.powers.webUntil=0;victim.powers.copyMark=null;victim.powers.copiedUntil=0;if(victim.powers.originalLoadout){victim.powers.loadout=sanitizeLoadout(victim.powers.originalLoadout);victim.powers.originalLoadout=null;}
+    victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];victim.powers.webUntil=0;victim.powers.copyMark=null;victim.powers.copiedUntil=0;victim.powers.propUntil=0;victim.powers.propType=null;victim.powers.resurrectionUntil=0;if(victim.powers.originalLoadout){victim.powers.loadout=sanitizeLoadout(victim.powers.originalLoadout);victim.powers.originalLoadout=null;}
     send(victim.socket,{type:'respawn',spawn:s,hp:100,shield:40,powers:powerSnapshot(victim)});
     broadcast(p.room,{type:'revived',player:publicPlayer(victim)},victim.socket);
   },2200);
+}
+function autoResurrect(p,now=Date.now()){
+ if(!canAutoResurrect(p,now))return false;
+ const state=p.powers;state.cooldowns.resurrection=now+POWER_RULES.resurrection.cooldown;
+ state.resurrectionUntil=now+POWER_RULES.resurrection.duration;state.activeUntil.resurrection=state.resurrectionUntil;
+ p.hp=100;p.shield=40;p.alive=true;p.spawnUntil=state.resurrectionUntil;
+ state.propUntil=0;state.propType=null;
+ broadcast(p.room,{type:'health',id:p.id,hp:p.hp,shield:p.shield});
+ broadcast(p.room,{type:'power-vfx',kind:'resurrection',player:p.id,x:p.x,y:p.y,z:p.z,until:state.resurrectionUntil});
+ notifyPower(p,'resurrection');return true;
 }
 function projectedVictim(p,range,angle=.55){
   const now=Date.now();const cp=Math.cos(p.pitch),dir=[-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp];
@@ -198,8 +210,9 @@ function projectedVictim(p,range,angle=.55){
 }
 function notifyPower(p,id){send(p.socket,{type:'power-state',powers:powerSnapshot(p)});broadcast(p.room,{type:'power-status',player:p.id,powers:powerSnapshot(p)},p.socket);}
 function applyAbilityDamage(attacker,victim,damage,now=Date.now()){
- if(!victim.alive||victim.powers.phaseUntil>now||victim.powers.shieldUntil>now)return false;
+ if(!victim.alive||victim.powers.phaseUntil>now||victim.powers.shieldUntil>now||victim.powers.resurrectionUntil>now)return false;
  const absorbed=Math.min(victim.shield,damage);victim.shield-=absorbed;victim.hp=Math.max(0,victim.hp-damage+absorbed);
+ if(victim.hp===0&&autoResurrect(victim,now))return true;
  broadcast(attacker.room,{type:'health',id:victim.id,hp:victim.hp,shield:victim.shield});
  send(victim.socket,{type:'damaged',hp:victim.hp,shield:victim.shield,attacker:attacker.name});
  if(victim.hp===0){
@@ -255,6 +268,7 @@ function castPower(p,data){
   const id=data.id,now=Date.now(),state=p.powers,rule=POWER_RULES[id];
   if(!rule){send(p.socket,{type:'power-error',message:'Habilidade desconhecida.'});return;}
   // Reativação autorizada: escolha apenas clones seus, existentes e ainda ativos.
+  if(id==='morph'&&data.cancel===true){if(state.propUntil>now){state.propUntil=0;state.propType=null;notifyPower(p,id);}return;}
   if(id==='clonejump'&&data.jump===true){
     const clone=p.room.clones.find(c=>c.owner===p.id&&c.power==='clonejump'&&c.until>now);
     if(!p.alive||state.frozenUntil>now||state.gravityUntil>now||state.phaseUntil>now||!state.loadout.includes(id)||state.cloneJumpUsed||!clone){send(p.socket,{type:'power-error',message:'Clone móvel indisponível.'});return;}
@@ -292,16 +306,24 @@ function castPower(p,data){
   }
   if(id==='swap'&&(!isGroundedDestination(p.x,p.y,p.z,colliders)||!isGroundedDestination(target.x,target.y,target.z,colliders))){send(p.socket,{type:'power-error',message:'Troca indisponível nestas posições.'});return;}
   if(id==='web'&&!isWallAnchor(p,data.anchor)){send(p.socket,{type:'power-error',message:'A teia precisa atingir uma parede ao alcance.'});return;}
+  if(id==='morph'&&!nearbyMorphObject(p.x,p.z,rule.range)){send(p.socket,{type:'power-error',message:'Aproxime-se de um tambor, caminhão ou empilhadeira.'});return;}
   if(id==='rewind'&&(!state.history.length||state.history[0].t>now-rule.history+600)){send(p.socket,{type:'power-error',message:'Aguarde 10 segundos para acumular o histórico.'});return;}
   state.cooldowns[id]=now+rule.cooldown;
   if(rule.duration)state.activeUntil[id]=now+rule.duration;
-  if(id==='push'){
+  if(id==='heal'){
+    p.hp=Math.min(100,p.hp+rule.health);p.shield=Math.min(40,p.shield+rule.shield);
+    broadcast(p.room,{type:'health',id:p.id,hp:p.hp,shield:p.shield});
+    broadcast(p.room,{type:'power-vfx',kind:'heal',player:p.id,x:p.x,y:p.y,z:p.z});
+  }else if(id==='morph'){
+    const object=nearbyMorphObject(p.x,p.z,rule.range);state.propType=object.type;state.propUntil=now+rule.duration;
+    broadcast(p.room,{type:'power-vfx',kind:'morph',player:p.id,x:p.x,y:p.y,z:p.z});
+  }else if(id==='push'){
     for(const v of p.room.players.values()){
       if(v.id===p.id||!v.alive||v.powers.phaseUntil>now||!within(v.x,v.z,p,rule.range))continue;
       const dist=Math.hypot(v.x-p.x,v.z-p.z)||1,dx=(v.x-p.x)/dist,dz=(v.z-p.z)/dist;
       let pos={x:v.x,y:v.y,z:v.z};
       // Move only along collision-free samples: no wall clipping.
-      for(let step=.65;step<=6.5;step+=.65){const x=v.x+dx*step,z=v.z+dz*step;if(!locationValid(x,v.y,z,colliders))break;pos={x,y:v.y,z};}
+      for(let step=.65;step<=9;step+=.65){const x=v.x+dx*step,z=v.z+dz*step;if(!locationValid(x,v.y,z,colliders))break;pos={x,y:v.y,z};}
       Object.assign(v,pos,{lastMove:now});
       broadcast(p.room,{type:'power-effect',kind:'push',player:v.id,dx,dz,x:v.x,y:v.y,z:v.z});
     }
@@ -339,7 +361,7 @@ function castPower(p,data){
       for(const q of p.room.players.values()){const d=Math.hypot(q.x-prev.x,q.z-prev.z);if(!dealt.has(q.id)&&q.alive&&q.powers.phaseUntil<now&&d<rule.chainRadius&&d<dist){next=q;dist=d;}}
       if(!next)break;victims.push(next);dealt.add(next.id);
     }
-    victims.forEach((v,i)=>applyAbilityDamage(p,v,[65,48,32][i],now));
+    victims.forEach((v,i)=>applyAbilityDamage(p,v,[85,64,46][i],now));
     broadcast(p.room,{type:'power-vfx',kind:'chain',player:p.id,targets:victims.map(v=>({x:v.x,y:v.y,z:v.z,id:v.id}))});
   }else if(id==='gravity'){
     const affected=[];
@@ -434,7 +456,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.3.0'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.4.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';
