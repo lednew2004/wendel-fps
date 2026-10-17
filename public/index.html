@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="screen-orientation" content="landscape">
   <meta name="theme-color" content="#070b10">
-  <meta name="description" content="TITAN PROTOCOL 2.4 — FPS multiplayer para PC e celular, mira por toque, parkour e convites de sala">
-  <title>TITAN PROTOCOL 2.4 · Multiplayer para celular</title>
+  <meta name="description" content="TITAN PROTOCOL 2.4.1 — FPS multiplayer para PC e celular, mira por toque, parkour e convites de sala">
+  <title>TITAN PROTOCOL 2.4.1 · Multiplayer para celular</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -76,7 +76,7 @@
   <section id="titan-abilities-dialog" class="hidden" role="dialog" aria-modal="true" aria-label="Seleção de habilidades">
     <div class="titan-overlay-inner">
       <div class="titan-map-content"><h2>↝ TELEPORTE · MAPA DA CIDADE</h2><p>Toque ou clique no destino. Verde: local seguro. Você terá 15 segundos para VOLTAR.</p><canvas id="titan-teleport-map" width="560" height="560" aria-label="Mapa para escolher a posição do teleporte"></canvas><span id="titan-map-feedback" role="status">TOQUE NO MAPA</span><div class="titan-map-buttons"><button type="button" id="titan-power-pick" disabled>TELEPORTAR</button><button type="button" id="titan-power-cancel">CANCELAR</button></div></div>
-      <div class="titan-wheel-content"><h2>✦ EQUIPAR SUPERPODERES</h2><p>Roda radial: arraste ou aponte para um poder e solte TAB ou toque para equipar. Use as setas para trocar a página. Funciona no casual e online.</p><div class="titan-wheel-slots"><button type="button" data-power-target-slot="0">PODER 1 · Z</button><button type="button" data-power-target-slot="1">PODER 2 · V</button></div><div class="titan-wheel-stage"><div id="titan-abilities-wheel"></div><div id="titan-wheel-center" aria-live="polite">ESCOLHA O PODER</div></div><div class="titan-wheel-navigation"><button type="button" id="titan-wheel-prev">◀ ANTERIORES</button><span id="titan-wheel-page">1 / 3</span><button type="button" id="titan-wheel-next">PRÓXIMAS ▶</button></div><button type="button" id="titan-wheel-close">VOLTAR AO JOGO</button></div>
+      <div class="titan-wheel-content"><h2>✦ EQUIPAR SUPERPODERES</h2><p>Roda radial: pressione TAB uma vez para abrir e outra vez para fechar. Clique no poder para equipar. No celular, toque ou arraste para escolher. Use as setas para mudar de página. Funciona no casual e online.</p><div class="titan-wheel-slots"><button type="button" data-power-target-slot="0">PODER 1 · Z</button><button type="button" data-power-target-slot="1">PODER 2 · V</button></div><div class="titan-wheel-stage"><div id="titan-abilities-wheel"></div><div id="titan-wheel-center" aria-live="polite">ESCOLHA O PODER</div></div><div class="titan-wheel-navigation"><button type="button" id="titan-wheel-prev">◀ ANTERIORES</button><span id="titan-wheel-page">1 / 3</span><button type="button" id="titan-wheel-next">PRÓXIMAS ▶</button></div><button type="button" id="titan-wheel-close">VOLTAR AO JOGO</button></div>
     </div>
   </section>
   <div id="power-hud" class="hidden" aria-label="Habilidades equipadas"><button type="button" id="power-a" class="power-slot"><span class="power-key">Z · 1</span><span class="power-symbol">◉</span><span class="power-name">REPULSÃO</span><span class="power-time">PRONTO</span></button><button type="button" id="power-b" class="power-slot"><span class="power-key">V · 2</span><span class="power-symbol">❄</span><span class="power-name">CONGELAR</span><span class="power-time">PRONTO</span></button><button type="button" id="power-descend" aria-label="Descer voando">↓ DESCER</button></div>

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {isTypingIntoField} from './keyboard.js';
+import {isTypingIntoField,handlePowerWheelTab} from './keyboard.js';
 import {World} from './world.js';
 import {EnemySystem} from './enemies.js';
 import {Weapons} from './weapons.js';
@@ -68,7 +68,7 @@ export class Game {
     el('enable-ao').addEventListener('change',e=>this.world.setAO(e.target.checked));
     el('enable-reflections').addEventListener('change',e=>this.world.setReflections(e.target.checked));
     el('enable-bloom').addEventListener('change',e=>this.world.setBloom(e.target.checked));
-    window.addEventListener('keydown',e=>{if(isTypingIntoField(e.target)||isTypingIntoField(document.activeElement))return;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace'].includes(e.code))e.preventDefault();this.keys[e.code]=true;if(e.repeat)return;if(e.code==='Escape'&&this.powers?.menu?.mode){this.powers.menu.close();return;}if(e.code==='Escape'){if(this.state==='playing')this.pause();else if(this.state==='paused')this.resume();return;}if(this.state!=='playing')return;
+    window.addEventListener('keydown',e=>{if(isTypingIntoField(e.target)||isTypingIntoField(document.activeElement))return;if(handlePowerWheelTab(e,this.state,this.powers?.menu?.mode,document.activeElement,()=>this.powers.menu.openWheel()))return;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace'].includes(e.code))e.preventDefault();this.keys[e.code]=true;if(e.repeat)return;if(e.code==='Escape'&&this.powers?.menu?.mode){this.powers.menu.close();return;}if(e.code==='Escape'){if(this.state==='playing')this.pause();else if(this.state==='paused')this.resume();return;}if(this.state!=='playing')return;
       if(e.code==='Space')this.parkour.jump();
       if(e.code==='KeyE')this.parkour.interact();
       if(e.code==='KeyT'){const active=this.parkour.toggleTrial();document.body.classList.toggle('trial-active',active);this.toast(active?'PERCURSO OPCIONAL ATIVADO':'PERCURSO DESATIVADO');}
@@ -81,12 +81,11 @@ export class Game {
       if(e.code==='KeyQ')this.pulse();
       if(e.code==='KeyG')this.grenade();
       if(e.code==='KeyX')this.dash();
-      if(e.code==='Tab'){e.preventDefault();this.powers.menu.openWheel(true);return;}
       if(e.code==='KeyZ')this.powers.useSlot(0);
       if(e.code==='KeyV')this.powers.useSlot(1);
       if(e.code==='Backspace')this.parkour.resetCheckpoint();
-    });
-    window.addEventListener('keyup',e=>{this.keys[e.code]=false;if(e.code==='Tab'&&this.powers.menu.mode==='wheel')this.powers.menu.releaseWheel();});window.addEventListener('blur',()=>{if(this.state==='playing')this.pause();});
+    },true);
+    window.addEventListener('keyup',e=>{if(handlePowerWheelTab(e,this.state,this.powers?.menu?.mode,document.activeElement)){this.keys.Tab=false;return;}this.keys[e.code]=false;},true);window.addEventListener('blur',()=>{if(this.state==='playing')this.pause();});
     document.addEventListener('mousemove',e=>{if(this.state!=='playing'||document.pointerLockElement!==this.world.renderer.domElement)return;if(this.look.move(e.movementX,this.invertY?-e.movementY:e.movementY,this.sensitivity)){this.positionCamera();}});
     const canvas=this.world.renderer.domElement;canvas.addEventListener('mousedown',e=>{if(this.mobile?.enabled)return;if(this.state!=='playing')return;if(document.pointerLockElement!==canvas){this.requestLock();return;}if(e.button===0){if(this.powers?.targeting){this.powers.confirmTeleport();return;}this.mouseDown=true;}if(e.button===2)this.rightDown=true;});document.addEventListener('mouseup',e=>{if(e.button===0)this.mouseDown=false;if(e.button===2)this.rightDown=false;});document.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{if(this.state==='playing'){e.preventDefault();this.weapons.switchTo((this.weapons.index+(e.deltaY>0?1:this.weapons.state.length-1))%this.weapons.state.length);}}, {passive:false});
     document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement===canvas){this.look.onLock(performance.now());this.positionCamera();}else if(this.state==='playing'&&!this.mobile?.enabled){this.pause();}});

@@ -1,4 +1,4 @@
-# TITAN PROTOCOL 2.4 — POWER WHEEL
+# TITAN PROTOCOL 2.4.1 — POWER WHEEL (TAB CORRIGIDO)
 
 Jogo FPS 3D para **PC e celular**, com parkour urbano, campanha/sobrevivência, multiplayer em salas, minimapa e **19 habilidades** equipáveis (duas por vez). Implementado em HTML/CSS/JavaScript com Three.js e um servidor HTTP + WebSocket Node.js, sem dependências npm adicionais.
 
@@ -18,7 +18,7 @@ Repulsão (10 s); Congelamento de 1 s (10 s); Teleporte pelo mapa completo, com 
 
 ## Controles
 
-- **PC:** `Z` ativa Poder 1; `V`, Poder 2; `Tab` abre o seletor de habilidades. Na Teia, mire numa parede e pressione o poder; pressione **ESPAÇO** para soltar a corda e ganhar impulso. No Clone Móvel, pressione o poder novamente para trocar de lugar.
+- **PC:** `Z` ativa Poder 1; `V`, Poder 2; `Tab` abre e fecha o seletor de habilidades com um toque, sem segurar. Na Teia, mire numa parede e pressione o poder; pressione **ESPAÇO** para soltar a corda e ganhar impulso. No Clone Móvel, pressione o poder novamente para trocar de lugar.
 - **Celular:** dois botões exclusivos de habilidade, posicionados fora da área de mira; habilidades direcionadas usam **segurar → arrastar para mirar → soltar para executar**, com arrasto para cima para cancelar. Para Teia, aponte para a parede e solte; para Clone Móvel, toque novamente para trocar de lugar. **PULAR** solta a teia.
 - **Teleporte:** usa o mapa de toda a cidade, clicando ou tocando no destino válido; reative em até 12 s para voltar à origem.
 - Enquanto uma habilidade está ativa, seu botão mostra os segundos restantes; quando recarrega, mostra o tempo para ficar pronta. Os controles de tamanho/posição dos dois poderes são configuráveis nos menus.
@@ -40,7 +40,7 @@ Para usar **GitHub + Render**, o conteúdo do ZIP deve ficar na raiz do reposit�
 
 ## Novidades 2.4 — roda de poderes e três habilidades
 
-- **Roda radial de habilidades:** abra com **TAB (PC)** e aponte/solte para escolher o poder no slot ativo; no celular, toque em **✦ PODERES**, toque ou arraste até o poder. Há oito habilidades por página, com botões anterior/próxima. A roda troca a configuração imediatamente durante a partida, inclusive online.
+- **Roda radial de habilidades:** pressione **TAB uma vez para abrir e uma segunda vez para fechar (PC)**; clique na habilidade para equipá-la no espaço selecionado; no celular, toque em **✦ PODERES**, toque ou arraste até o poder. Há oito habilidades por página, com botões anterior/próxima. A roda troca a configuração imediatamente durante a partida, inclusive online.
 - **Ressurreição automática:** equipe **RESSURREIÇÃO** em qualquer slot. Ao receber dano fatal, renasce no mesmo ponto com vida/escudo completos e ganha **4 segundos de invulnerabilidade**. Recarga **10 segundos**. Não funciona se não estiver equipada.
 - **Cura:** restaura até **70 HP e 25 de escudo**, sem exceder o máximo. Recarga 7 s.
 - **Virar Objeto:** aproxime-se de um **objeto compatível da cidade** (tambor, caminhão ou empilhadeira) (até 6 metros) e use o poder. Seu personagem assume o formato do objeto próximo aos outros jogadores por até 10 s. Atirar revela sua identidade; usar de novo encerra o disfarce. Recarga 8 s. O servidor confirma a existência de um tambor próximo. Outros tipos de objetos poderão ser incluídos depois.
@@ -51,3 +51,10 @@ Para usar **GitHub + Render**, o conteúdo do ZIP deve ficar na raiz do reposit�
 - No multiplayer, cura, imortalidade e disfarce têm validação no servidor e replicação para todos os clientes.
 - O modo casual usa os barris reais do cenário para a transformação; o modo online reconhece posições pré-definidas dos objetos disponíveis da cidade.
 - O seletor pausa o controle local enquanto está aberto. No multiplayer, o restante da sala continua em tempo real.
+
+## Correção 2.4.1 — TAB sem conflito com o navegador
+
+- Durante a partida, **um toque em TAB abre** e **outro toque fecha** a roda. Soltar a tecla não equipa poderes nem fecha a roda.
+- O comportamento de foco do navegador é bloqueado **somente durante a partida e enquanto a roda está visível**.
+- Campos de nome/código e formulários mantêm o TAB normal para navegar entre campos; atalhos Ctrl+Tab, Alt+Tab e Meta+Tab não são interceptados.
+- Use o mouse para clicar em um poder, ou os comandos de toque no celular. ESC continua fechando a roda.

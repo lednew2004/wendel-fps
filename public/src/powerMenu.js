@@ -4,13 +4,13 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export class PowerMenu{
  constructor(system,abilities){
   this.system=system;this.game=system.game;this.abilities=abilities;this.mode=null;this.slot=0;this.target=null;
-  this.page=0;this.pageSize=8;this.hoverIndex=-1;this.holdToSelect=false;this.dialog=$('titan-abilities-dialog');this.wheel=$('titan-abilities-wheel');this.map=$('titan-teleport-map');this.ctx=this.map.getContext('2d');
+  this.page=0;this.pageSize=8;this.hoverIndex=-1;this.dialog=$('titan-abilities-dialog');this.wheel=$('titan-abilities-wheel');this.map=$('titan-teleport-map');this.ctx=this.map.getContext('2d');
   this.map.addEventListener('pointerdown',e=>{this.map.setPointerCapture?.(e.pointerId);this.selectPoint(e);});
   this.map.addEventListener('pointermove',e=>{if(e.buttons||e.pointerType==='touch')this.selectPoint(e);});
   $('titan-power-pick').addEventListener('click',()=>this.confirmTeleport());
   $('titan-power-cancel').addEventListener('click',()=>this.close());
   $('titan-wheel-close').addEventListener('click',()=>this.close());
-  $('titan-power-picker').addEventListener('click',()=>this.openWheel(false));
+  $('titan-power-picker').addEventListener('click',()=>this.openWheel());
   $('titan-wheel-prev').addEventListener('click',()=>this.setPage(this.page-1));
   $('titan-wheel-next').addEventListener('click',()=>this.setPage(this.page+1));
   this.wheel.addEventListener('pointermove',e=>{
@@ -32,14 +32,14 @@ export class PowerMenu{
   if(mode==='teleport'){this.target=null;this.updateInfo();this.renderMap();}
   else this.renderWheel();
  }
- openWheel(hold=false){if(!this.mode){this.holdToSelect=hold;this.open('wheel');}else if(this.mode==='wheel'&&!hold)this.close();}
+ openWheel(){if(this.mode==='wheel'){this.close();return;}if(!this.mode)this.open('wheel');}
  setPage(next){const max=Math.ceil(Object.keys(this.abilities).length/this.pageSize);this.page=(next+max)%max;this.renderWheel();}
  setHovered(index){this.hoverIndex=index;for(const b of this.wheel.querySelectorAll('.titan-power-option'))b.classList.toggle('hovered',Number(b.dataset.index)===index);const item=Object.entries(this.abilities)[this.page*this.pageSize+index];$('titan-wheel-center').textContent=item?item[1].label:'ESCOLHA O PODER';}
  releaseWheel(){if(this.mode!=='wheel')return;const entry=Object.entries(this.abilities)[this.page*this.pageSize+this.hoverIndex];if(entry){this.system.equip(this.slot,entry[0]);this.game.toast(entry[1].label+' EQUIPADO EM PODER '+(this.slot+1));}this.close();}
  openTeleport(){this.open('teleport');}
  close(){
   if(!this.mode)return;
-  this.mode=null;this.holdToSelect=false;this.dialog.classList.add('hidden');this.dialog.classList.remove('is-teleport','is-wheel');
+  this.mode=null;this.dialog.classList.add('hidden');this.dialog.classList.remove('is-teleport','is-wheel');
   this.game.setState('playing');this.game.requestLock();
  }
  renderWheel(){
