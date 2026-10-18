@@ -32,17 +32,17 @@ JOINTS=[
  ('upper_leg_R',0,(.19,-.10,0)), ('lower_leg_R',9,(0,-.48,0))]
 
 # Material slots are consistent across the hero roster.
-SLOTS=['fabric','armor','accent','dark','skin','visor','trim']
+SLOTS=['fabric','armor','accent','dark','skin','visor','trim','leather','lamp']
 
 def tint(hexcolor):return [(hexcolor>>16)/255,(hexcolor>>8&255)/255,(hexcolor&255)/255,1]
 
 def colors(accent,role):
     uniforms={'scout':0x4c3b47,'gunner':0x6c6457,'sniper':0x304d59,'hunter':0x354b3b,'tank':0x59515a,'boss':0x524258}
-    return [tint(uniforms[role]),tint(0x303949),tint(accent),tint(0x131c26),tint(0xb58d70),tint(0x65d6e7),tint(0x738394)]
+    return [tint(uniforms[role]),tint(0x303949),tint(accent),tint(0x131c26),tint(0xb58d70),tint(0x65d6e7),tint(0x738394),tint(0x6f5646),tint(0xffeeae)]
 
 class Writer:
  def __init__(self):
-    self.doc={'asset':{'version':'2.0','generator':'Titan Original Character Authoring v3.4'},'scene':0,'scenes':[{'nodes':[]}],
+    self.doc={'asset':{'version':'2.0','generator':'Titan Original Character Authoring v3.5'},'scene':0,'scenes':[{'nodes':[]}],
          'nodes':[],'meshes':[],'materials':[],'skins':[],'animations':[],'bufferViews':[],'accessors':[],'buffers':[{'byteLength':0}]}
     self.data=bytearray()
  def add_buffer(self,payload,target=None):
@@ -97,6 +97,27 @@ def pose(name,t):
         v[1]=rx(-.26*math.sin(math.pi*t));v[3]=rz(.2*math.sin(math.pi*t))
     if name=='cast':
         v[1]=rx(-.16);v[3]=rx(-1.0-1.1*math.sin(math.pi*t));v[5]=rx(-1.0-1.1*math.sin(math.pi*t))
+    if name in ('strafe_left','strafe_right'):
+        side=-1 if name=='strafe_left' else 1
+        v[1]=rz(side*.10)
+        v[7]=rz(side*.16);v[9]=rz(side*.13)
+        v[3]=rx(-.55-math.sin(phase)*.28);v[5]=rx(-.65+math.sin(phase)*.28)
+        v[7]=rx(math.sin(phase)*.35);v[9]=rx(-math.sin(phase)*.35)
+    if name=='crouch':
+        v[1]=rx(.18);v[7]=rx(-.52);v[9]=rx(-.52)
+        v[8]=rx(.85);v[10]=rx(.85)
+    if name=='land':
+        v[1]=rx(.28*math.sin(math.pi*t));v[7]=rx(-.38*math.sin(math.pi*t));v[9]=rx(-.38*math.sin(math.pi*t))
+        v[8]=rx(.55*math.sin(math.pi*t));v[10]=rx(.55*math.sin(math.pi*t))
+    if name=='reload':
+        v[3]=rx(-.9-.15*math.sin(phase));v[5]=rx(-1.15+.42*math.sin(math.pi*t))
+        v[4]=rx(.45*math.sin(math.pi*t));v[6]=rx(-.7*math.sin(math.pi*t))
+    if name=='aim_upper':
+        v[3]=rx(-1.05);v[5]=rx(-1.18);v[4]=rx(-.16);v[6]=rx(-.23)
+    if name=='fire_upper':
+        v[3]=rx(-1.05+.17*math.sin(phase));v[5]=rx(-1.15+.12*math.sin(phase));v[1]=rx(-.045)
+    if name=='cast_upper':
+        v[3]=rx(-1.30-.75*math.sin(math.pi*t));v[5]=rx(-1.25-.75*math.sin(math.pi*t))
     return v
 
 # geometry all world-space rest coordinates, weighted to joint; inverse-bind matrices account for rest transforms.
@@ -111,6 +132,7 @@ def manufacture(hero,role,accent,variant):
     for name,colour in zip(SLOTS,cols):
         mat={'name':name,'pbrMetallicRoughness':{'baseColorFactor':colour,'metallicFactor':.6 if name in ('armor','trim') else .1,'roughnessFactor':.38 if name in ('armor','trim','visor') else .76},'doubleSided':False}
         if name=='visor':mat['emissiveFactor']=[.14,.52,.56]
+        if name=='lamp':mat['emissiveFactor']=[.85,.64,.24]
         if name=='accent':mat['emissiveFactor']=[min(1,c*.3) for c in colour[:3]]
         doc['materials'].append(mat)
     per={i:[] for i in range(len(SLOTS))}
@@ -173,6 +195,83 @@ def manufacture(hero,role,accent,variant):
     if role=='sniper':sphere(2,5,(.23,2.35,-.04),(.075,.08,.12),1)
     if role=='boss':sphere(2,2,(0,2.67,0),(.09,.2,.09),1)
 
+    # v3.5: hand-authored original hero silhouettes. Equipment is welded to
+    # the proper skin joints, and therefore follows the existing animations.
+    # Box details are intentionally low-poly; texture and silhouette do the
+    # visual work instead of subdividing every surface into costly polygons.
+    def panel(joint,slot,center,scale,angle=0):
+        shape=trimesh.creation.box(extents=scale)
+        if angle:shape.apply_transform(trimesh.transformations.rotation_matrix(angle,[0,0,1]))
+        shape.apply_translation(center)
+        per[slot].append((shape,joint))
+    # Universal visible combat equipment: breastplate outline, belt clasps,
+    # boot buckles, reinforced fingers and readable backpack straps.
+    for side in (-1,1):
+        panel(1,6,(side*.22*width,1.62,-.328),(.065,.35,.033),side*.14)
+        panel(1,3,(side*.27*width,1.27,-.248),(.19,.14,.075))
+        panel(1,6,(side*.27*width,1.34,-.298),(.17,.025,.036))
+        panel(1,7,(side*.29*width,1.60,.238),(.105,.57,.063),side*.20)
+        panel(4 if side<0 else 6,6,(side*.51*width,1.05,-.194),(.105,.15,.026))
+        panel(8 if side<0 else 10,6,(side*.20*width,.15,-.342),(.20,.037,.042))
+        panel(7 if side<0 else 9,3,(side*.20*width,.70,-.223),(.13,.20,.052))
+    panel(1,6,(0,1.43,-.352),(.29,.040,.05))
+    panel(0,3,(0,.995,-.240),(.62*width,.09,.09))
+    panel(0,2,(0,.999,-.306),(.11,.075,.045))
+    panel(2,6,(0,2.55,-.13),(.27,.032,.18))
+    panel(2,5,(0,2.30,-.244),(.38,.105,.028))
+    # Original character specific shape language (not color-only identity).
+    if hero=='shiro':
+        for side in (-1,1):
+            panel(1,2,(side*.48,1.79,.0),(.15,.08,.48),side*.18)
+            panel(2,2,(side*.29,2.52,.11),(.09,.32,.11),side*.30)
+        panel(1,3,(0,1.58,.345),(.30,.55,.18))
+        panel(1,2,(0,1.49,-.35),(.06,.27,.065))
+    elif hero=='leo':
+        for side in (-1,1):
+            sphere(1,2,(side*.44,1.75,.10),(.15,.20,.29),1)
+            panel(1,8,(side*.24,1.5,-.343),(.18,.08,.045),side*.3)
+        sphere(1,6,(0,1.54,-.38),(.14,.14,.04),1)
+        panel(1,1,(0,1.61,.38),(.55,.63,.24))
+    elif hero=='butterfly':
+        for side in (-1,1):
+            panel(1,2,(side*.50,1.57,.47),(.12,.65,.045),side*.43)
+            panel(1,5,(side*.73,1.59,.43),(.11,.37,.045),side*.75)
+            sphere(3 if side<0 else 5,2,(side*.50,1.50,.04),(.17,.045,.17),1)
+        sphere(1,5,(0,1.63,-.35),(.12,.12,.04),1)
+    elif hero=='guardian':
+        panel(1,3,(0,1.59,.38),(.64,.80,.31))
+        panel(1,2,(0,1.62,.56),(.34,.13,.07))
+        for side in (-1,1):
+            panel(1,8,(side*.25,1.48,-.35),(.14,.08,.04))
+            sphere(3 if side<0 else 5,2,(side*.67,1.67,0),(.19,.26,.22),1)
+    elif hero in ('cryomancer','storm'):
+        for side in (-1,1):
+            panel(1,5,(side*.37,1.55,-.305),(.07,.42,.06),side*.22)
+            sphere(3 if side<0 else 5,5,(side*.52,1.78,-.04),(.12,.13,.12),1)
+        panel(2,5,(0,2.32,-.275),(.36,.075,.055))
+    elif hero in ('phantom','riftwalker'):
+        panel(1,3,(0,1.56,.36),(.42,.85,.25))
+        for side in (-1,1):
+            panel(2,3,(side*.26,2.48,.05),(.14,.25,.29),side*.35)
+            panel(1,2,(side*.33,1.13,.10),(.10,.28,.18),side*.4)
+    elif hero in ('gravity','chronos'):
+        for side in (-1,1):
+            sphere(1,2,(side*.41,1.64,.36),(.16,.29,.20),1)
+            panel(1,5,(side*.21,1.5,-.34),(.10,.28,.04))
+        sphere(1,5,(0,1.60,-.37),(.18,.15,.045),1)
+    elif hero in ('aeronaut','echo'):
+        for side in (-1,1):
+            panel(1,6,(side*.35,1.66,.37),(.15,.64,.22),side*.20)
+            sphere(1,5,(side*.34,1.65,.57),(.12,.19,.08),1)
+    elif hero in ('striker',):
+        for side in (-1,1):
+            panel(1,2,(side*.42,1.77,-.12),(.25,.13,.30),side*.19)
+            panel(7 if side<0 else 9,1,(side*.2,.59,-.2),(.21,.21,.055))
+    # Common NPCs receive the same protective boot and vest detail without
+    # elite equipment. Unique bosses gain a visually prominent shoulder rig.
+    if role=='boss':
+        for side in (-1,1):panel(1,2,(side*.63,1.95,.04),(.16,.28,.30),side*.18)
+
     # prepare skinned mesh primitives grouped by materials
     primitives=[]
     for slot,shapes in per.items():
@@ -207,11 +306,12 @@ def manufacture(hero,role,accent,variant):
         m[:3,3]=-pos
         matrices.append(m.T.reshape(-1))
     doc['skins'].append({'name':'TitanRig','joints':list(range(len(JOINTS))),'inverseBindMatrices':writer.accessor(np.stack(matrices),type_='MAT4'),'skeleton':0})
-    for name in ['idle','walk','run','dash','jump','fire','aim','hit','cast']:
+    for name in ['idle','walk','run','dash','jump','fire','aim','hit','cast','strafe_left','strafe_right','crouch','land','reload','aim_upper','fire_upper','cast_upper']:
         times=np.linspace(0,1,5 if name in ('walk','run') else 3,dtype=np.float32)
         clip={'name':name,'samplers':[],'channels':[]}
         time_id=writer.accessor(times,type_='SCALAR',minmax=True)
         for joint in range(len(JOINTS)):
+            if name.endswith('_upper') and joint not in (1,3,4,5,6):continue
             rotations=np.asarray([pose(name,float(t)).get(joint,[0,0,0,1]) for t in times],np.float32)
             if np.allclose(rotations,np.tile([0,0,0,1],(len(times),1))):continue
             output=writer.accessor(rotations,type_='VEC4')

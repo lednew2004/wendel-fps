@@ -1,9 +1,19 @@
-# TITAN PROTOCOL 3.4.0 — VISUAL EVOLUTION (SQUAD OPERATIONS)
+# TITAN PROTOCOL 3.5.0 — GRAPHICS REVOLUTION (SQUAD OPERATIONS)
 
 FPS 3D com personagens e habilidades, câmera em **primeira ou terceira pessoa**, 13 heróis com três técnicas próprias, modos de combate e missões táticas de esquadrão. Projeto em HTML/CSS/JavaScript + Three.js com servidor HTTP/WebSocket Node.js >=22, sem dependências de npm. A biblioteca Three.js é carregada pela internet via CDN.
 
 
-## Novidades 3.4 — Personagens GLB, animações, arquitetura, iluminação e laboratório WebGPU
+## Novidades 3.5 — Personagens, armas, animações e cenário
+
+- **20 GLBs detalhados e 20 GLBs de LOD:** 13 heróis e 7 perfis genéricos/inimigos com silhuetas reforçadas, acessórios e materiais PBR. Os modelos originais leves da versão 3.4 estão em `operatives/lod/`, carregados automaticamente no perfil BAIXA. O jogador vê a malha provisória até o GLB escolhido carregar.
+- **17 clipes de animação por GLB detalhado**, incluindo recarga, deslocamentos laterais e três clips apenas de braços/tronco para combinar mira, tiro e movimento do corpo.
+- **Quatro armas 3D GLB** com acessórios e materiais próprios; modelos procedurais anteriores ficam como fallback se o carregamento falhar.
+- **Novo kit arquitetônico visual instanciado** com colunas, portas decorativas, fachadas, placas e sombreamento de contato pré-calculado. Não há alteração de colisão, portas utilizáveis ou novos interiores.
+- **Otimização:** detalhes de arquitetura ocultos em BAIXA, GLB mais leves para celulares, geometria compartilhada para traçadores e sistema adaptativo de resolução com alvo distinto por tipo de dispositivo.
+
+A implementação e os testes estão detalhados em `GRAFICOS_3_5.md`. **Não houve benchmark real de FPS nem teste completo de WebGL neste ambiente.** Os novos personagens são modelos estilizados originais gerados por código, não assets 3D profissionais provenientes de Blender.
+
+## Histórico — Novidades 3.4 — Personagens GLB, animações, arquitetura, iluminação e laboratório WebGPU
 
 **Personagens 3D:** a pasta `public/assets/models/operatives/` contém 20 arquivos GLB locais: modelos exclusivos para os 13 heróis mais 7 perfis genéricos/inimigos. Cada GLB contém **11 ossos**, materiais PBR, geometria com pesos de skin e **nove animações** (`idle`, `walk`, `run`, `dash`, `jump`, `fire`, `aim`, `hit`, `cast`). O carregamento é assíncrono e armazenado em cache por tipo; o jogo usa temporariamente o modelo procedural anterior e remove suas malhas quando o GLB fica pronto. As animações passam por `THREE.AnimationMixer` com transições entre ações. As silhuetas e as cores continuam reconhecíveis nas configurações baixas. **Os GLBs deste pacote foram modelados de forma autoral e programática, portanto não devem ser confundidos com personagens esculpidos, texturizados e animados manualmente em Blender.** Para substituir por modelos de artista, use os mesmos nomes de arquivo e preserve os nomes dos clipes de animação.
 
@@ -19,6 +29,7 @@ FPS 3D com personagens e habilidades, câmera em **primeira ou terceira pessoa**
 
 ```bash
 python tools/generate_heroes_glb.py
+python tools/generate_weapons_glb.py
 python tools/generate_environment_assets.py
 ```
 
@@ -96,7 +107,7 @@ Escolha `COOP` no lobby multiplayer e compartilhe o código da sala. Entram **qu
 npm start
 ```
 
-O servidor entrega o frontend e as salas WebSocket na mesma origem. Acesse `http://localhost:3000` e `/health` (deve informar `3.4.0`). Para rodar testes:
+O servidor entrega o frontend e as salas WebSocket na mesma origem. Acesse `http://localhost:3000` e `/health` (deve informar `3.5.0`). Para rodar testes:
 
 ```bash
 npm test

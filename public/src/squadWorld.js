@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {SQUAD_BLOCKS,SQUAD_POINTS} from './squadLayout.js';
+import {installArchitecturalDetails} from './sceneDetails35.js';
 /** Linear FPS mission environment. No lanes, towers, jungle camps or MOBA bases. */
 export function createSquadWorld(city){
  const root=city.root;
@@ -150,6 +151,7 @@ export function createSquadWorld(city){
  const craft=new THREE.Group();craft.position.set(-85,2.0,-148);root.add(craft);
  const cabin=new THREE.Mesh(new THREE.CapsuleGeometry(2.0,3.7,5,12),metal);cabin.rotation.z=Math.PI/2;craft.add(cabin);
  for(const sign of [-1,1]){const wing=new THREE.Mesh(new THREE.BoxGeometry(4,.2,1.6),panel);wing.position.set(0,-.3,sign*3);craft.add(wing);}
+ installArchitecturalDetails(city);
  city.squadLandmarks={rings,craft};
  return SQUAD_POINTS;
 }

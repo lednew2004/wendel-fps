@@ -238,11 +238,13 @@ export class Game {
   }
   optimizeFPS(interval){
     if(!this.adaptiveFPS||this.state!=='playing')return;
-    if(this.fps<43){this.lowFPSTime+=interval;this.highFPSTime=0;}
-    else if(this.fps>58){this.highFPSTime+=interval;this.lowFPSTime=0;}
+    const lowTarget=this.mobile?.enabled?29:43;const highTarget=this.mobile?.enabled?39:58;
+    if(this.fps<lowTarget){this.lowFPSTime+=interval;this.highFPSTime=0;}
+    else if(this.fps>highTarget){this.highFPSTime+=interval;this.lowFPSTime=0;}
     else{this.lowFPSTime=0;this.highFPSTime=0;}
-    if(this.lowFPSTime>=2.1 && this.world.renderScale>.63){
-      this.world.setRenderScale(Math.max(.63,this.world.renderScale-.08));
+    const floor=this.mobile?.enabled ? 0.55 : 0.63;
+    if(this.lowFPSTime>=2.1 && this.world.renderScale>floor){
+      this.world.setRenderScale(Math.max(floor,this.world.renderScale-.08));
       el('render-scale').value=Math.round(this.world.renderScale*100);
       el('render-scale-label').textContent=Math.round(this.world.renderScale*100)+'%';
       this.lowFPSTime=0;

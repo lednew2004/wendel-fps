@@ -242,9 +242,9 @@ export function createOperative({role='scout',size=1,player=false,tint=null,hero
   return root;
 }
 
-export function animateOperative(root,dt,{moving=0,firing=false,frozen=false,hit=false,distance=0,dash=false,airborne=false,aiming=false}={}){
+export function animateOperative(root,dt,{moving=0,firing=false,frozen=false,hit=false,distance=0,dash=false,airborne=false,aiming=false,strafe=0,reloading=false,casting=false,crouching=false}={}){
   const rig=root?.userData?.rig;if(!rig)return;
-  if(root.userData.skeletal&&globalThis.TITAN_SKINNED_RUNTIME?.animate?.(root,dt,{moving,firing,frozen,hit,distance,dash,airborne,aiming}))return;
+  if(root.userData.skeletal&&globalThis.TITAN_SKINNED_RUNTIME?.animate?.(root,dt,{moving,firing,frozen,hit,distance,dash,airborne,aiming,strafe,reloading,casting,crouching}))return;
   dt=Math.max(0,Math.min(.06,Number(dt)||0));
   const far=Number(distance)>47;
   if(far!==rig.lodFar){rig.lodFar=far;for(const part of rig.detailMeshes)part.visible=!far;}

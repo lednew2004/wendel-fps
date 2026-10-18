@@ -45,7 +45,7 @@ export class ThirdPersonCamera {
     this.height=.34;
     this.avatar=null;this.morphProp=null;this.morphType='';this.opacity=1;
     this.currentLocal=new THREE.Vector3(this.shoulder,this.height,this.cameraDistance);
-    this.currentHero='';this.lastX=null;this.lastZ=null;this.fireTime=0;this.hurtTime=0;
+    this.currentHero='';this.lastX=null;this.lastZ=null;this.fireTime=0;this.hurtTime=0;this.castTime=0;
     this.pivot=new THREE.Vector3();this.destination=new THREE.Vector3();this.dir=new THREE.Vector3();
     this._quat=new THREE.Quaternion();
     this.syncButton();
@@ -101,6 +101,7 @@ export class ThirdPersonCamera {
     this.morphProp=group;this.morphType=type;this.game.world.scene.add(group);return group;
   }
   emitFire(){this.fireTime=.16;}
+  emitCast(){this.castTime=.28;}
   emitHit(){this.hurtTime=.18;}
   update(dt=1/60,instant=false){
     const g=this.game,world=g.world;
@@ -136,13 +137,23 @@ export class ThirdPersonCamera {
     const speed=Math.hypot(vX,vZ);
     const dashing=(g.parkour?.dashTime||0)>0||!!g.powers?.motion?.hasDash?.();
     const jumping=!g.parkour?.grounded;
-    animateOperative(avatar,dt,{moving:Math.min(1,speed/7),firing:this.fireTime>0,hit:this.hurtTime>0,dash:!!dashing,airborne:!!jumping,aiming:g.rightDown,distance:0});
+    const lateral=vX*Math.cos(g.yaw)-vZ*Math.sin(g.yaw);
+    animateOperative(avatar,dt,{moving:Math.min(1,speed/7),strafe:Math.max(-1,Math.min(1,lateral/6)),firing:this.fireTime>0,
+      casting:this.castTime>0,reloading:g.weapons?.reloadTime>0,hit:this.hurtTime>0,
+      dash:!!dashing,airborne:!!jumping,aiming:g.rightDown,crouching:(g.parkour?.slide||0)>0,distance:0});
     const rig=avatar.userData.rig;
     rig.head.rotation.x+=THREE.MathUtils.clamp(g.pitch*.25,-.25,.25);
+    // Legacy rig is removed after GLB load, so turn the actual head bone.
+    const skeletal=avatar.userData.skeletal;
+    if(skeletal){
+      const head=skeletal.avatar.getObjectByName('head');
+      if(head)head.rotation.x+=THREE.MathUtils.clamp(g.pitch*.20,-.22,.22);
+      skeletal.avatar.rotation.z=THREE.MathUtils.clamp(lateral/12,-1,1)*-.055;
+    }
     rig.rifle.rotation.x=THREE.MathUtils.clamp(-g.pitch*.45,-.55,.55);
     const strafe=vX*Math.cos(g.yaw)-vZ*Math.sin(g.yaw);
     rig.torso.rotation.z-=THREE.MathUtils.clamp(strafe/11,-1,1)*.12;
-    this.fireTime=Math.max(0,this.fireTime-dt);this.hurtTime=Math.max(0,this.hurtTime-dt);
+    this.fireTime=Math.max(0,this.fireTime-dt);this.hurtTime=Math.max(0,this.hurtTime-dt);this.castTime=Math.max(0,this.castTime-dt);
     // Câmera acompanha por cima do ombro; ADS aproxima sem mudar direção da mira.
     const distance=g.rightDown?2.35:4.15;
     const shoulder=g.rightDown?.44:.72;

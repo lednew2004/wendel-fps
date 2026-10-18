@@ -555,6 +555,7 @@ export class World {
     };
     const p=profiles[q]||profiles.high;
     this.quality=q;
+    globalThis.TITAN_VISUAL_QUALITY=q;
     this.profile=p;
     this.renderer.shadowMap.enabled=p.shadow>0;
     this.moon.castShadow=p.shadow>0;
