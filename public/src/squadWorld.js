@@ -13,6 +13,17 @@ export function createSquadWorld(city){
  const road=new THREE.MeshStandardMaterial({color:0x638091,metalness:0,roughness:.85});
  const panel=new THREE.MeshStandardMaterial({color:0x72e8db,emissive:0x238d86,emissiveIntensity:.22});
  const orange=new THREE.MeshStandardMaterial({color:0xffc05f,emissive:0xb96920,emissiveIntensity:.12});
+ const obstacleMaterials={
+  concrete:new THREE.MeshStandardMaterial({color:0xb3c6cf,roughness:.95}),
+  security:new THREE.MeshStandardMaterial({color:0x5995b2,metalness:.18,roughness:.76}),
+  industrial:new THREE.MeshStandardMaterial({color:0xe7ad67,metalness:.22,roughness:.77}),
+  construction:new THREE.MeshStandardMaterial({color:0xcd8c6e,roughness:.92})
+ };
+ const obstaclePaint=new THREE.MeshStandardMaterial({color:0xf7d66c,roughness:.75});
+ const obstacleStripes=new THREE.InstancedMesh(new THREE.BoxGeometry(1,.14,.06),obstaclePaint,240);
+ const obstaclePosts=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),metal,48);
+ let obstacleStripeCount=0,obstaclePostCount=0;
+ const decorativeMatrix=new THREE.Object3D();
  // Static ground AO is baked offline; zero dynamic light or shadow cost.
  const groundMap=new THREE.TextureLoader().load('./assets/baked/mission_ground_baked.webp');
  groundMap.colorSpace=THREE.SRGBColorSpace;groundMap.anisotropy=2;
@@ -25,12 +36,28 @@ export function createSquadWorld(city){
    const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),concrete);m.rotation.x=-Math.PI/2;m.position.set(x,.025,z);m.receiveShadow=true;root.add(m);
  }
  for(const [index,b] of SQUAD_BLOCKS.entries()){
-   const isShort=b.h<3,material=b.obstacle?(index%2?orange:wall):isShort?concrete:facades[index%facades.length];
+   const isShort=b.h<3,material=b.obstacle?(obstacleMaterials[b.kind]||wall):isShort?concrete:facades[index%facades.length];
    const mesh=city.box(b.x,b.h/2,b.z,b.w,b.h,b.d,material);city.rayTargets.push(mesh);
    city.solids.push({...b});
    if(b.obstacle){
-     const top=city.box(b.x,b.h+.07,b.z,b.w+.15,.14,b.d+.15,panel,false);
+     const top=city.box(b.x,b.h+.07,b.z,b.w+.08,.14,b.d+.08,b.kind==='industrial'?orange:metal,false);
      city.rayTargets.push(top);city.addSurface(b.x,b.z,b.w,b.d,b.h+.14);
+     // A face along the longest wall axis gains painted warning lines and
+     // reinforced columns. Instancing keeps decoration cheap on phones.
+     const longX=b.w>=b.d,length=longX?b.w:b.d;
+     for(const side of [-1,1]){
+       decorativeMatrix.position.set(b.x+(longX?side*(b.hx-.23):0),b.h*.5,b.z+(longX?0:side*(b.hz-.23)));
+       decorativeMatrix.scale.set(longX?.46:b.w,b.h,longX?b.d:.46);
+       decorativeMatrix.rotation.set(0,0,0);decorativeMatrix.updateMatrix();
+       obstaclePosts.setMatrixAt(obstaclePostCount++,decorativeMatrix.matrix);
+     }
+     for(let j=0;j<Math.min(8,Math.floor(length/1.8));j++){
+       const longitudinal=-length/2+(j+.5)*length/Math.min(8,Math.floor(length/1.8));
+       decorativeMatrix.position.set(b.x+(longX?longitudinal:0),b.h*.68,b.z+(longX?b.hz+.04:longitudinal));
+       decorativeMatrix.scale.set(longX?Math.min(1.35,length/10):.075,.9,longX?.075:Math.min(1.35,length/10));
+       decorativeMatrix.rotation.set(0,0,0);decorativeMatrix.updateMatrix();
+       obstacleStripes.setMatrixAt(obstacleStripeCount++,decorativeMatrix.matrix);
+     }
      continue;
    }
    if(!isShort){
@@ -45,6 +72,10 @@ export function createSquadWorld(city){
      const cap=city.box(b.x,b.h+.04,b.z,b.w+.1,.08,b.d+.1,orange,false);cap.castShadow=false;
    }
  }
+ obstaclePosts.count=obstaclePostCount;obstaclePosts.instanceMatrix.needsUpdate=true;
+ obstacleStripes.count=obstacleStripeCount;obstacleStripes.instanceMatrix.needsUpdate=true;
+ obstaclePosts.castShadow=false;obstacleStripes.castShadow=false;
+ root.add(obstaclePosts,obstacleStripes);
  // Visual-only city enhancement: shared geometries + InstancedMesh, avoiding hundreds of draw calls,
  // new dynamic lights or extra collision volumes. These details remain visible on LOW.
  const glass=new THREE.MeshStandardMaterial({color:0xffffff,metalness:.43,roughness:.33,emissive:0x173749,emissiveIntensity:.23});

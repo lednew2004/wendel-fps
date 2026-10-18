@@ -7,6 +7,8 @@ import {PowerMenu} from './powerMenu.js';
 import {createOperative,animateOperative,disposeOperative} from './characters.js';
 import {observeAdaptation,learned,startUltimate,ADAPT_LABELS} from './adaptation.js';
 import {CasualEconomy,STARTING_POWER} from './casualEconomy.js';
+import {planVault} from './vaultTraversal.js';
+import {SQUAD_OBSTACLES} from './squadLayout.js';
 export const POWER_DATA={
  push:{label:'REPULSÃO',icon:'◉',cool:12,help:'Empurrão extremo em 16 m'},
  freeze:{label:'CONGELAR',icon:'❄',cool:14,help:'Congela por 1,5 s em até 35 m'},
@@ -18,7 +20,7 @@ export const POWER_DATA={
  rewind:{label:'REWIND 10S',icon:'↶',cool:32,help:'Reverte posição e vida de 10 segundos'},
  chain:{label:'RAIO',icon:'ϟ',cool:13,help:'Raio fortalecido até 42 m'},
  gravity:{label:'GRAVIDADE',icon:'↟',cool:20,help:'Área de 13 m; suspende 2,7 s'},
- vault:{label:'SALTO DE MURO',icon:'↥',cool:14,help:'Salta obstáculo baixo à frente e pousa atrás dele'},
+ vault:{label:'ESCALADA DE MURO',icon:'↥',cool:14,help:'Salto físico sobre muros altos, com subida e aterrissagem animadas'},
  wallrun_boost:{label:'CORRIDA VERTICAL',icon:'↗',cool:23,duration:6000,help:'Impulso de corrida na parede por 6 s'},
  vex_ultimate:{label:'SEM LIMITES',icon:'✦',cool:42,duration:10000,help:'Pulo duplo, escalada e impulso ampliado por 10 s'},
  adapt_scan:{label:'EVOLUÇÃO FORÇADA',icon:'⟁',cool:22,duration:8000,help:'Aprende o próximo evento sofrido; imune ao repetir'},
@@ -289,8 +291,8 @@ export class PowerSystem {
  applyLocal(id){
   const g=this.game,p=g.parkour,effect=POWER_VARIANTS[id]?.base||id;
   if(effect==='vault'){
-    const dest=this.findVaultDestination();if(!dest){g.toast('MIRE PARA UM MURO BAIXO A ATÉ 5 METROS');return false;}
-    const from={x:p.x,y:p.y,z:p.z};p.spawn(dest.x,dest.y,dest.z);this.motion.teleport(from,dest,0x65edff);this.flash(0x68e8ff,5);g.toast('VEX · OBSTÁCULO SUPERADO');return true;
+    const plan=this.findVaultDestination();if(!plan||!p.startVault(plan)){g.toast('MIRE PARA UM MURO ALTO A ATÉ 5 METROS');return false;}
+    g.toast('VEX · ESCALADA INICIADA');return true;
   }
   if(effect==='wallrun_boost'){this.status.wallrun_boost=now()+6000;p.vy=Math.max(p.vy,5);g.toast('CORRIDA VERTICAL · 6S');return true;}
   if(effect==='vex_ultimate'){this.status.vex_ultimate=now()+10000;p.vy=Math.max(p.vy,7);g.toast('SEM LIMITES · 10S');return true;}
@@ -397,18 +399,9 @@ export class PowerSystem {
    const previous={x:pk.x,y:pk.y,z:pk.z};this.returnPoint={...previous,until:now()+15000};pk.spawn(dest.x,dest.y,dest.z);this.motion.teleport(previous,dest,0xbda7ff);this.cooldowns.teleport=now()+POWER_DATA.teleport.cool*1000;this.flash(0xbda7ff,8);
  }
   findVaultDestination(){
-    const g=this.game,p=g.parkour,fx=-Math.sin(g.yaw),fz=-Math.cos(g.yaw);
-    for(let d=1.2;d<=5.0;d+=.35){
-      const x=p.x+fx*d,z=p.z+fz*d;
-      const wall=g.urban.solids.find(s=>s.active!==false&&s.maxY<=4.3&&s.maxY>1.15&&p.y<s.maxY+.5&&Math.abs(x-s.x)<s.hx+.35&&Math.abs(z-s.z)<s.hz+.35);
-      if(!wall)continue;
-      const thickness=Math.abs(fx)*wall.hx+Math.abs(fz)*wall.hz;
-      for(let a=d+thickness*2+1.1;a<=d+thickness*2+3.1;a+=.5){
-        const tx=p.x+fx*a,tz=p.z+fz*a;
-        if(g.urban.canOccupy(tx,tz,p.y,1.77,.48))return {x:tx,y:p.y,z:tz};
-      }
-    }
-    return null;
+    const g=this.game,p=g.parkour;
+    return planVault({x:p.x,y:p.y,z:p.z,yaw:g.yaw},SQUAD_OBSTACLES,
+      (x,y,z)=>g.urban.canOccupy(x,z,y,1.77,.48));
   }
   observeLocalEvent(kind){
     if(this.game.heroSelection?.selectedHero!=='adaptomega')return false;
@@ -511,8 +504,8 @@ export class PowerSystem {
   if(incoming.length){this.cloneTargets=incoming.map(c=>({id:c.id,slot:c.slot,x:c.x,y:c.y,z:c.z,until:c.until}));this.cloneJumpUsed=false;}
  }
  onCloneDestroy(id){this.cloneTargets=this.cloneTargets.filter(c=>c.id!==id);}
- onServerEffect(msg){const g=this.game,pk=g.parkour;if(msg.kind==='combo-dash'){if(msg.player===g.multiplayer.id){this.motion.startDash(msg.from,msg.to,{duration:msg.duration||DASH_DURATION_MS,color:msg.id==='shiro_retreat'?0xffb368:0x67eaff});}return;}if(msg.player!==g.multiplayer.id)return;
-  if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='rewind'||msg.kind==='swap'||msg.kind==='clonejump'||msg.kind==='combo-move'||msg.kind==='vault'){if(msg.kind==='clonejump')this.cloneJumpUsed=true;const from={x:pk.x,y:pk.y,z:pk.z};pk.spawn(msg.x,msg.y,msg.z);this.motion.teleport(from,{x:msg.x,y:msg.y,z:msg.z});this.flash(0xbda7ff,5);}
+ onServerEffect(msg){const g=this.game,pk=g.parkour;if(msg.kind==='vault'){if(msg.player===g.multiplayer.id){pk.startVault(msg);g.toast('VEX · ESCALADA INICIADA');}return;}if(msg.kind==='combo-dash'){if(msg.player===g.multiplayer.id){this.motion.startDash(msg.from,msg.to,{duration:msg.duration||DASH_DURATION_MS,color:msg.id==='shiro_retreat'?0xffb368:0x67eaff});}return;}if(msg.player!==g.multiplayer.id)return;
+  if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='rewind'||msg.kind==='swap'||msg.kind==='clonejump'||msg.kind==='combo-move'){if(msg.kind==='clonejump')this.cloneJumpUsed=true;const from={x:pk.x,y:pk.y,z:pk.z};pk.spawn(msg.x,msg.y,msg.z);this.motion.teleport(from,{x:msg.x,y:msg.y,z:msg.z});this.flash(0xbda7ff,5);}
   if(msg.kind==='blackhole-pull'){if(Number.isFinite(msg.x)&&Number.isFinite(msg.z)){pk.x=msg.x;pk.z=msg.z;pk.vx*=.16;pk.vz*=.16;}return;}
   if(msg.kind==='push'){if(Number.isFinite(msg.x))pk.spawn(msg.x,msg.y,msg.z);pk.dashTime=.30;pk.dashVX=msg.dx*24;pk.dashVZ=msg.dz*24;pk.vy=Math.max(pk.vy,5);pk.grounded=false;this.flash(0x80caff,5);}
   if(msg.kind==='copy-mark'){g.toast('ALVO MARCADO · ELIMINE EM 18S PARA COPIAR');return;}

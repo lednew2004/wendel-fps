@@ -7,11 +7,11 @@ import {SQUAD_BLOCKS,SQUAD_OBSTACLES} from '../../public/src/squadLayout.js';
 import {prepareAdaptation,observeAdaptation,learned,startUltimate} from '../../public/src/adaptation.js';
 
 const code=n=>fs.readFileSync(new URL(`../../public/src/${n}`,import.meta.url),'utf8');
-test('3.6: 14 playable heroes, VEX mobility, ADAPT reactive, 14 common obstacles',()=>{
+test('3.6.1: 14 heroes, animated VEX and ADAPT, 24 urban barriers',()=>{
  assert.equal(HEROES.length,14);
  assert.deepEqual(heroLoadout('striker'),['vault','wallrun_boost','vex_ultimate']);
  assert.deepEqual(heroLoadout('adaptomega'),['adapt_scan','adapt_counter','adapt_ultimate']);
- assert.equal(SQUAD_OBSTACLES.length,14);
+ assert.equal(SQUAD_OBSTACLES.length,24);
  for(const o of SQUAD_OBSTACLES)assert.ok(SQUAD_BLOCKS.includes(o));
  const colliders=JSON.parse(fs.readFileSync(new URL('../colliders.json',import.meta.url),'utf8'));
  assert.equal(colliders.length,SQUAD_BLOCKS.length);
@@ -60,8 +60,12 @@ test('online VEX vaults a collision wall and clone avatars advance on server',as
  assert.ok(player);
  Object.assign(player,{x:-15,y:0,z:-112,yaw:0,pitch:0,lastMove:Date.now()-500,spawnUntil:0});
  const crossing=recv(vx,m=>m.type==='power-effect'&&m.kind==='vault');send(vx,{type:'power',id:'vault'});
- const v=await crossing;assert.ok(v.z<-116.8,`landed incorrectly at ${v.z}`);
+ const v=await crossing;assert.ok(v.to.z<-116.8,`destination incorrectly at ${v.to.z}`);
  assert.ok(player.powers.cooldowns.vault>Date.now());
+ assert.ok(player.vaultTrack,'vault traversal must be active, not an instant teleport');
+ assert.equal(player.z,-112,'player must not teleport on cast');
+ await new Promise(r=>setTimeout(r,v.duration+160));
+ assert.ok(Math.abs(player.z-v.to.z)<.1,'server vault must finish at the destination');
  const echo=await connect();const ej=recv(echo,m=>m.type==='welcome');send(echo,{type:'join',name:'Mimico',hero:'echo',room:'EV3601'});const echoWelcome=await ej;
  const mimic=[...players.values()].find(p=>p.id===echoWelcome.id);
  Object.assign(mimic,{x:-143,y:0,z:-143,yaw:0,pitch:0,spawnUntil:0});

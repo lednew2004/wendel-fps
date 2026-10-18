@@ -1,6 +1,7 @@
 import {PARKOUR_TUNING as CFG,approach} from './parkourPhysics.js';
 import {SQUAD_START} from './squadLayout.js';
 import {directionForDash} from './heroCombos.js';
+import {vaultPosition,vaultCameraMotion} from './vaultTraversal.js';
 
 const fmtTime=t=>Number(t).toFixed(2)+' s';
 const $=id=>document.getElementById(id);
@@ -12,7 +13,7 @@ export class ParkourController {
     this.current=0;this.progress=0;this.elapsed=0;this.running=false;this.combat=false;this.trialActive=false;
     this.x=-100;this.z=-85;this.y=0;this.vx=0;this.vz=0;this.vy=0;
     this.grounded=true;this.coyote=0;this.buffer=0;this.slide=0;this.wallRun=0;this.dashTime=0;this.dashVX=0;this.dashVZ=0;
-    this.ladder=null;this.hanging=null;this.lastGroundedY=0;this.checkpoint=null;this.combo=0;
+    this.ladder=null;this.hanging=null;this.vault=null;this.lastGroundedY=0;this.checkpoint=null;this.combo=0;
     this.prompt='APROXIME-SE DA ESCADA AMARELA E PRESSIONE E';
     this.updateHud();
   }
@@ -52,10 +53,32 @@ export class ParkourController {
     this.updateHud();return true;
   }
   spawn(x,y,z){
-    this.x=x;this.z=z;this.y=y;this.vexDoubleUsed=false;this.vx=0;this.vz=0;this.vy=0;this.grounded=true;
+    this.vault=null;this.x=x;this.z=z;this.y=y;this.vexDoubleUsed=false;this.vx=0;this.vz=0;this.vy=0;this.grounded=true;
     this.coyote=0;this.buffer=0;this.wallRun=0;this.slide=0;this.dashTime=0;this.ladder=null;this.hanging=null;
     this.game.player.x=x;this.game.player.z=z;this.game.player.eyeY=y+1.75;
     this.game.positionCamera();
+  }
+  startVault(plan){
+    if(!plan||this.vault||!Number.isFinite(plan.duration))return false;
+    this.vault={...plan,elapsed:0};
+    this.x=plan.from.x;this.y=plan.from.y;this.z=plan.from.z;
+    this.vx=0;this.vz=0;this.vy=0;this.accumulator=0;
+    this.grounded=false;this.slide=0;this.wallRun=0;this.hanging=null;this.ladder=null;
+    this.prompt='VEX · SALTO EM CURSO · PASSANDO SOBRE O MURO';
+    return true;
+  }
+  advanceVault(dt){
+    if(!this.vault)return null;
+    const motion=this.vault;
+    motion.elapsed=Math.min(motion.duration,motion.elapsed+dt*1000);
+    const progress=motion.elapsed/motion.duration;
+    const point=vaultPosition(motion,progress);
+    this.x=point.x;this.y=point.y;this.z=point.z;
+    if(progress>=1){
+      this.vault=null;this.grounded=true;this.coyote=CFG.coyote;
+      this.prompt='VEX · ATERRISSAGEM COMPLETA';this.combo++;
+    }
+    return progress;
   }
   resetCheckpoint(){
     const route=this.city.courses?.[this.current];
@@ -147,22 +170,29 @@ export class ParkourController {
     return {x:-Math.sin(yaw)*f+Math.cos(yaw)*r,z:-Math.cos(yaw)*f-Math.sin(yaw)*r,mag};
   }
   update(dt){
-    this.accumulator=Math.min(.15,this.accumulator+Math.max(0,dt));
-    let steps=0;
-    while(this.accumulator>=CFG.fixedStep&&steps<11){this.step(CFG.fixedStep);this.accumulator-=CFG.fixedStep;steps++;}
+    // VEX's vault is a real camera-followed traversal, never a spawn/teleport.
+    let vaultProgress=null;
+    if(this.vault){this.accumulator=0;vaultProgress=this.advanceVault(dt);}
+    else{
+      this.accumulator=Math.min(.15,this.accumulator+Math.max(0,dt));
+      let steps=0;
+      while(this.accumulator>=CFG.fixedStep&&steps<11){this.step(CFG.fixedStep);this.accumulator-=CFG.fixedStep;steps++;}
+    }
     this.game.player.x=this.x;
     this.game.player.z=this.z;
     const head=1.72-(this.slide>0?.54:0);
     const speed=Math.hypot(this.vx,this.vz);
     const bob=this.grounded&&speed>.4?Math.sin(this.game.animTime*12)*Math.min(.035,speed*.0025):0;
-    this.game.player.eyeY=this.y+head+bob;
+    const vaultCamera=vaultProgress===null?null:vaultCameraMotion(vaultProgress);
+    this.game.player.eyeY=this.y+head+bob-(vaultCamera?.headDip||0);
+    if(this.game.weapons)this.game.weapons.vaultAnim=vaultProgress===null?0:Math.sin(Math.PI*vaultProgress);
     this.game.player.moveX=this.vx;this.game.player.moveZ=this.vz;
     this.game.positionCamera();
     const cam=this.game.world.camera;
-    const fov=this.game.world.baseFOV+Math.min(7,speed*.45);
+    const fov=this.game.world.baseFOV+Math.min(7,speed*.45)+(vaultCamera?.fovBoost||0);
     cam.fov+=Math.min(1,dt*7)*(fov-cam.fov);
     cam.updateProjectionMatrix();
-    this.game.world.cameraPitch.rotation.z=0; // yaw/pitch remain owned by LookController
+    this.game.world.cameraPitch.rotation.z=vaultCamera?.roll||0; // brief visual lean; LookController keeps aim
     this.hudCooldown=(this.hudCooldown||0)-dt;
     if(this.hudCooldown<=0){this.updateHud();this.hudCooldown=.095;}
   }

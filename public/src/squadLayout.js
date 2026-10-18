@@ -18,12 +18,18 @@ export const SQUAD_POINTS=Object.freeze({
 // Low-cost fixed geometry and shared server-side blockers; critical objective zones stay open.
 // 3.6: shared navigable city obstacles. Geometry and PvP collision use the same array.
 export const SQUAD_OBSTACLES=Object.freeze([
- [-15,-116,13,1.5,2.4], [14,-114,11,1.4,2.1],[-24,-63,1.5,11,3.2],
- [24,-52,1.4,13,2.8],[-12,-30,13,1.5,3.4],[19,-27,9,1.5,1.6],
- [-62,14,1.5,12,3.5],[63,43,12,1.5,3.0],[-19,77,13,1.5,2.6],
- [17,87,1.5,14,3.8],[-54,117,9,1.5,2.0],[53,117,10,1.5,2.3],
- [-24,162,1.4,12,3.2],[23,166,12,1.6,2.6]
-].map(([x,z,w,d,h])=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h,obstacle:true})));
+ // Cidade: muros de segurança, tapumes de obras, muros de contenção e barreiras industriais.
+ [-15,-116,13,1.5,4.4,'security'],[14,-114,11,1.4,3.8,'construction'],[-24,-63,1.5,11,5.2,'concrete'],
+ [24,-52,1.4,13,4.7,'security'],[-12,-30,13,1.5,5.5,'concrete'],[19,-27,9,1.5,3.4,'industrial'],
+ [-62,14,1.5,12,5.6,'construction'],[63,43,12,1.5,4.5,'security'],[-19,77,13,1.5,4.2,'concrete'],
+ [17,87,1.5,14,5.7,'industrial'],[-54,117,9,1.5,3.7,'construction'],[53,117,10,1.5,4.0,'security'],
+ [-24,162,1.4,12,5.1,'concrete'],[23,166,12,1.6,4.8,'construction'],
+ [-14,-144,10,1.6,4.7,'security'],[15,-137,9,1.6,5.1,'industrial'],
+ [-73,-86,12,1.4,5.2,'concrete'],[74,-88,11,1.4,5.2,'industrial'],
+ [29,-13,1.6,9,5.3,'security'],[-20,35,10,1.5,5.6,'construction'],
+ [27,49,12,1.5,5.2,'concrete'],[-78,83,1.5,10,5.7,'security'],
+ [78,82,1.5,10,5.4,'industrial'],[-28,-89,1.4,13,4.8,'construction']
+].map(([x,z,w,d,h,kind])=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h,obstacle:true,kind})));
 export const SQUAD_BLOCKS=Object.freeze([
  [-39,-104,16,9,6], [39,-104,16,9,6],[-31,-76,12,7,4],[31,-76,12,7,4],
  [-84,-50,19,14,12],[84,-50,19,14,12],[-46,-16,14,17,8],[46,-16,14,17,8],

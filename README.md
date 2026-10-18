@@ -1,3 +1,7 @@
+## Atualização 3.6.1 — Escalada e obstáculos mais altos
+
+VEX ultrapassa muros altos com aproximação, subida visível em primeira pessoa, passagem pelo topo e pouso. O movimento é reproduzido pelo servidor e pelos demais jogadores. O mapa inclui 24 barreiras urbanas temáticas, e os controles mobile da 3.6.0 permanecem. Detalhes em `ATUALIZACAO_3_6_1.md`.
+
 ## TITAN PROTOCOL 3.6.0 — Ambiente, VEX, ADAPT-Ω, MÍMICO e Mobile
 
 - 14 personagens / 42 habilidades equipadas de heróis.

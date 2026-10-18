@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 const uiFile=new URL('../../public/src/multiplayer.js',import.meta.url);
 const source=readFileSync(uiFile,'utf8')
   .replace(/^import \* as THREE from 'three';/m, 'const THREE={};')
+  .replace("import {vaultPosition} from './vaultTraversal.js';",'const vaultPosition=()=>({x:0,y:0,z:0});')
   .replace("import {MultiplayerMinimap} from './minimap.js';", 'class MultiplayerMinimap {show(){} hide(){} draw(){}}')
   .replace("import {createOperative,animateOperative,disposeOperative} from './characters.js';", 'const createOperative=()=>({});const animateOperative=()=>{};const disposeOperative=()=>{};')
   .replace("import {colorForName} from './characterIdentity.js';", 'const colorForName=()=>0x59dce8;')

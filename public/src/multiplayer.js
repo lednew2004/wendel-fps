@@ -1,3 +1,4 @@
+import {vaultPosition} from './vaultTraversal.js';
 import {heroById} from './heroRoster.js';
 import * as THREE from 'three';
 import {MultiplayerMinimap} from './minimap.js';
@@ -328,12 +329,13 @@ export class MultiplayerClient {
       case 'power-copy':this.game.powers.onServerState(msg.powers);this.game.toast('PODERES COPIADOS DE '+msg.from+' · 30 SEGUNDOS');break;
       case 'power-effect':{
         this.game.powers.onServerEffect(msg);
+        if(msg.kind==='vault'&&msg.player!==this.id){const entry=this.others.get(msg.player);if(entry){entry.motion={vault:msg,elapsed:0,duration:Math.max(.65,msg.duration/1000)};entry.group.position.set(msg.from.x,msg.from.y,msg.from.z);entry.target.set(msg.to.x,msg.to.y,msg.to.z);}break;}
         if(msg.kind==='combo-dash'&&msg.player!==this.id){const entry=this.others.get(msg.player);if(entry){entry.motion={from:msg.from,to:msg.to,elapsed:0,duration:Math.max(.08,(msg.duration||340)/1000)};entry.group.position.set(msg.from.x,msg.from.y,msg.from.z);entry.target.set(msg.to.x,msg.to.y,msg.to.z);}break;}
         if(msg.kind==='gravity'&&Array.isArray(msg.affected)&&msg.affected.includes(this.id)){this.game.powers.status.gravity=Date.now()+2700;this.game.parkour.y+=3.5;this.game.parkour.vy=0;}
         if((msg.kind==='gravity-land'||msg.kind==='combo-move')&&msg.player===this.id&&Number.isFinite(msg.y))this.game.parkour.spawn(msg.x,msg.y,msg.z);
-        if(msg.player!==this.id&&['combo-move','teleport','teleport-back','swap','clonejump','rewind','vault'].includes(msg.kind)){const remote=this.others.get(msg.player);if(remote&&Number.isFinite(msg.x)){this.game.powers.motion.teleport({x:remote.group.position.x,y:remote.group.position.y,z:remote.group.position.z},{x:msg.x,y:msg.y,z:msg.z},0xb77dff);}}
+        if(msg.player!==this.id&&['combo-move','teleport','teleport-back','swap','clonejump','rewind'].includes(msg.kind)){const remote=this.others.get(msg.player);if(remote&&Number.isFinite(msg.x)){this.game.powers.motion.teleport({x:remote.group.position.x,y:remote.group.position.y,z:remote.group.position.z},{x:msg.x,y:msg.y,z:msg.z},0xb77dff);}}
         if(msg.kind==='push'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x))entry.target.set(msg.x,msg.y,msg.z);}
-        if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='clonejump'||msg.kind==='rewind'||msg.kind==='vault'||msg.kind==='swap'||msg.kind==='phase-exit'||msg.kind==='gravity-land'||msg.kind==='combo-move'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
+        if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='clonejump'||msg.kind==='rewind'||msg.kind==='swap'||msg.kind==='phase-exit'||msg.kind==='gravity-land'||msg.kind==='combo-move'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
         break;
       }
       case 'power-vfx':{
@@ -532,10 +534,10 @@ export class MultiplayerClient {
       const dx=entry.target.x-entry.group.position.x;
       const dz=entry.target.z-entry.group.position.z;
       const movement=Math.min(1,Math.hypot(dx,dz)/Math.max(.02,dt*5));
-      if(entry.motion){const m=entry.motion;m.elapsed+=dt;const u=Math.min(1,m.elapsed/m.duration),ease=1-Math.pow(1-u,2.6);entry.group.position.set(m.from.x+(m.to.x-m.from.x)*ease,m.from.y+(m.to.y-m.from.y)*ease,m.from.z+(m.to.z-m.from.z)*ease);if(u>=1)entry.motion=null;}
+      if(entry.motion){const m=entry.motion;m.elapsed+=dt;const u=Math.min(1,m.elapsed/m.duration);if(m.vault){const point=vaultPosition(m.vault,u);entry.group.position.set(point.x,point.y,point.z);}else{const ease=1-Math.pow(1-u,2.6);entry.group.position.set(m.from.x+(m.to.x-m.from.x)*ease,m.from.y+(m.to.y-m.from.y)*ease,m.from.z+(m.to.z-m.from.z)*ease);}if(u>=1)entry.motion=null;}
       else entry.group.position.lerp(entry.target,Math.min(1,dt*12));
       entry.group.rotation.y=entry.yaw;
-      animateOperative(entry.group.userData.body,dt,{moving:movement,firing:entry.flash>0,distance:Math.hypot(entry.group.position.x-this.game.player.x,entry.group.position.z-this.game.player.z)});
+      animateOperative(entry.group.userData.body,dt,{moving:movement,airborne:!!entry.motion?.vault,firing:entry.flash>0,distance:Math.hypot(entry.group.position.x-this.game.player.x,entry.group.position.z-this.game.player.z)});
     }
   }
   disconnect(manual=true){

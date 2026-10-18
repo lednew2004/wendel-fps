@@ -12,6 +12,7 @@ import {fileURLToPath} from 'node:url';
 import {WORLD_HALF} from '../public/src/worldLayout.js';
 import {observeAdaptation,learned,startUltimate,ADAPT_LABELS} from '../public/src/adaptation.js';
 import {FFA_SPAWNS,SQUAD_START,roleForHero,ROLE_INFO,SQUAD_OBSTACLES} from '../public/src/squadLayout.js';
+import {planVault,vaultPosition} from '../public/src/vaultTraversal.js';
 import {newCoop,advanceCoop,coopSnapshot,coopFire,coopAbility,coopSupportPulse} from './coopEngine.mjs';
 import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,isGroundedDestination,within,nearbyMorphObject,canAutoResurrect,criticalPowerPenalty} from './powers.mjs';
 
@@ -144,7 +145,7 @@ function obscured(origin,dir,dist,room){
   return false;
 }
 function move(p,data){
-  if(!p.alive||p.powers.frozenUntil>Date.now()||p.powers.gravityUntil>Date.now()||(p.comboDashUntil||0)>Date.now())return;
+  if(!p.alive||p.vaultTrack||p.powers.frozenUntil>Date.now()||p.powers.gravityUntil>Date.now()||(p.comboDashUntil||0)>Date.now())return;
   const {x,y,z,yaw,pitch,weapon}=data;
   if(!finite(x,-WORLD_HALF,WORLD_HALF)||!finite(z,-WORLD_HALF,WORLD_HALF)||!finite(y,-1,40)||!finite(yaw,-1e7,1e7)||!finite(pitch,-1.48,1.48)||!Number.isInteger(weapon)||weapon<0||weapon>3)return;
   if(p.room.mode==='coop'&&!ROLE_INFO[roleForHero(p.hero)]?.weapons.includes(weapon))return;
@@ -221,7 +222,7 @@ function fire(p,data){
   setTimeout(()=>{
     if(victim.room.players.get(victim.id)!==victim||victim.alive)return;
     const s=spawn(victim.deaths%SPAWNS.length);Object.assign(victim,s,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
-    victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];victim.powers.copyMark=null;victim.powers.copiedUntil=0;victim.powers.propUntil=0;victim.powers.propType=null;victim.powers.resurrectionUntil=0;victim.powers.combo={};victim.powers.empoweredUntil=0;if(victim.powers.originalLoadout){victim.powers.loadout=sanitizeLoadout(victim.powers.originalLoadout);victim.powers.originalLoadout=null;}
+    victim.vaultTrack=null;victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];victim.powers.copyMark=null;victim.powers.copiedUntil=0;victim.powers.propUntil=0;victim.powers.propType=null;victim.powers.resurrectionUntil=0;victim.powers.combo={};victim.powers.empoweredUntil=0;if(victim.powers.originalLoadout){victim.powers.loadout=sanitizeLoadout(victim.powers.originalLoadout);victim.powers.originalLoadout=null;}
     send(victim.socket,{type:'respawn',spawn:s,hp:100,shield:40,powers:powerSnapshot(victim)});
     broadcast(p.room,{type:'revived',player:publicPlayer(victim)},victim.socket);
   },2200);
@@ -237,19 +238,9 @@ function adaptedAgainst(victim,kind,now=Date.now()){
  return result.blocked;
 }
 function vaultEndpoint(p){
- // Only map-authored climbable walls can trigger this teleport; never client coordinates.
- const fx=-Math.sin(p.yaw),fz=-Math.cos(p.yaw),blocks=roomColliders(p.room);
- for(let d=1.0;d<=5;d+=.25){
-   const x=p.x+fx*d,z=p.z+fz*d;
-   const wall=SQUAD_OBSTACLES.find(b=>Math.abs(x-b.x)<b.hx+.4&&Math.abs(z-b.z)<b.hz+.4&&b.maxY<4.3);
-   if(!wall)continue;
-   for(let t=d+1;t<d+11;t+=.35){
-     const tx=p.x+fx*t,tz=p.z+fz*t;
-     if(Math.abs(tx-wall.x)<wall.hx+.65&&Math.abs(tz-wall.z)<wall.hz+.65)continue;
-     if(isGroundedDestination(tx,p.y,tz,blocks)&&within(tx,tz,p,14))return {x:tx,y:p.y,z:tz};
-   }
- }
- return null;
+ // Server chooses both wall and endpoint from the shared, collision-authored map.
+ return planVault({x:p.x,y:p.y,z:p.z,yaw:p.yaw},SQUAD_OBSTACLES,
+   (x,y,z)=>isGroundedDestination(x,y,z,roomColliders(p.room)));
 }
 function autoResurrect(p,now=Date.now()){
  if(!canAutoResurrect(p,now))return false;
@@ -431,12 +422,13 @@ function castPower(p,data){
   const pendingRewind=effect==='rewind'&&state.history.length?state.history.reduce((best,h)=>Math.abs(h.t-(now-rule.history))<Math.abs(best.t-(now-rule.history))?h:best,state.history[0]):null;
   const restoredHealth=pendingRewind?Math.max(0,pendingRewind.hp-p.hp):0;
   if(effect==='adapt_counter'&&(!state.adaptLast||!learned(state,state.adaptLast,now))){send(p.socket,{type:'power-error',message:'Aprenda um ataque antes de contra-atacar.'});return;}
-  if(effect==='vault'&&!vaultEndpoint(p)){send(p.socket,{type:'power-error',message:'Aponte para um muro baixo e aproxime-se.'});return;}
+  const plannedVault=effect==='vault'?vaultEndpoint(p):null;
+  if(effect==='vault'&&(!plannedVault||p.vaultTrack)){send(p.socket,{type:'power-error',message:'Aproxime-se e mire para um muro alto do mapa.'});return;}
   state.cooldowns[id]=now+rule.cooldown+criticalPowerPenalty(effect,{hpRatio,nearbyTargets,restoredHealth});
   if(rule.duration)state.activeUntil[id]=now+rule.duration;
   if(effect==='vault'){
-    const dest=vaultEndpoint(p),from={x:p.x,y:p.y,z:p.z};
-    if(dest){Object.assign(p,dest,{lastMove:now});broadcast(p.room,{type:'power-effect',kind:'vault',player:p.id,...dest,from});}
+    p.vaultTrack={...plannedVault,started:now};
+    broadcast(p.room,{type:'power-effect',...plannedVault,kind:'vault',player:p.id});
   }else if(effect==='wallrun_boost'||effect==='vex_ultimate'){
     broadcast(p.room,{type:'power-vfx',kind:effect,player:p.id,x:p.x,y:p.y,z:p.z});
   }else if(effect==='adapt_scan'){
@@ -639,7 +631,14 @@ server.on('upgrade',(req,socket)=>{
 const tick=setInterval(()=>{
   for(const room of rooms.values()){
     const now=Date.now();
-    for(const p of room.players.values()){if(p.powers.phaseUntil&&p.powers.phaseUntil<=now){p.powers.phaseUntil=0;const safe=p.powers.safe;if(!locationValid(p.x,p.y,p.z,roomColliders(p.room))&&safe&&locationValid(safe.x,safe.y,safe.z,roomColliders(room))){Object.assign(p,safe,{lastMove:now});broadcast(room,{type:'power-effect',kind:'phase-exit',player:p.id,...safe});}}}
+    for(const p of room.players.values()){
+      if(p.vaultTrack&&!p.alive)p.vaultTrack=null;
+      if(p.vaultTrack){
+        const move=p.vaultTrack;const t=Math.min(1,(now-move.started)/move.duration);
+        const q=vaultPosition(move,t);p.x=q.x;p.y=q.y;p.z=q.z;p.lastMove=now;
+        if(t>=1){p.vaultTrack=null;p.powers.safe={x:p.x,y:p.y,z:p.z};}
+      }
+      if(p.powers.phaseUntil&&p.powers.phaseUntil<=now){p.powers.phaseUntil=0;const safe=p.powers.safe;if(!locationValid(p.x,p.y,p.z,roomColliders(p.room))&&safe&&locationValid(safe.x,safe.y,safe.z,roomColliders(room))){Object.assign(p,safe,{lastMove:now});broadcast(room,{type:'power-effect',kind:'phase-exit',player:p.id,...safe});}}}
     for(const p of room.players.values()){
       if(p.powers.gravityUntil&&p.powers.gravityUntil<=now){
         p.powers.gravityUntil=0;
