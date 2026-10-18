@@ -1,27 +1,15 @@
 import * as THREE from 'three';
 import {MultiplayerMinimap} from './minimap.js';
+import {createOperative,animateOperative,disposeOperative} from './characters.js';
+import {colorForName} from './characterIdentity.js';
 
 const byId=id=>document.getElementById(id);
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 
 function remoteAvatar(name){
   const root=new THREE.Group();
-  const body=new THREE.Group();root.add(body);
-  const suit=new THREE.MeshStandardMaterial({color:0x6a7f74,roughness:.87,metalness:.06});
-  const vest=new THREE.MeshStandardMaterial({color:0x242e32,roughness:.83,metalness:.17});
-  const helmet=new THREE.MeshStandardMaterial({color:0x3c4846,roughness:.78});
-  const skin=new THREE.MeshStandardMaterial({color:0xb08d72,roughness:.92});
-  function block(w,h,d,x,y,z,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=false;body.add(m);return m;}
-  block(.65,.84,.36,0,1.15,0,suit);
-  block(.76,.61,.42,0,1.37,.04,vest);
-  block(.36,.39,.37,0,1.85,0,skin);
-  block(.51,.18,.51,0,2.05,0,helmet);
-  for(const s of [-1,1]){
-    block(.22,.78,.25,s*.46,1.32,-.02,suit);
-    block(.27,.83,.27,s*.19,.46,.00,suit);
-    block(.30,.17,.43,s*.19,.10,-.055,vest);
-  }
-  block(.11,.14,.70,.18,1.22,-.46,vest);
+  const body=createOperative({role:'player',size:.91,player:true,tint:colorForName(name)});
+  root.add(body);
   const flashMat=new THREE.MeshBasicMaterial({color:0xffdb8c,transparent:true,opacity:.85,depthWrite:false});
   const flash=new THREE.Mesh(new THREE.SphereGeometry(.16,6,5),flashMat);flash.position.set(.18,1.22,-.86);flash.visible=false;body.add(flash);root.userData.flash=flash;
   // Screen-facing health and shield bars; updated from server-authoritative state.
@@ -337,7 +325,16 @@ export class MultiplayerClient {
           for(const clone of msg.clones||[]){
             if(this.decoys.has(clone.id))continue;
             const root=remoteAvatar('HOLOGRAMA');root.position.set(clone.x,clone.y,clone.z);
-            root.traverse(o=>{if(o.isMesh&&o.material?.clone){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.55;}});
+            // Reuse one semi-transparent material per original surface; holograms remain cheap on mobile.
+            const clonedMaterials=new Map();
+            root.userData.body.traverse(o=>{
+              if(!o.isMesh||!o.material?.clone)return;
+              if(!clonedMaterials.has(o.material)){
+                const mat=o.material.clone();mat.transparent=true;mat.opacity=.47;mat.depthWrite=false;
+                clonedMaterials.set(o.material,mat);
+              }
+              o.material=clonedMaterials.get(o.material);
+            });
             this.game.world.scene.add(root);this.decoys.set(clone.id,{group:root,until:clone.until,target:new THREE.Vector3(clone.x,clone.y,clone.z)});
           }
         }else if(msg.kind==='copy-mark'){
@@ -431,7 +428,7 @@ export class MultiplayerClient {
     let entry=this.others.get(data.id);
     if(!entry){
       const group=remoteAvatar(data.name||'Jogador');this.game.world.scene.add(group);
-      entry={group,target:new THREE.Vector3(data.x||0,data.y||0,data.z||0),yaw:0,flash:0};
+      entry={group,target:new THREE.Vector3(data.x||0,data.y||0,data.z||0),yaw:0,flash:0,lastX:data.x||0,lastZ:data.z||0};
       group.position.copy(entry.target);this.others.set(data.id,entry);
     }
     if(Number.isFinite(data.x)&&Number.isFinite(data.y)&&Number.isFinite(data.z))entry.target.set(data.x,data.y,data.z);
@@ -441,8 +438,19 @@ export class MultiplayerClient {
     entry.group.userData.ice.visible=data.frozen===true&&!data.prop;entry.group.userData.shieldBubble.visible=data.shielded===true;
     if(Number.isFinite(data.hp))updateLifeTag(entry.group,data.hp,data.shield);
   }
-  removeRemote(id){const entry=this.others.get(id);if(!entry)return;this.game.world.scene.remove(entry.group);entry.group.traverse(o=>{if(o.isMesh)o.geometry.dispose();if(o.isSprite){o.material.map?.dispose();o.material.dispose();}});this.others.delete(id);}
-  removeDecoy(id){const item=this.decoys.get(id);if(!item)return;this.game.world.scene.remove(item.group);item.group.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}if(o.isSprite){o.material.map?.dispose();o.material.dispose();}});this.decoys.delete(id);}
+  removeRemote(id){const entry=this.others.get(id);if(!entry)return;this.game.world.scene.remove(entry.group);this.disposeAvatar(entry.group);this.others.delete(id);}
+  removeDecoy(id){const item=this.decoys.get(id);if(!item)return;this.game.world.scene.remove(item.group);this.disposeAvatar(item.group);this.decoys.delete(id);}
+  disposeAvatar(root){
+    const character=root.userData.body;
+    const characterItems=new Set();
+    character?.traverse(o=>characterItems.add(o));
+    if(character)disposeOperative(character);
+    root.traverse(o=>{
+      if(characterItems.has(o))return;
+      if(o.isMesh){o.geometry?.dispose();o.material?.dispose?.();}
+      if(o.isSprite){o.material?.map?.dispose();o.material?.dispose();}
+    });
+  }
   removeAll(){for(const id of [...this.others.keys()])this.removeRemote(id);for(const id of [...this.decoys.keys()])this.removeDecoy(id);this.players=[];}
   syncState(){
     const pk=this.game.parkour;
@@ -459,12 +467,20 @@ export class MultiplayerClient {
       this.syncTick=.09;
       this.syncState();
     }
-    for(const [id,item] of this.decoys){if(item.until<Date.now())this.removeDecoy(id);else if(item.target)item.group.position.lerp(item.target,Math.min(1,dt*13));}
+    for(const [id,item] of this.decoys){if(item.until<Date.now())this.removeDecoy(id);else if(item.target){
+      const delta=item.target.distanceTo(item.group.position);
+      item.group.position.lerp(item.target,Math.min(1,dt*13));
+      animateOperative(item.group.userData.body,dt,{moving:Math.min(1,delta/Math.max(.01,dt*6)),distance:Math.hypot(item.group.position.x-this.game.player.x,item.group.position.z-this.game.player.z)});
+    }}
     // Keepalive now runs on a separate timer; do not depend on the render loop.
     for(const entry of this.others.values()){
       entry.flash=Math.max(0,entry.flash-dt);entry.group.userData.flash.visible=entry.flash>0;
+      const dx=entry.target.x-entry.group.position.x;
+      const dz=entry.target.z-entry.group.position.z;
+      const movement=Math.min(1,Math.hypot(dx,dz)/Math.max(.02,dt*5));
       entry.group.position.lerp(entry.target,Math.min(1,dt*12));
       entry.group.rotation.y=entry.yaw;
+      animateOperative(entry.group.userData.body,dt,{moving:movement,firing:entry.flash>0,distance:Math.hypot(entry.group.position.x-this.game.player.x,entry.group.position.z-this.game.player.z)});
     }
   }
   disconnect(manual=true){

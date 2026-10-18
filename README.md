@@ -1,4 +1,26 @@
-# TITAN PROTOCOL 2.6 — CIDADE VIVA
+# TITAN PROTOCOL 2.7 — IDENTIDADE DOS PERSONAGENS
+
+**Atualização real no código do jogo**, não uma imagem de referência. A versão 2.7 substitui a aparência de personagens quadrados por **modelos humanoides 3D estilizados renderizados com Three.js** no casual e no multiplayer, preservando o mundo expandido da 2.6.
+
+## Novidades gráficas implementadas
+
+- **Seis identidades inimigas:** Corredor Rubro, Vanguarda, Vigia Azul, Caçador, Colosso e Comandante Titã. Cada classe tem cor de facção, proporções e equipamentos exclusivos.
+- **Geometria orgânica:** cabeça, rosto, capacete, visor, tronco, couraça, mochila, braços e pernas construídos com formas arredondadas; não são mais corpos feitos de blocos retangulares.
+- **Animações articuladas:** passos de corrida, balanço dos braços, joelhos, postura de ataque, clarão de disparos e resposta visual a danos. Os inimigos continuam usando as mesmas regras de tiro, perseguição e colisão.
+- **Personagens online:** outros jogadores e hologramas usam o novo renderizador, com detalhes e cores de identificação variados. As barras de vida, escudo e disfarces continuam.
+- **Otimização:** geometrias primitivas compartilhadas, detalhes muito pequenos ocultos à distância, materiais de holograma reutilizados e descarte de recursos ao eliminar personagens.
+
+**Qualidade visual:** são personagens estilizados *procedurais* do próprio Three.js, não modelos fotorrealistas importados e animados por captura de movimento. Para chegar à aparência de jogos AAA, a próxima etapa seria integrar modelos humanoides GLB autorais/licenciados e animações esqueléticas.
+
+**Compatibilidade:** mantém todas as funcionalidades da 2.6, incluindo mapa com casas e portas, minimapa, 18 habilidades, progressão casual, dash com recarga, códigos de sala personalizados e multiplayer Render gratuito.
+
+**Publicação:** extraia o ZIP na raiz do repositório, execute `git add .`, `git commit -m "Titan Protocol 2.7 - Personagens 3D"`, `git push origin main` e confirme `/health` com `"version":"2.7.0"`.
+
+**Testes:** `npm test` verifica jogo, rede e os personagens criados. Ainda é necessário verificar o resultado gráfico no navegador e no celular real.
+
+---
+
+## Histórico da versão 2.6 — Cidade Viva
 
 FPS 3D para PC e celular, com campanha, sobrevivência e salas online via Node.js 22 + WebSocket. Projeto completo baseado na versão 2.5, **sem remover** os 18 poderes, progressão por créditos, roda de habilidades, dash com recarga, minimapa, barras de vida e controles móveis.
 
@@ -20,8 +42,8 @@ PC: WASD movimenta, mouse mira, **E** abre/fecha porta ou janela, **Espaço** pu
 ## Deploy GitHub + Render
 
 1. Extraia o ZIP na **raiz do repositório**: `package.json`, `render.yaml`, `public/`, `server/` e arquivos `.md` devem estar juntos.
-2. Faça `git add .`, `git commit -m "Titan Protocol 2.6 - Cidade viva"` e `git push origin main`.
-3. Confira o deploy automático e visite `https://SEU-SITE/health`: `"version":"2.6.0"`.
+2. Faça `git add .`, `git commit -m "Titan Protocol 2.7 - Personagens 3D"` e `git push origin main`.
+3. Confira o deploy automático e visite `https://SEU-SITE/health`: `"version":"2.7.0"`.
 4. Se editar a planta da cidade em `public/src/worldLayout.js`, execute `node server/build_colliders.mjs` para reconstruir o arquivo de colisões do servidor antes de publicar.
 
 `npm test` roda os testes automatizados. Não requer pacotes npm externos; os módulos Three.js são importados pela rede CDN no navegador.

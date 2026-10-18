@@ -1,0 +1,221 @@
+import * as THREE from 'three';
+import {characterStyle} from './characterIdentity.js';
+
+// Personagens esculpidos com superfícies arredondadas e articulações reais. Sem corpos cúbicos.
+// Malhas e posições são relativas aos pivôs para animar sem carregar novos arquivos externos.
+const SHAPES={
+  orb:new THREE.SphereGeometry(1,14,10),
+  capsule:new THREE.CapsuleGeometry(1,1,5,9),
+  cone:new THREE.ConeGeometry(1,1,12),
+  tube:new THREE.CylinderGeometry(1,1,1,12),
+  torus:new THREE.TorusGeometry(1,.15,7,20),
+  plane:new THREE.PlaneGeometry(1,1)
+};
+const COLOR=(n,metal=.1,rough=.68)=>new THREE.MeshStandardMaterial({color:n,metalness:metal,roughness:rough});
+function piece(parent,geometry,mat,position,scale,rotate){
+  const obj=new THREE.Mesh(geometry,mat);
+  obj.position.set(...position);obj.scale.set(...scale);
+  if(rotate)obj.rotation.set(...rotate);
+  obj.castShadow=true;obj.receiveShadow=false;parent.add(obj);return obj;
+}
+function orb(parent,mat,x,y,z,sx,sy,sz){return piece(parent,SHAPES.orb,mat,[x,y,z],[sx,sy,sz]);}
+function tube(parent,mat,x,y,z,rx,ry,rz,length,radius=.08){
+  return piece(parent,SHAPES.tube,mat,[x,y,z],[radius,length,radius],[rx,ry,rz]);
+}
+function capsule(parent,mat,x,y,z,scaleX,scaleY,scaleZ){return piece(parent,SHAPES.capsule,mat,[x,y,z],[scaleX,scaleY,scaleZ]);}
+
+// game root faces negative Z, matching the existing rifle and AI orientation.
+export function createOperative({role='scout',size=1,player=false,tint=null}={}){
+  const style=characterStyle(role,tint);
+  const root=new THREE.Group();root.name=`TITAN_${role.toUpperCase()}`;
+  const visual=new THREE.Group();visual.scale.setScalar(size);root.add(visual);
+  const fabric=COLOR(style.uniform,.04,.93);
+  const armor=COLOR(style.armor,.48,.42);
+  const accent=COLOR(style.accent,.42,.34);
+  const black=COLOR(0x161f27,.55,.43);
+  const leather=COLOR(0x4b4040,.12,.84);
+  const skin=COLOR(style.skin,.01,.89);
+  const helmet=COLOR(style.helmet,.34,.56);
+  const glass=new THREE.MeshStandardMaterial({color:style.accent,emissive:style.accent,emissiveIntensity:.22,metalness:.1,roughness:.19});
+  const glowing=new THREE.MeshStandardMaterial({color:style.accent,emissive:style.accent,emissiveIntensity:1.2,metalness:.24,roughness:.34});
+  const width=style.build||1;
+  const hips=orb(visual,fabric,0,.95,0,.35*width,.26,.24);
+  // Rounded, sculpted vest silhouette, front plates and shoulder guards.
+  const torso=new THREE.Group();torso.position.y=1.37;visual.add(torso);
+  orb(torso,fabric,0,0,0,.44*width,.53,.26);
+  orb(torso,armor,0,.09,-.20,.39*width,.39,.15);
+  orb(torso,armor,0,-.29,-.18,.31*width,.12,.15);
+  orb(torso,accent,0,.11,-.337,.13,.095,.031);
+  orb(torso,black,0,.11,-.365,.068,.045,.025);
+  for(const s of [-1,1]){
+    orb(torso,helmet,s*.285*width,.30,-.12,.17,.16,.21);
+    orb(torso,accent,s*.30*width,-.03,-.30,.06,.17,.036);
+  }
+  // Backpack: layered ovals and luminous insignia, no rectangular body geometry.
+  orb(torso,black,0,-.03,.295,.34*width,.43,.19);
+  orb(torso,armor,0,-.02,.42,.22,.32,.086);
+  orb(torso,glowing,0,.10,.52,.065,.16,.03);
+  tube(torso,accent,0,-.33,.50,0,0,Math.PI/2,.35,.04);
+  // Head / human face; no cubes. The helmet frames distinct eyes and nose.
+  const neck=orb(visual,skin,0,1.925,0,.125,.17,.12);
+  const head=new THREE.Group();head.position.set(0,2.16,0);visual.add(head);
+  orb(head,skin,0,.02,-.015,.265,.32,.248);
+  orb(head,helmet,0,.235,.038,.303,.195,.28); // rounded helmet crown
+  orb(head,helmet,0,.14,.18,.27,.17,.19);      // crown rear
+  for(const s of [-1,1]){
+    orb(head,helmet,s*.258,.045,.02,.07,.20,.19); // ear guards
+    orb(head,skin,s*.105,.005,-.246,.052,.034,.015); // eyes
+    orb(head,black,s*.105,.009,-.263,.025,.021,.011);
+    orb(head,leather,s*.105,-.10,-.23,.07,.025,.022); // cheek band
+  }
+  orb(head,skin,0,-.076,-.258,.062,.105,.079); // nose
+  orb(head,leather,0,-.17,-.220,.105,.02,.034); // mouth mask edge
+  if(style.visor){
+    orb(head,glass,0,.060,-.267,.24,.105,.060);
+    orb(head,black,0,-.09,-.278,.22,.09,.050);
+  }else{
+    orb(head,helmet,0,.29,-.14,.29,.045,.19); // cap brim
+  }
+  if(style.hood){
+    orb(head,helmet,0,.145,.20,.325,.30,.17);
+    orb(head,accent,0,.25,-.17,.19,.025,.085);
+  }
+  if(style.scope){
+    tube(head,black,.22,.15,-.10,0,0,0,.31,.07);
+    orb(head,glass,.22,.31,-.10,.08,.038,.08);
+  }
+  if(style.commander){
+    for(const s of [-1,1]){
+      const spike=piece(head,SHAPES.cone,helmet,[s*.25,.40,.035],[.095,.37,.095],[0,0,s*.30]);spike.castShadow=true;
+    }
+    orb(torso,glowing,0,.09,-.383,.19,.15,.055);
+  }
+  const arms=[];
+  const legs=[];
+  for(const s of [-1,1]){
+    const arm=new THREE.Group();arm.position.set(s*.48*width,1.77,0);visual.add(arm);arms.push(arm);
+    orb(arm,armor,0,-.01,0,.22*width,.20,.24);
+    capsule(arm,fabric,0,-.29,0,.135,.26,.135);
+    const elbow=new THREE.Group();elbow.position.y=-.62;arm.add(elbow);
+    orb(elbow,black,0,0,0,.145,.145,.145);
+    capsule(elbow,armor,0,-.21,-.012,.16,.22,.16);
+    orb(elbow,black,0,-.47,-.015,.14,.12,.13);
+    orb(elbow,skin,0,-.49,-.015,.12,.11,.11);
+    arm.userData.elbow=elbow;
+    // Leg pivots, knee pads, boots and foot soles.
+    const leg=new THREE.Group();leg.position.set(s*.20*width,.96,0);visual.add(leg);legs.push(leg);
+    orb(leg,fabric,0,-.18,0,.20*width,.34,.23);
+    const knee=new THREE.Group();knee.position.y=-.46;leg.add(knee);
+    orb(knee,armor,0,0,-.145,.16,.145,.12);
+    capsule(knee,fabric,0,-.25,.025,.15,.25,.14);
+    const foot=new THREE.Group();foot.position.set(0,-.49,-.08);knee.add(foot);
+    orb(foot,black,0,-.028,-.12,.18,.125,.31);
+    orb(foot,accent,0,-.04,-.30,.145,.025,.09);
+    leg.userData.knee=knee;
+    leg.userData.foot=foot;
+  }
+  // Armoured classes carry heavy pauldrons and a distinct torso silhouette.
+  if(style.heavy){
+    for(const s of [-1,1]){
+      orb(torso,armor,s*.47*width,.29,0,.29,.28,.29);
+      orb(torso,accent,s*.48*width,.35,-.25,.18,.045,.038);
+    }
+    orb(torso,helmet,0,-.10,.48,.32,.42,.20);
+  }
+  if(role==='gunner'){
+    for(const x of [-.19,0,.19]){
+      orb(torso,leather,x,-.17,-.37,.066,.135,.048);
+      orb(torso,accent,x,-.07,-.396,.055,.025,.023);
+    }
+  }
+  if(role==='sniper'){
+    const cape=new THREE.Mesh(new THREE.ConeGeometry(.4,.82,10,1,true),fabric);
+    cape.position.set(.25,.08,.48);cape.rotation.z=.20;torso.add(cape);
+  }
+  // Weapon barrel, muzzle and sight. Not used by melee hunters/scouts.
+  const isMelee=['hunter','scout'].includes(role);
+  const rifle=new THREE.Group();rifle.position.set(.22,1.43,-.45);visual.add(rifle);
+  if(isMelee){
+    for(const s of [-1,1]){
+      const claw=new THREE.Group();claw.position.set(s*.63,1.08,-.20);visual.add(claw);
+      for(let i=-1;i<=1;i++){
+        const blade=piece(claw,SHAPES.cone,accent,[i*.085,-.08,-.16],[.058,.31,.06],[Math.PI*.5,0,0]);blade.castShadow=true;
+      }
+    }
+    rifle.visible=false;
+  }else{
+    capsule(rifle,black,0,0,0,.095,.11,.30).rotation.x=Math.PI/2;
+    tube(rifle,armor,0,.02,-.38,Math.PI/2,0,0,.55,.065);
+    tube(rifle,black,0,.02,-.69,Math.PI/2,0,0,.15,.080);
+    orb(rifle,accent,0,.10,-.12,.06,.037,.16);
+    orb(rifle,leather,0,-.13,.16,.10,.21,.12);
+    orb(rifle,armor,0,.14,.23,.10,.075,.19);
+    if(style.heavy){
+      tube(rifle,accent,.12,0,-.43,Math.PI/2,0,0,.70,.07);
+      tube(rifle,black,-.12,0,-.43,Math.PI/2,0,0,.70,.07);
+    }
+  }
+  // Tiny muzzle glow uses basic material: cheap and visible in daytime.
+  const flare=new THREE.Mesh(new THREE.SphereGeometry(.14,8,6),new THREE.MeshBasicMaterial({color:style.accent,transparent:true,opacity:.9,depthWrite:false}));
+  flare.position.set(0,.02,-.78);flare.visible=false;rifle.add(flare);
+  // Subtle contact shadow: first-person scenes stay grounded in the world.
+  const disc=new THREE.Mesh(new THREE.CircleGeometry(.53*width,18),new THREE.MeshBasicMaterial({color:0x111920,transparent:true,opacity:.20,depthWrite:false}));
+  disc.rotation.x=-Math.PI/2;disc.position.y=.015;disc.receiveShadow=false;disc.castShadow=false;visual.add(disc);
+  const materials=[fabric,armor,accent,black,leather,skin,helmet,glass,glowing];
+  // Very small details vanish at a distance instead of consuming GPU draw calls.
+  const detailMeshes=[];
+  visual.traverse(obj=>{
+    if(obj.isMesh&&obj!==flare&&obj.geometry===SHAPES.orb&&obj.scale.x*obj.scale.y*obj.scale.z<.0015)detailMeshes.push(obj);
+  });
+  root.userData.rig={visual,torso,head,arms,legs,rifle,flare,materials,detailMeshes,lodFar:false,walk:0,blend:0,flash:0,hit:0,role,player};
+  return root;
+}
+
+export function animateOperative(root,dt,{moving=0,firing=false,frozen=false,hit=false,distance=0}={}){
+  const rig=root?.userData?.rig;if(!rig)return;
+  dt=Math.max(0,Math.min(.06,Number(dt)||0));
+  const far=Number(distance)>47;
+  if(far!==rig.lodFar){rig.lodFar=far;for(const part of rig.detailMeshes)part.visible=!far;}
+  const desired=frozen?0:Math.max(0,Math.min(1,Number(moving)||0));
+  rig.blend+=(desired-rig.blend)*Math.min(1,dt*9);
+  rig.walk+=dt*(4.7+rig.blend*7);
+  const walk=rig.blend;
+  const stride=Math.sin(rig.walk);
+  rig.legs[0].rotation.x=stride*.69*walk;
+  rig.legs[1].rotation.x=-stride*.69*walk;
+  for(let i=0;i<2;i++){
+    const angle=i===0?stride:-stride;
+    const leg=rig.legs[i];
+    leg.userData.knee.rotation.x=Math.max(0,-angle)*.40*walk;
+    leg.userData.foot.rotation.x=Math.max(0,angle)*.19*walk;
+    rig.arms[i].rotation.x=(rig.role==='hunter'||rig.role==='scout'?-0.22:-.78)-angle*.32*walk;
+    rig.arms[i].rotation.z=(i===0?-.10:.10)+(rig.role==='tank'?.13:0);
+    rig.arms[i].userData.elbow.rotation.x=-.20-walk*.15;
+  }
+  rig.torso.rotation.z=Math.sin(rig.walk*.5)*.025*walk;
+  rig.torso.rotation.x=.04+walk*.07;
+  rig.head.rotation.y=Math.sin(rig.walk*.35)*.045;
+  rig.head.rotation.x=Math.sin(rig.walk*.5)*.02*walk;
+  if(firing&&(['scout','hunter','tank'].includes(rig.role))){
+    rig.arms[0].rotation.x=-1.45;
+    rig.torso.rotation.x=-.15;
+  }
+  if(firing)rig.flash=.12;
+  rig.flash=Math.max(0,rig.flash-dt);
+  rig.flare.visible=rig.flash>0&&rig.rifle.visible;
+  if(hit)rig.hit=.13;
+  rig.hit=Math.max(0,rig.hit-dt);
+  // Only update one emissive channel, preserving authored faction coloring.
+  if(rig.materials[8])rig.materials[8].emissiveIntensity=rig.hit>0?2.7:1.2;
+}
+
+export function disposeOperative(root){
+  const rig=root?.userData?.rig;if(!rig)return;
+  // Shared primitive geometries are intentionally never disposed per character.
+  const shared=new Set(Object.values(SHAPES));
+  root.traverse(obj=>{
+    if(obj.isMesh&&obj.geometry&&!shared.has(obj.geometry))obj.geometry.dispose();
+    if(obj.isMesh&&obj.material&&!rig.materials.includes(obj.material))obj.material.dispose?.();
+  });
+  for(const material of rig.materials)material.dispose();
+}

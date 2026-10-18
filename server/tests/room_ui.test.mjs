@@ -5,7 +5,9 @@ import {readFileSync} from 'node:fs';
 const uiFile=new URL('../../public/src/multiplayer.js',import.meta.url);
 const source=readFileSync(uiFile,'utf8')
   .replace(/^import \* as THREE from 'three';/, 'const THREE={};')
-  .replace("import {MultiplayerMinimap} from './minimap.js';", 'class MultiplayerMinimap {show(){} hide(){} draw(){}}');
+  .replace("import {MultiplayerMinimap} from './minimap.js';", 'class MultiplayerMinimap {show(){} hide(){} draw(){}}')
+  .replace("import {createOperative,animateOperative,disposeOperative} from './characters.js';", 'const createOperative=()=>({});const animateOperative=()=>{};const disposeOperative=()=>{};')
+  .replace("import {colorForName} from './characterIdentity.js';", 'const colorForName=()=>0x59dce8;');
 const {MultiplayerClient}=await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
 
 class FakeClassList {
