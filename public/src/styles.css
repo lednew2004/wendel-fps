@@ -556,7 +556,11 @@ html.is-touch.touch-playing #hud #hud-pause {
 html.is-touch.touch-playing #hud #hud-config-top,html.is-touch.touch-playing #hud #hud-pause{pointer-events:auto!important;touch-action:manipulation!important;position:relative;z-index:210!important;min-width:42px;min-height:40px}
 html.is-touch.touch-playing #hud .hud-top,html.is-touch.touch-playing #hud .top-right{position:relative;z-index:205!important;pointer-events:none}
 html.is-touch.touch-playing #hud .hud-top{position:absolute}
-html.is-touch.touch-playing #mobile-look{z-index:20!important}
+/* Combat buttons must sit ABOVE the transparent look layer. v3.5.1 put
+   mobile-look at z-index:20, intercepting touches intended for ATIRAR. */
+html.is-touch.touch-playing #mobile-look{z-index:1!important}
+html.is-touch.touch-playing #mobile-actions{z-index:3}
+html.is-touch.touch-playing #mobile-move{z-index:4}
 html.is-touch.touch-playing #hud{z-index:80!important}
 .hud-config-launch{border-color:#80e2a1!important;color:#dbffef!important;background:rgba(22,70,55,.75)!important}
 #hud-editor{z-index:250;background:linear-gradient(145deg,#06141af2,#102a29f7);backdrop-filter:none;padding:8px}

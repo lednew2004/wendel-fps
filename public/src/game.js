@@ -253,7 +253,17 @@ export class Game {
       this.highFPSTime=0;
     }
   }
-  loop(){requestAnimationFrame(()=>this.loop());let dt=Math.min(.04,this.clock.getDelta());this.animTime+=dt;this.world.update(dt);this.urban.animateEnvironment(dt);if(this.campaign)for(const a of this.campaign.artifacts)if(a.mesh.parent)a.mesh.rotation.y+=a.rotation*dt;this.dieFxUpdate(dt);this.fpsTick+=dt;if(this.fpsTick>=.7){this.fps=Math.round(this.fpsCount/this.fpsTick);el('perf-fps').textContent=this.fps+' FPS · '+this.world.renderer.info.render.calls+' DRAWS · '+Math.round(this.world.renderScale*100)+'%';this.optimizeFPS(.7);this.fpsCount=0;this.fpsTick=0;}
+  tryFire(){
+    if(this.state!=='playing'||this.powers.frozen()||this.powers.targeting||this.powers.isActive('phase'))return false;
+    if(this.mode==='multiplayer'&&!this.multiplayer.alive)return false;
+    if(!this.mobile?.enabled&&document.pointerLockElement!==this.world.renderer.domElement)return false;
+    if(this.mode!=='multiplayer'){
+      if(this.powers.isActive('invisible'))this.powers.status.invisible=0;
+      if(this.powers.isActive('morph'))this.powers.cancelMorph();
+    }
+    return this.weapons.fire();
+  }
+  loop(){requestAnimationFrame(()=>this.loop());let dt=Math.min(this.mobile?.enabled ? .09 : .04,this.clock.getDelta());this.animTime+=dt;this.world.update(dt);this.urban.animateEnvironment(dt);if(this.campaign)for(const a of this.campaign.artifacts)if(a.mesh.parent)a.mesh.rotation.y+=a.rotation*dt;this.dieFxUpdate(dt);this.fpsTick+=dt;if(this.fpsTick>=.7){this.fps=Math.round(this.fpsCount/this.fpsTick);el('perf-fps').textContent=this.fps+' FPS · '+this.world.renderer.info.render.calls+' DRAWS · '+Math.round(this.world.renderScale*100)+'%';this.optimizeFPS(.7);this.fpsCount=0;this.fpsTick=0;}
     if(this.state==='playing'){
       this.updateCombatTimers(dt);
       this.powers.update(dt);
@@ -264,7 +274,7 @@ export class Game {
       if(this.cityTick<=0){this.urban.updateVisibility(this.player.x,this.player.z,this.world.quality==='low'?105:this.world.quality==='medium'?138:190);this.cityTick=.55;}
       const moving=Math.hypot(this.parkour.vx,this.parkour.vz)>1;
       this.weapons.update(dt,moving,this.rightDown);
-      if(this.mouseDown&&!this.powers.frozen()&&!this.powers.targeting&&!this.powers.isActive('phase')&&(this.mode!=='multiplayer'||this.multiplayer.alive)&&(this.mobile?.enabled||document.pointerLockElement===this.world.renderer.domElement)){if(this.mode!=='multiplayer'&&this.powers.isActive('invisible'))this.powers.status.invisible=0;if(this.mode!=='multiplayer'&&this.powers.isActive('morph'))this.powers.cancelMorph();this.weapons.fire();}
+      if(this.mouseDown)this.tryFire();
       if(this.mode!=='multiplayer'){this.enemies.decoys=this.powers.decoys;this.enemies.hiddenPlayer=this.powers.isActive('invisible');this.enemies.allies=this.mode==='campaign'?this.squad.members:[];this.enemies.update(dt,this.player,this.wave);this.ordnance.update(dt);}
       if(this.mode==='campaign'){this.squad.update(dt);this.campaign.update(dt);}
       if(this.state==='playing'&&this.mode!=='multiplayer'){if(this.pendingSpawns.length){this.spawnTimer-=dt;if(this.spawnTimer<=0&&this.enemies.count()<7){this.enemies.spawnAt(this.pendingSpawns.shift(),this.player,this.wave);this.spawnTimer=rand(.65,1.3);}}else if(this.enemies.count()===0){if(this.mode==='campaign'){if(this.campaign.phase==='clear'||this.campaign.phase==='boss')this.campaign.onCleared();}else this.waveComplete();}

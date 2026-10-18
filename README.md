@@ -1,4 +1,4 @@
-# TITAN PROTOCOL 3.5.1 — VOXEL SQUAD + EDITOR DE HUD (SQUAD OPERATIONS)
+# TITAN PROTOCOL 3.5.2 — VOXEL SQUAD + EDITOR DE HUD (SQUAD OPERATIONS)
 
 FPS 3D com personagens e habilidades, câmera exclusivamente em **primeira pessoa (FPS)**, 13 heróis com três técnicas próprias, modos de combate e missões táticas de esquadrão. Projeto em HTML/CSS/JavaScript + Three.js com servidor HTTP/WebSocket Node.js >=22, sem dependências de npm. A biblioteca Three.js é carregada pela internet via CDN.
 
@@ -107,7 +107,7 @@ Escolha `COOP` no lobby multiplayer e compartilhe o código da sala. Entram **qu
 npm start
 ```
 
-O servidor entrega o frontend e as salas WebSocket na mesma origem. Acesse `http://localhost:3000` e `/health` (deve informar `3.5.1`). Para rodar testes:
+O servidor entrega o frontend e as salas WebSocket na mesma origem. Acesse `http://localhost:3000` e `/health` (deve informar `3.5.2`). Para rodar testes:
 
 ```bash
 npm test
@@ -130,7 +130,7 @@ A pasta pode ser publicada na **Render** usando `render.yaml` e um repositório 
 - Testes automatizados Node/WebSocket verificam protocolos, poderes, caminhos e progressão lógica, mas **não substituem testes WebGL reais** no PC e no celular. O navegador automatizado deste ambiente restringe o acesso ao jogo servido localmente.
 
 
-## v3.5.1 — VOXEL SQUAD + CONFIGURAR HUD
+## v3.5.2 — VOXEL SQUAD + CONFIGURAR HUD
 
 - **Heróis:** 13 modelos GLB originais, cabeça, tronco e membros quadrados, com os uniformes e cores diferentes para cada classe. Mesmo padrão nos NPCs e no fallback 3D simples. Animações esqueléticas mantidas.
 - **Cidade:** prédios em seis cores, céu azul vivo, marcações turquesa, vegetação mais verde, sem novas luzes dinâmicas nem efeitos pesados.
