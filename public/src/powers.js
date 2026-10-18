@@ -150,7 +150,7 @@ export class PowerSystem {
   if((this.cooldowns[id]||0)>now()){g.toast('RECARGA · '+Math.ceil((this.cooldowns[id]-now())/1000)+'s');return;}
   if(this.isActive('phase')&&id!=='phase')return;
   if(id==='teleport'){g.mouseDown=false;this.menu.openTeleport();return;}
-  if(id==='morph'){const target=this.findMorphObject();if(!target){g.toast('APROXIME-SE DE UM TAMBOR, CAMINHÃO OU EMPILHADEIRA');return;}if(g.mode==='multiplayer'){g.multiplayer.syncState();g.multiplayer.send({type:'power',id});}else{this.status.morph=now()+10000;this.cooldowns.morph=now()+POWER_DATA.morph.cool*1000;g.toast('DISFARCE DE '+({barrel:'TAMBOR',truck:'CAMINHÃO',forklift:'EMPILHADEIRA'})[target.type]+' · 10S');}return;}
+  if(id==='morph'){const target=this.findMorphObject();if(target)this.morphVisualType=target.type;if(!target){g.toast('APROXIME-SE DE UM TAMBOR, CAMINHÃO OU EMPILHADEIRA');return;}if(g.mode==='multiplayer'){g.multiplayer.syncState();g.multiplayer.send({type:'power',id});}else{this.status.morph=now()+10000;this.cooldowns.morph=now()+POWER_DATA.morph.cool*1000;g.toast('DISFARCE DE '+({barrel:'TAMBOR',truck:'CAMINHÃO',forklift:'EMPILHADEIRA'})[target.type]+' · 10S');}return;}
   if(g.mode==='multiplayer'){g.multiplayer.syncState();g.multiplayer.send({type:'power',id});return;}
   const hpRatioBefore=g.player.health/Math.max(1,g.player.maxHealth);this.lastCastPenalty=0;
   if(this.applyLocal(id)!==false){const hpRatio=hpRatioBefore;const blackholeCenter=(POWER_VARIANTS[id]?.base||id)==='blackhole'?this.aimLocal(28):null;const nearby=blackholeCenter?g.enemies.enemies.filter(e=>Math.hypot(e.x-blackholeCenter.x,e.z-blackholeCenter.z)<18).length:0;const penalty=((POWER_VARIANTS[id]?.base||id)==='heal'&&hpRatio<=.3?6000:0)+((POWER_VARIANTS[id]?.base||id)==='blackhole'&&nearby>=2?7000:0)+this.lastCastPenalty;this.cooldowns[id]=now()+POWER_DATA[id].cool*1000+penalty;}
@@ -283,7 +283,11 @@ export class PowerSystem {
  validPosition(x,y,z){return this.game.urban.canOccupy(x,z,y,1.77,.48)&&y>=0&&y<=38&&Math.hypot(x-this.game.parkour.x,z-this.game.parkour.z )<=700;}
  findTarget(){
   const g=this.game,pk=g.parkour;
-  const origin=new THREE.Vector3(),dir=new THREE.Vector3();g.world.camera.getWorldPosition(origin);g.world.camera.getWorldDirection(dir);
+  const origin=new THREE.Vector3(),dir=new THREE.Vector3();
+  const aimNode=g.world.cameraMode==='third'?g.world.cameraPitch:g.world.camera;
+  aimNode.getWorldPosition(origin);
+  if(g.world.cameraMode==='third')dir.set(0,0,-1).applyQuaternion(aimNode.getWorldQuaternion(new THREE.Quaternion()));
+  else aimNode.getWorldDirection(dir);
   // First prefer a real downward-facing rooftop intersected by the crosshair.
   const targets=g.urban.rayTargets||[];
   const hits=new THREE.Raycaster(origin,dir,.1,35).intersectObjects(targets,false);

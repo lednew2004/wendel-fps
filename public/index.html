@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="screen-orientation" content="landscape">
   <meta name="theme-color" content="#070b10">
-  <meta name="description" content="TITAN PROTOCOL 3.1.0 — FPS multiplayer para PC e celular, mira por toque, parkour e convites de sala">
-  <title>TITAN PROTOCOL 3.1.0 · Heróis e Habilidades</title>
+  <meta name="description" content="TITAN PROTOCOL 3.2.0 — FPS multiplayer para PC e celular, mira por toque, parkour e convites de sala">
+  <title>TITAN PROTOCOL 3.2.0 · Heróis e Habilidades</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
     <header class="hud-top">
       <div class="hud-logo"><b class="logo-mark">T<span>/</span>P</b><div><strong>TITAN <em>PROTOCOL</em></strong><small id="mission-id">M01 · PERÍMETRO ZERO</small></div></div>
       <div class="mission-chip"><span class="live-dot"></span><div><small>MISSÃO ATIVA</small><strong id="objective">ELIMINE OS HOSTIS</strong></div></div>
-      <div class="top-right"><small id="perf-fps" class="perf-fps">-- FPS</small><div class="score"><small>PONTUAÇÃO</small><strong id="score">000000</strong></div><button id="hud-pause" class="icon-btn" title="Pausar (Esc)" aria-label="Pausar">Ⅱ</button></div>
+      <div class="top-right"><small id="perf-fps" class="perf-fps">-- FPS</small><div class="score"><small>PONTUAÇÃO</small><strong id="score">000000</strong></div><button id="camera-mode-switch" type="button" title="Alternar câmera (V)" aria-label="Alternar entre primeira e terceira pessoa" aria-pressed="true">◉ 3ª PESSOA</button><button id="hud-pause" class="icon-btn" title="Pausar (Esc)" aria-label="Pausar">Ⅱ</button></div>
     </header>
     <div class="wave-strip"><span><b id="chapter-label">01 / A QUEDA</b> <strong id="wave" class="hidden">01</strong></span><span style="font-size:10px;color:var(--cyan)" id="mission-progress-label">MISSÃO</span><div class="wave-track"><div id="wave-progress"></div></div><span>HOSTIS <strong id="hostiles">00</strong></span></div>
     <aside class="radar-card"><div class="radar-head"><strong>RADAR TÁTICO</strong><span>60M</span></div><canvas id="radar" width="180" height="180" aria-label="Radar dos inimigos"></canvas><div class="radar-foot"><i></i> MOVIMENTO DETECTADO</div></aside>
@@ -156,7 +156,7 @@
         <button id="mp-open" type="button" class="secondary-btn mp-trigger">◎ MULTIPLAYER ONLINE · CRIAR / ENTRAR EM SALA</button>
         <div class="save-line"><span id="menu-chapter">CHECKPOINT: PERÍMETRO ZERO</span><span>CRÉDITOS: <b id="menu-credits">0</b> CR</span></div>
       </div>
-      <div class="mobile-menu-note">📱 CELULAR: GIRE A TELA NA HORIZONTAL · USE OS DEDOS PARA JOGAR</div><div class="menu-controls"><span><kbd>W A S D</kbd> MOVER</span><span><kbd>MOUSE</kbd> MIRAR / ATIRAR</span><span><kbd>4 / F</kbd> TROCAR ARMA</span><span><kbd>E / X / T</kbd> PARKOUR E DASH</span></div>
+      <div class="mobile-menu-note">📱 CELULAR: GIRE A TELA NA HORIZONTAL · USE OS DEDOS PARA JOGAR</div><div class="menu-controls"><span><kbd>W A S D</kbd> MOVER</span><span><kbd>MOUSE</kbd> MIRAR / ATIRAR</span><span><kbd>4 / F</kbd> TROCAR ARMA</span><span><kbd>V</kbd> ALTERNAR CÂMERA</span><span><kbd>E / X / T</kbd> PARKOUR E DASH</span></div>
       <div class="menu-footer"><span><i class="green-led"></i> SISTEMAS OPERACIONAIS</span><span>MELHOR PONTUAÇÃO: <b id="menu-best">000000</b></span></div>
     </div>
     <div class="menu-side right-side"><span>FOB DELTA</span><span>05° 11' 22.0" S</span><span>42° 48' 14.1" W</span></div>

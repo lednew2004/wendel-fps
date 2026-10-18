@@ -222,18 +222,21 @@ export function createOperative({role='scout',size=1,player=false,tint=null,hero
   visual.traverse(obj=>{
     if(obj.isMesh&&obj!==flare&&obj.geometry===SHAPES.orb&&obj.scale.x*obj.scale.y*obj.scale.z<.0015)detailMeshes.push(obj);
   });
-  root.userData.rig={visual,torso,head,arms,legs,rifle,flare,materials,detailMeshes,lodFar:false,walk:0,blend:0,flash:0,hit:0,role,player};
+  root.userData.rig={visual,torso,head,arms,legs,rifle,flare,materials,detailMeshes,lodFar:false,walk:0,blend:0,dashBlend:0,airBlend:0,aimBlend:0,flash:0,hit:0,role,player};
   return root;
 }
 
-export function animateOperative(root,dt,{moving=0,firing=false,frozen=false,hit=false,distance=0}={}){
+export function animateOperative(root,dt,{moving=0,firing=false,frozen=false,hit=false,distance=0,dash=false,airborne=false,aiming=false}={}){
   const rig=root?.userData?.rig;if(!rig)return;
   dt=Math.max(0,Math.min(.06,Number(dt)||0));
   const far=Number(distance)>47;
   if(far!==rig.lodFar){rig.lodFar=far;for(const part of rig.detailMeshes)part.visible=!far;}
   const desired=frozen?0:Math.max(0,Math.min(1,Number(moving)||0));
   rig.blend+=(desired-rig.blend)*Math.min(1,dt*9);
-  rig.walk+=dt*(4.7+rig.blend*7);
+  rig.dashBlend+=((dash?1:0)-rig.dashBlend)*Math.min(1,dt*16);
+  rig.airBlend+=((airborne?1:0)-rig.airBlend)*Math.min(1,dt*11);
+  rig.aimBlend+=((aiming?1:0)-rig.aimBlend)*Math.min(1,dt*9);
+  rig.walk+=dt*(4.7+rig.blend*(7+rig.dashBlend*7));
   const walk=rig.blend;
   const stride=Math.sin(rig.walk);
   rig.legs[0].rotation.x=stride*.69*walk;
@@ -247,8 +250,12 @@ export function animateOperative(root,dt,{moving=0,firing=false,frozen=false,hit
     rig.arms[i].rotation.z=(i===0?-.10:.10)+(rig.role==='tank'?.13:0);
     rig.arms[i].userData.elbow.rotation.x=-.20-walk*.15;
   }
+  // Lean into a burst, tuck knees in mid-air, and maintain a readable rifle stance.
+  for(const leg of rig.legs){leg.rotation.x*=1-rig.airBlend*.54;leg.userData.knee.rotation.x+=rig.airBlend*.56;}
+  rig.legs[0].rotation.x+=rig.dashBlend*.30;rig.legs[1].rotation.x-=rig.dashBlend*.28;
   rig.torso.rotation.z=Math.sin(rig.walk*.5)*.025*walk;
-  rig.torso.rotation.x=.04+walk*.07;
+  rig.torso.rotation.x=.04+walk*.07-rig.dashBlend*.38+rig.airBlend*.12;
+  if(rig.aimBlend){rig.arms[0].rotation.x-=rig.aimBlend*.13;rig.arms[1].rotation.x-=rig.aimBlend*.15;}
   rig.head.rotation.y=Math.sin(rig.walk*.35)*.045;
   rig.head.rotation.x=Math.sin(rig.walk*.5)*.02*walk;
   if(firing&&(['scout','hunter','tank'].includes(rig.role))){

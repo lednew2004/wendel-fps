@@ -1,3 +1,21 @@
+# TITAN PROTOCOL 3.2 — TERCEIRA PESSOA / DUAL CAMERA
+
+**Nova perspectiva jogável, sem perder a primeira pessoa.** O jogo inicia em terceira pessoa, com a câmera atrás do ombro do herói escolhido. Cada jogador alterna **V** (PC) ou **CÂMERA** (botão no HUD/celular) durante a partida. A preferência fica salva neste navegador.
+
+- **Câmera 3D suave:** distância dinâmica de aproximadamente 4,15 m, com deslocamento lateral de ombro, interpolação exponencial e aproximação automática para ~2,35 m ao mirar.
+- **Colisões com a cidade:** raycast matemático de volumes AABB das construções e das portas existentes; câmera encurta a distância atrás do jogador ao se aproximar de obstáculos, evitando atravessar paredes em rotas e interiores.
+- **Avatar local visível:** modelo humanoide 3D do próprio herói selecionado, com suas cores e acessórios distintos; movimento de caminhada/corrida, dash inclinado para frente, pernas dobrando nos saltos, recuo de tiros, mira, e reação ao receber dano. A qualidade BAIXA desativa projeção de sombras do avatar no celular.
+- **Mira consistente:** disparos, granadas e poderes direcionados partem da cabeça/mira real do jogador, e não da câmera deslocada atrás dele. Rastros de tiro saem visualmente da arma do personagem.
+- **Habilidades especiais:** invisibilidade/intangibilidade tornam o avatar local semitransparente; transformação em objetos substitui a aparência do avatar por uma representação 3D do objeto copiado.
+- **Modos preservados:** campanha, sobrevivência, multiplayer da Render, mapa MOBA (base, TOP, MID, ADC, jungle), 13 personagens, 39 habilidades, combos de Shiro/Leo/Butterfly, minimapa, HP, sala personalizada, nick editável e controles móveis.
+- **Sem modelos externos ou pós-processamento extra:** a terceira pessoa aproveita o renderizador leve, evitando os travamentos do visual cyberpunk 2.8.
+
+**Controles:** V alterna a câmera, 1/2/3 usam habilidades, 4 ou F troca a arma, TAB abre a roda e Esc pausa. No celular, use o botão `◉ 3ª PESSOA / ◎ 1ª PESSOA` ao lado do pause. Pressionar/soltar habilidades e arrastar a mira continuam como antes.
+
+**Validação:** `npm test` executa as regressões e testes da câmera. Testar a experiência 3D completa em dispositivos físicos ainda é necessário: os testes Node.js não validam visualmente WebGL.
+
+---
+
 # TITAN PROTOCOL 3.1 — FLUID COMBAT
 
 **Atualização visual e de jogabilidade dos combos**, baseada na versão leve 3.0 com mapa MOBA e 13 heróis.
@@ -59,7 +77,7 @@ Os três novos kits trazem **9 técnicas de combo** com reativação e estados s
 
 ## Publicação e testes
 
-Requer Node.js >= 22. `npm start` inicia o mesmo serviço HTTP e WebSocket, sem Redis e sem dependências externas de npm. Three.js é carregado por CDN e requer acesso à internet. Para testar, rode `npm test`. O endpoint `/health` deve retornar `3.1.0`.
+Requer Node.js >= 22. `npm start` inicia o mesmo serviço HTTP e WebSocket, sem Redis e sem dependências externas de npm. Three.js é carregado por CDN e requer acesso à internet. Para testar, rode `npm test`. O endpoint `/health` deve retornar `3.2.0`.
 
 Na pasta do repositório GitHub (arquivos descompactados na raiz), execute:
 
