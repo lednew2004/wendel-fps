@@ -95,8 +95,8 @@ export class World {
   constructor(mount){
     this.mount=mount;
     this.scene=new THREE.Scene();
-    this.scene.background=new THREE.Color(0x83baf1);
-    this.scene.fog=new THREE.FogExp2(0xa4d4ed,.0026);
+    this.scene.background=new THREE.Color(0x71c8f8);
+    this.scene.fog=new THREE.FogExp2(0xc5e9ff,.0022);
     this.camera=new THREE.PerspectiveCamera(78,1,.07,440);
     this.cameraRig=new THREE.Group();
     this.cameraPitch=new THREE.Group();
@@ -107,7 +107,7 @@ export class World {
     this.renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure=1.08;
+    this.renderer.toneMappingExposure=1.13;
     this.renderer.shadowMap.enabled=true;
     this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     mount.appendChild(this.renderer.domElement);

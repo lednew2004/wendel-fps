@@ -42,7 +42,7 @@ def colors(accent,role):
 
 class Writer:
  def __init__(self):
-    self.doc={'asset':{'version':'2.0','generator':'Titan Original Character Authoring v3.5'},'scene':0,'scenes':[{'nodes':[]}],
+    self.doc={'asset':{'version':'2.0','generator':'Titan Voxel Squad 3.5.1'},'scene':0,'scenes':[{'nodes':[]}],
          'nodes':[],'meshes':[],'materials':[],'skins':[],'animations':[],'bufferViews':[],'accessors':[],'buffers':[{'byteLength':0}]}
     self.data=bytearray()
  def add_buffer(self,payload,target=None):
@@ -144,10 +144,13 @@ def manufacture(hero,role,accent,variant):
         mesh.apply_translation(center)
         per[slot].append((mesh,joint))
     def sphere(joint,slot,center,scale,detail=1):
-        append(trimesh.creation.icosphere(subdivisions=detail,radius=1),joint,slot,center,scale)
+        # Original blocky human proportions, inspired by voxel adventure aesthetics.
+        # Each torso/head/limb is a hard-edged rectangular volume; never a sphere.
+        append(trimesh.creation.box(extents=[float(v)*2 for v in scale]),joint,slot,center,(1,1,1))
     def barrel(joint,slot,a,b,r1,r2,section=9):
         a=np.asarray(a,float);b=np.asarray(b,float);delta=b-a
-        cyl=trimesh.creation.conical_frustum(r1,r2,np.linalg.norm(delta),sections=section) if hasattr(trimesh.creation,'conical_frustum') else trimesh.creation.cylinder(radius=(r1+r2)*.5,height=np.linalg.norm(delta),sections=section)
+        # Square barrel and gunstock match the rest of the block-art direction.
+        cyl=trimesh.creation.box(extents=(r1*2,r1*2,np.linalg.norm(delta)))
         # cylinder initially aligns Z; rotate Z to direction of a-b
         v=np.asarray([0.,0.,1.]);t=delta/np.linalg.norm(delta)
         mat=trimesh.geometry.align_vectors(v,t);cyl.apply_transform(mat);cyl.apply_translation((a+b)/2)
@@ -158,9 +161,14 @@ def manufacture(hero,role,accent,variant):
     sphere(1,1,(0,1.60,-.21),(.34*width,.39,.10),1)
     sphere(1,1,(0,1.43,.27),(.30*width,.32,.10),1)
     sphere(1,2,(0,1.68,-.315),(.14,.035,.026),1)
-    sphere(2,4,(0,2.28,-.01),(.225,.29,.205),2)
-    sphere(2,1,(0,2.48,.07),(.26,.18,.23),1)
-    sphere(2,5,(0,2.30,-.225),(.21,.09,.028),1)
+    sphere(2,4,(0,2.28,-.01),(.285,.29,.273),0)
+    sphere(2,1,(0,2.53,.07),(.299,.135,.295),0)
+    sphere(2,5,(0,2.32,-.290),(.250,.083,.028),0)
+    # Recognisable pixel eyes above a small pixel mouth, visible on the visor plane.
+    for eye_x in (-.115,.115):
+        append(trimesh.creation.box(extents=(.068,.066,.022)),2,3,(eye_x,2.335,-.327),(1,1,1))
+        append(trimesh.creation.box(extents=(.032,.032,.024)),2,2,(eye_x,2.343,-.342),(1,1,1))
+    append(trimesh.creation.box(extents=(.115,.024,.025)),2,3,(0,2.197,-.296),(1,1,1))
     sphere(2,3,(0,2.145,-.205),(.19,.055,.035),1)
     sphere(2,6,(0,2.27,-.247),(.06,.045,.04),1)
     for s,jup,jlow,jleg,jshin in [(-1,3,4,7,8),(1,5,6,9,10)]:

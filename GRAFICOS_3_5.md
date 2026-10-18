@@ -4,9 +4,9 @@
 
 **Personagens — 13 heróis e 7 classes genéricas/inimigos:** gerados novamente como GLB 2.0 originais com materiais PBR, estrutura de 11 juntas e equipamentos visuais por identidade. Shiro recebe ombreiras e equipamentos de combate, Leo placas de energia, Butterfly extensões de traje e acessórios luminescentes, e os outros dez modelos recebem diferenciações de visor, proteção, detalhes de uniforme e acessórios. Os modelos são **estilizados, criados programaticamente**, e NÃO representam personagens de um estúdio de arte, escultura manual em Blender, captura de movimento ou fotorrealismo.
 
-**Animações:** 17 clipes por GLB detalhado — `idle`, `walk`, `run`, `dash`, `jump`, `fire`, `aim`, `hit`, `cast`, `strafe_left`, `strafe_right`, `crouch`, `land`, `reload`, `aim_upper`, `fire_upper`, `cast_upper`. O runtime mistura animação de locomoção com clipes que alteram apenas os ossos do tronco/braços. A transição possui crossfade. Animações de recarga, dash e poder são conectadas ao jogador local em terceira pessoa. O LOD de celular usa os nove clipes antigos e trata os novos clipes como opcionais.
+**Animações:** 17 clipes por GLB detalhado — `idle`, `walk`, `run`, `dash`, `jump`, `fire`, `aim`, `hit`, `cast`, `strafe_left`, `strafe_right`, `crouch`, `land`, `reload`, `aim_upper`, `fire_upper`, `cast_upper`. O runtime mistura animação de locomoção com clipes que alteram apenas os ossos do tronco/braços. A transição possui crossfade. Animações de recarga, dash e poder são conectadas ao jogador local em primeira pessoa. O LOD de celular usa os nove clipes antigos e trata os novos clipes como opcionais.
 
-**Armas:** quatro GLBs 3D originais em `public/assets/models/weapons/` (`rifle`, `shotgun`, `sniper`, `lmg`), feitos com partes separadas por material PBR. Carregamento por demanda e fallback para as armas anteriores. Ponto de disparo em terceira pessoa passa a acompanhar a junta do braço do modelo GLB; o modelo visual antigo pode ser removido sem deslocar o traçador de bala. Recuo, mira, recarga, áudio e danos anteriores são mantidos. O flash do cano recebe um pequeno sprite radial sem iluminação extra no perfil BAIXA, e a origem do efeito respeita o comprimento da arma.
+**Armas:** quatro GLBs 3D originais em `public/assets/models/weapons/` (`rifle`, `shotgun`, `sniper`, `lmg`), feitos com partes separadas por material PBR. Carregamento por demanda e fallback para as armas anteriores. Ponto de disparo em primeira pessoa passa a acompanhar a junta do braço do modelo GLB; o modelo visual antigo pode ser removido sem deslocar o traçador de bala. Recuo, mira, recarga, áudio e danos anteriores são mantidos. O flash do cano recebe um pequeno sprite radial sem iluminação extra no perfil BAIXA, e a origem do efeito respeita o comprimento da arma.
 
 **Ambiente:** kit de fachadas com InstancedMesh para colunas, acabamentos, portas **decorativas**, janelas, coberturas, luzes simuladas e avisos, além da sombra de contato WebP pré-calculada. Os detalhes são ocultados em **BAIXA**. O cenário continua com **a mesma geometria de colisão** e os mesmos caminhos e objetivos. As novas portas são DECORATIVAS; não são novos interiores atravessáveis.
 
@@ -16,7 +16,7 @@
 
 ## O que continua igual
 
-13 heróis e 39 habilidades; dash multidirecional; combos, cooldowns e kits; quatro classes; três operações PvE com três bots; cooperativo online para quatro; PvP todos contra todos; parkour, mira, controles móveis, câmera em primeira/terceira pessoa; salas WebSocket e deploy GitHub/Render.
+13 heróis e 39 habilidades; dash multidirecional; combos, cooldowns e kits; quatro classes; três operações PvE com três bots; cooperativo online para quatro; PvP todos contra todos; parkour, mira, controles móveis, câmera em primeira/primeira pessoa; salas WebSocket e deploy GitHub/Render.
 
 ## Arquivos relevantes
 

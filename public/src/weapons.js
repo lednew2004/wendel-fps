@@ -210,11 +210,10 @@ export class Weapons {
     if(s.clip<=0){ this.audio.play('empty'); this.fireCooldown=.26; this.reload(); return false; }
     s.clip--; this.fireCooldown=w.interval/this.fireMultiplier; this.recoil=Math.min(.42,this.recoil+w.recoil); this.muzzleTime=.065;
     this.audio.play(w.id==='rifle'?'rifle':w.id==='shotgun'?'shotgun':'rail');
-    const origin=new THREE.Vector3(); (this.world.cameraMode==='third'?this.world.cameraPitch:this.world.camera).getWorldPosition(origin);
+    const origin=new THREE.Vector3(); this.world.camera.getWorldPosition(origin);
     const spread=this.aiming?w.spread*.38:w.spread;
     const base=new THREE.Vector3();
-    if(this.world.cameraMode==='third')base.set(0,0,-1).applyQuaternion(this.world.cameraPitch.getWorldQuaternion(new THREE.Quaternion()));
-    else this.world.camera.getWorldDirection(base);
+    this.world.camera.getWorldDirection(base);
     let hit=false,killed=false;
     for(let i=0;i<w.pellets;i++){
       const dir=base.clone().add(new THREE.Vector3(rand(-spread,spread),rand(-spread,spread),rand(-spread,spread))).normalize();
@@ -222,8 +221,7 @@ export class Weapons {
       if(result?.hit){ hit=true; if(result.killed) killed=true; }
       const end=result?.point || origin.clone().addScaledVector(dir,Math.min(w.range,70));
       const start=new THREE.Vector3();
-      if(this.world.cameraMode==='third'&&this.world.thirdPersonAvatar){(this.world.thirdPersonAvatar.userData.visualMuzzle||this.world.thirdPersonAvatar.userData.rig.rifle).getWorldPosition(start);start.addScaledVector(dir,.48);}
-      else this.muzzle.getWorldPosition(start);
+      this.muzzle.getWorldPosition(start);
       if(this.world.quality!=='low'||i<2)this.addTracer(start,end,w.id==='shotgun'?0xffd38a:0xffefe0,w.id==='rail'?.06:.014,w.id==='rail'?.20:.11);
     }
     if(hit){ this.audio.play('hit'); this.hooks.onHitmarker(killed); }

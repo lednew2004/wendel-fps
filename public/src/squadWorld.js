@@ -5,16 +5,18 @@ import {installArchitecturalDetails} from './sceneDetails35.js';
 /** Linear FPS mission environment. No lanes, towers, jungle camps or MOBA bases. */
 export function createSquadWorld(city){
  const root=city.root;
- const metal=new THREE.MeshStandardMaterial({color:0x465866,metalness:.52,roughness:.53});
- const wall=new THREE.MeshStandardMaterial({color:0x8196aa,metalness:.16,roughness:.72});
- const concrete=new THREE.MeshStandardMaterial({color:0x6b787a,roughness:.91});
- const road=new THREE.MeshStandardMaterial({color:0x414e5d,metalness:.08,roughness:.74});
- const panel=new THREE.MeshStandardMaterial({color:0x5faab0,emissive:0x27828c,emissiveIntensity:.24});
- const orange=new THREE.MeshStandardMaterial({color:0xffa65f,emissive:0xc55b28,emissiveIntensity:.20});
+ const metal=new THREE.MeshStandardMaterial({color:0x47779c,metalness:.28,roughness:.59});
+ const wall=new THREE.MeshStandardMaterial({color:0x95c9eb,metalness:.08,roughness:.76});
+ // Distinct bright districts stay readable without bloom or dynamic light sources.
+ const facades=[0x8acbed,0xf2ae81,0xb0d887,0xc9adea,0xffd379,0x79d6d0].map(color=>new THREE.MeshStandardMaterial({color,roughness:.82,metalness:0}));
+ const concrete=new THREE.MeshStandardMaterial({color:0xaabcc2,roughness:.91});
+ const road=new THREE.MeshStandardMaterial({color:0x638091,metalness:0,roughness:.85});
+ const panel=new THREE.MeshStandardMaterial({color:0x72e8db,emissive:0x238d86,emissiveIntensity:.22});
+ const orange=new THREE.MeshStandardMaterial({color:0xffc05f,emissive:0xb96920,emissiveIntensity:.12});
  // Static ground AO is baked offline; zero dynamic light or shadow cost.
  const groundMap=new THREE.TextureLoader().load('./assets/baked/mission_ground_baked.webp');
  groundMap.colorSpace=THREE.SRGBColorSpace;groundMap.anisotropy=2;
- const ground=new THREE.Mesh(new THREE.PlaneGeometry(435,435),new THREE.MeshStandardMaterial({map:groundMap,color:0xffffff,metalness:0,roughness:1}));
+ const ground=new THREE.Mesh(new THREE.PlaneGeometry(435,435),new THREE.MeshStandardMaterial({map:groundMap,color:0xe8ffe5,metalness:0,roughness:1}));
  ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;root.add(ground);
  // Vehicle road, service roads and open plazas, no colored team lanes.
  const roadGeo=new THREE.PlaneGeometry(17,340);
@@ -23,7 +25,7 @@ export function createSquadWorld(city){
    const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),concrete);m.rotation.x=-Math.PI/2;m.position.set(x,.025,z);m.receiveShadow=true;root.add(m);
  }
  for(const [index,b] of SQUAD_BLOCKS.entries()){
-   const isShort=b.h<3,material=isShort?concrete:index%3===0?wall:metal;
+   const isShort=b.h<3,material=isShort?concrete:facades[index%facades.length];
    const mesh=city.box(b.x,b.h/2,b.z,b.w,b.h,b.d,material);city.rayTargets.push(mesh);
    city.solids.push({...b});
    if(!isShort){
@@ -41,7 +43,7 @@ export function createSquadWorld(city){
  // Visual-only city enhancement: shared geometries + InstancedMesh, avoiding hundreds of draw calls,
  // new dynamic lights or extra collision volumes. These details remain visible on LOW.
  const glass=new THREE.MeshStandardMaterial({color:0xffffff,metalness:.43,roughness:.33,emissive:0x173749,emissiveIntensity:.23});
- const trim=new THREE.MeshStandardMaterial({color:0x80cdd4,metalness:.56,roughness:.38,emissive:0x123c53,emissiveIntensity:.14});
+ const trim=new THREE.MeshStandardMaterial({color:0x80f8df,metalness:.56,roughness:.38,emissive:0x123c53,emissiveIntensity:.14});
  const darkMetal=new THREE.MeshStandardMaterial({color:0x334251,metalness:.7,roughness:.44});
  const markMaterial=new THREE.MeshStandardMaterial({color:0xffd49e,roughness:.83});
  const glassGeo=new THREE.BoxGeometry(1.10,1.28,.055);
@@ -57,7 +59,7 @@ export function createSquadWorld(city){
      const which=(j+i+floor)%2;const k=windows[which];if(k>=350)continue;
      dummy.position.set(b.x+(j-(count-1)/2)*2.1,1.7+floor*2.6,b.z+side*(b.d/2+.045));
      dummy.rotation.set(0,0,0);dummy.scale.set(1,1,1);dummy.updateMatrix();glassMeshes[which].setMatrixAt(k,dummy.matrix);
-     glassMeshes[which].setColorAt(k,new THREE.Color(which?0xffdf9c:0x90dfff));windows[which]++;
+     glassMeshes[which].setColorAt(k,new THREE.Color(which?0xffdf9c:0x9bdfff));windows[which]++;
    }
    if(nr<180){dummy.position.set(b.x,b.h+.26,b.z+b.d/2+.06);dummy.rotation.set(0,0,0);dummy.scale.set(Math.max(2,b.w-.7),1,1);dummy.updateMatrix();trims.setMatrixAt(nr++,dummy.matrix);}
    for(let j=0;j<2;j++)if(nt<72){dummy.position.set(b.x+(j?-.21:.25)*b.w,b.h+.58,b.z+(j?.18:-.2)*b.d);dummy.rotation.set(0,j*.5,0);dummy.scale.set(1+j*.45,1,1+j*.24);dummy.updateMatrix();rooftop.setMatrixAt(nt++,dummy.matrix);}
@@ -73,8 +75,8 @@ export function createSquadWorld(city){
  }
  paint.count=stripes;paint.instanceMatrix.needsUpdate=true;paint.castShadow=false;root.add(paint);
  // Rounded trees/vegetation for a lived-in city, instanced without per-tree lights or shadows.
- const treeTrunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.13,.22,2.1,7),new THREE.MeshStandardMaterial({color:0x745c45,roughness:1}),48);
- const treeCrowns=new THREE.InstancedMesh(new THREE.SphereGeometry(1.2,9,6),new THREE.MeshStandardMaterial({color:0x389c77,roughness:.9}),48);
+ const treeTrunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.13,.22,2.1,7),new THREE.MeshStandardMaterial({color:0x967344,roughness:1}),48);
+ const treeCrowns=new THREE.InstancedMesh(new THREE.SphereGeometry(1.2,9,6),new THREE.MeshStandardMaterial({color:0x4ed567,roughness:.9}),48);
  let trees=0;
  for(let i=0;i<56&&trees<48;i++){
    const x=(i%2?1:-1)*(139+(i*7%51));const z=-183+(i*61%367);

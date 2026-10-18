@@ -1,6 +1,6 @@
-# TITAN PROTOCOL 3.5.0 — GRAPHICS REVOLUTION (SQUAD OPERATIONS)
+# TITAN PROTOCOL 3.5.1 — VOXEL SQUAD + EDITOR DE HUD (SQUAD OPERATIONS)
 
-FPS 3D com personagens e habilidades, câmera em **primeira ou terceira pessoa**, 13 heróis com três técnicas próprias, modos de combate e missões táticas de esquadrão. Projeto em HTML/CSS/JavaScript + Three.js com servidor HTTP/WebSocket Node.js >=22, sem dependências de npm. A biblioteca Three.js é carregada pela internet via CDN.
+FPS 3D com personagens e habilidades, câmera exclusivamente em **primeira pessoa (FPS)**, 13 heróis com três técnicas próprias, modos de combate e missões táticas de esquadrão. Projeto em HTML/CSS/JavaScript + Three.js com servidor HTTP/WebSocket Node.js >=22, sem dependências de npm. A biblioteca Three.js é carregada pela internet via CDN.
 
 
 ## Novidades 3.5 — Personagens, armas, animações e cenário
@@ -96,7 +96,7 @@ Escolha `COOP` no lobby multiplayer e compartilhe o código da sala. Entram **qu
 - **WASD / mouse:** movimentação, mira e disparo; **Espaço:** salto/parkour.
 - **1 / 2 / 3:** os três poderes do personagem, incluindo reativações de combos.
 - **4 / F / roda do mouse:** trocar arma dentro das opções da função durante operações; livre no PvP.
-- **V:** alternar entre primeira e terceira pessoa (salvo no navegador).
+- **CÂMERA:** primeira pessoa fixa, sem alternância para terceira pessoa.
 - **X:** dash; **TAB:** roda de habilidades; **Esc:** pausar ou abrir painel da sala.
 - **G:** ordens do esquadrão na campanha; **H:** granada na campanha; **G:** granada fora da campanha.
 - **Celular:** mirar pelo toque, botão de disparo, habilidades 1/2/3, DASH, ARMA, CÂMERA e SQUAD.
@@ -107,7 +107,7 @@ Escolha `COOP` no lobby multiplayer e compartilhe o código da sala. Entram **qu
 npm start
 ```
 
-O servidor entrega o frontend e as salas WebSocket na mesma origem. Acesse `http://localhost:3000` e `/health` (deve informar `3.5.0`). Para rodar testes:
+O servidor entrega o frontend e as salas WebSocket na mesma origem. Acesse `http://localhost:3000` e `/health` (deve informar `3.5.1`). Para rodar testes:
 
 ```bash
 npm test
@@ -128,3 +128,14 @@ A pasta pode ser publicada na **Render** usando `render.yaml` e um repositório 
 - O PvE cooperativo funciona com estado de missão e inimigos autoritativos no servidor; é uma implementação básica, não uma simulação idêntica à campanha solo.
 - No plano gratuito da Render, o serviço pode hibernar/reiniciar; salas e partidas online estão em memória e podem se perder com o reinício.
 - Testes automatizados Node/WebSocket verificam protocolos, poderes, caminhos e progressão lógica, mas **não substituem testes WebGL reais** no PC e no celular. O navegador automatizado deste ambiente restringe o acesso ao jogo servido localmente.
+
+
+## v3.5.1 — VOXEL SQUAD + CONFIGURAR HUD
+
+- **Heróis:** 13 modelos GLB originais, cabeça, tronco e membros quadrados, com os uniformes e cores diferentes para cada classe. Mesmo padrão nos NPCs e no fallback 3D simples. Animações esqueléticas mantidas.
+- **Cidade:** prédios em seis cores, céu azul vivo, marcações turquesa, vegetação mais verde, sem novas luzes dinâmicas nem efeitos pesados.
+- **FPS exclusivo:** removida a opção de câmera em terceira pessoa e o botão anterior foi substituído por **⚙ HUD**.
+- **Configurar HUD:** abrir pelo menu principal, pela pausa ou pelo painel da sala no online. Selecione os elementos, arraste na prévia, ajuste tamanho e opacidade; também é possível ocultar indicadores secundários, restaurar o padrão, cancelar ou salvar.
+- **Segurança da interface:** pausa e comandos essenciais não podem ser ocultados. Valores de posição, tamanho e opacidade possuem limites seguros. Salvo localmente na chave `titan-hud-layout-v1` (não sincroniza com outras contas/dispositivos).
+- **No celular:** pause a partida usando `Ⅱ` e toque em `⚙ HUD`. Os botões de tiro, mira, dash, corrida, arma, ação e joystick podem ser realocados. O editor não dispara tiros porque edita uma prévia separada.
+- **Observações:** o HUD novo não altera hitboxes do cenário, a simulação ou o servidor. Todos os personagens permanecem originalizados, não são cópias do Steve do Minecraft. A aparência e o desempenho reais devem ser testados no navegador do usuário.

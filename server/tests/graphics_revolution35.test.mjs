@@ -44,7 +44,7 @@ test('3.5: quatro armas GLB originais têm geometrias e materiais PBR',()=>{
  const src=text('public/src/weapons.js');
  assert.match(src,/loadWeaponModels\(/);
  assert.match(src,/TITAN_HAND_LEFT/);
- assert.match(src,/visualMuzzle/);
+ assert.match(src,/this\.muzzle\.getWorldPosition/);
  assert.match(src,/tracerGeometry/);
 });
 test('3.5: runtime preserva fallback e anima camadas independentes',()=>{
@@ -54,10 +54,7 @@ test('3.5: runtime preserva fallback e anima camadas independentes',()=>{
  assert.match(s,/fire_upper/);
  assert.match(s,/s\.upperAction/);
  assert.match(s,/visualMuzzle/);
- const p=text('public/src/thirdPersonCamera.js');
- assert.match(p,/g\.weapons\?\.reloadTime>0/);
- assert.match(p,/emitCast\(/);
- assert.match(text('public/src/powers.js'),/thirdPerson\?\.emitCast/);
+ assert.match(text('public/src/game.js'),/this\.world\.cameraMode='first'/);
 });
 test('3.5: arquitetura e sombreamento não alteram colisão e ficam desligáveis no LOW',()=>{
  const s=text('public/src/sceneDetails35.js');
@@ -77,7 +74,7 @@ test('3.5: classificação FPS preservada e renderizador WebGL mantém opções 
  assert.match(world,/TITAN_VISUAL_QUALITY=q/);
  const game=text('public/src/game.js');
  assert.match(game,/this\.mobile\?\.enabled \? 0\.55 : 0\.63/);
- for(const fragment of ['this.campaign.update(dt)','this.squad.update(dt)','this.multiplayer.update(dt)','this.thirdPerson.update(dt)','this.weapons.update(dt'])assert.ok(game.includes(fragment));
- assert.equal(JSON.parse(text('package.json')).version,'3.5.0');
- assert.match(text('server/server.mjs'),/version:'3\.5\.0'/);
+ for(const fragment of ['this.campaign.update(dt)','this.squad.update(dt)','this.multiplayer.update(dt)','this.weapons.update(dt'])assert.ok(game.includes(fragment));
+ assert.equal(JSON.parse(text('package.json')).version,'3.5.1');
+ assert.match(text('server/server.mjs'),/version:'3\.5\.1'/);
 });

@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import {characterStyle} from './characterIdentity.js';
 
-// Personagens esculpidos com superfícies arredondadas e articulações reais. Sem corpos cúbicos.
+// Titã VOXEL: silhuetas blocadas originais. O GLB com esqueleto assume quando termina de carregar.
 // Malhas e posições são relativas aos pivôs para animar sem carregar novos arquivos externos.
 const SHAPES={
-  orb:new THREE.SphereGeometry(1,14,10),
-  capsule:new THREE.CapsuleGeometry(1,1,5,9),
-  cone:new THREE.ConeGeometry(1,1,12),
-  tube:new THREE.CylinderGeometry(1,1,1,12),
+  orb:new THREE.BoxGeometry(2,2,2),
+  capsule:new THREE.BoxGeometry(2,2,2),
+  cone:new THREE.BoxGeometry(2,2,2),
+  tube:new THREE.BoxGeometry(2,1,2),
   torus:new THREE.TorusGeometry(1,.15,7,20),
   plane:new THREE.PlaneGeometry(1,1)
 };
