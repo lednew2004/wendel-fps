@@ -2,23 +2,23 @@ import {POWER_VARIANTS} from '../public/src/heroRoster.js';
 /** Regras de habilidades autoritativas; compartilhadas com os testes do servidor. */
 const BASE_POWER_RULES=Object.freeze({
  push:{name:'Repulsão',cooldown:12000,range:16},
- freeze:{name:'Congelar',cooldown:18000,range:35,duration:1500},
- teleport:{name:'Teleporte estratégico',cooldown:28000,range:700,returnWindow:15000},
- flight:{name:'Voo',cooldown:21000,duration:7000},
- invisible:{name:'Invisibilidade',cooldown:24000,duration:5000},
- phase:{name:'Intangibilidade',cooldown:30000,duration:7000},
- blackhole:{name:'Buraco Negro',cooldown:38000,range:36,duration:5500,radius:18},
- rewind:{name:'Reverter o Tempo',cooldown:42000,history:10000},
- chain:{name:'Corrente Elétrica',cooldown:20000,range:42,chainRadius:18},
- gravity:{name:'Gravidade Invertida',cooldown:28000,range:40,radius:13,duration:2700},
- clones:{name:'Clones Fantasmas',cooldown:19000,duration:10000},
- clonejump:{name:'Salto dos Clones',cooldown:26000,duration:14000},
- shield:{name:'Escudo Absoluto',cooldown:31000,duration:7000},
- swap:{name:'Troca Dimensional',cooldown:28000,range:60},
- copy:{name:'Roubo de Habilidades',cooldown:36000,range:60,markDuration:18000,stealDuration:30000},
- resurrection:{name:'Ressurreição',cooldown:65000,duration:4000},
- heal:{name:'Cura',cooldown:22000,health:70,shield:25},
- morph:{name:'Disfarce em Objeto',cooldown:24000,duration:10000,range:6}
+ freeze:{name:'Congelar',cooldown:14000,range:35,duration:1500},
+ teleport:{name:'Teleporte estratégico',cooldown:22000,range:700,returnWindow:15000},
+ flight:{name:'Voo',cooldown:16000,duration:7000},
+ invisible:{name:'Invisibilidade',cooldown:17000,duration:5000},
+ phase:{name:'Intangibilidade',cooldown:23000,duration:7000},
+ blackhole:{name:'Buraco Negro',cooldown:28000,range:36,duration:5500,radius:18},
+ rewind:{name:'Reverter o Tempo',cooldown:32000,history:10000},
+ chain:{name:'Corrente Elétrica',cooldown:13000,range:42,chainRadius:18},
+ gravity:{name:'Gravidade Invertida',cooldown:20000,range:40,radius:13,duration:2700},
+ clones:{name:'Clones Fantasmas',cooldown:15000,duration:10000},
+ clonejump:{name:'Salto dos Clones',cooldown:20000,duration:14000},
+ shield:{name:'Escudo Absoluto',cooldown:23000,duration:7000},
+ swap:{name:'Troca Dimensional',cooldown:21000,range:60},
+ copy:{name:'Roubo de Habilidades',cooldown:27000,range:60,markDuration:18000,stealDuration:30000},
+ resurrection:{name:'Ressurreição',cooldown:48000,duration:4000},
+ heal:{name:'Cura',cooldown:17000,health:70,shield:25},
+ morph:{name:'Disfarce em Objeto',cooldown:18000,duration:10000,range:6}
 });
 export const POWER_RULES=Object.freeze({...BASE_POWER_RULES,...Object.fromEntries(Object.entries(POWER_VARIANTS).map(([id,v])=>[id,{...BASE_POWER_RULES[v.base],...v,name:v.label,cooldown:v.cool*1000}]))});
 export const VALID_POWERS=Object.keys(POWER_RULES);

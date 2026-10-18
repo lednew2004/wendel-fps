@@ -1,5 +1,6 @@
 import {PARKOUR_TUNING as CFG,approach} from './parkourPhysics.js';
 import {SQUAD_START} from './squadLayout.js';
+import {directionForDash} from './heroCombos.js';
 
 const fmtTime=t=>Number(t).toFixed(2)+' s';
 const $=id=>document.getElementById(id);
@@ -126,10 +127,11 @@ export class ParkourController {
     if(this.grounded&&Math.hypot(this.vx,this.vz)>5.5){this.slide=CFG.slideTime;this.prompt='DESLIZAMENTO';}
   }
   tacticalDash(){
-    const dir=this.direction(),yaw=this.game.yaw;
-    const x=dir.mag?dir.x:-Math.sin(yaw),z=dir.mag?dir.z:-Math.cos(yaw);
+    const dir=this.dashDirection(),yaw=this.game.yaw;
+    const x=Math.hypot(dir.x,dir.z)>.12?dir.x:-Math.sin(yaw),z=Math.hypot(dir.x,dir.z)>.12?dir.z:-Math.cos(yaw);
     this.dashTime=.22;this.dashVX=x*25;this.dashVZ=z*25;
   }
+  dashDirection(){return directionForDash(this.direction(),{x:this.vx,z:this.vz});}
   direction(){
     const k=this.game.keys;
     let f=Number(!!(k.KeyW||k.ArrowUp))-Number(!!(k.KeyS||k.ArrowDown));

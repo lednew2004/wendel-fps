@@ -285,9 +285,9 @@ function aimPoint(p,range){
  const cp=Math.cos(p.pitch),distance=Math.min(range,20);
  return {x:limit(p.x-Math.sin(p.yaw)*cp*distance,-WORLD_HALF+4,WORLD_HALF-4),z:limit(p.z-Math.cos(p.yaw)*cp*distance,-WORLD_HALF+4,WORLD_HALF-4)};
 }
-function comboDash(p,metres,now,backward=false){
+function comboDash(p,metres,now,backward=false,direction=null){
  const dir=backward?-1:1,from={x:p.x,y:p.y,z:p.z};let to={...from};
- for(let step=.5;step<=metres;step+=.5){const target=dashVector(from.x,from.z,p.yaw,step*dir);if(!locationValid(target.x,p.y,target.z,roomColliders(p.room)))break;to={x:target.x,y:p.y,z:target.z};}
+ for(let step=.5;step<=metres;step+=.5){const target=dashVector(from.x,from.z,p.yaw,step*dir,direction);if(!locationValid(target.x,p.y,target.z,roomColliders(p.room)))break;to={x:target.x,y:p.y,z:target.z};}
  Object.assign(p,to,{lastMove:now});
  p.comboDashUntil=now+340;
  broadcast(p.room,{type:'power-effect',kind:'combo-dash',player:p.id,id:p._currentCombo||'',from,to,duration:340});
@@ -305,7 +305,7 @@ function castHeroCombo(p,data,now=Date.now()){
  if(!phase&&(s.cooldowns[id]||0)>now){send(p.socket,{type:'power-error',message:'Habilidade recarregando.'});return true;}
  let next=null,kind=id,point=null;
  const start=()=>{s.cooldowns[id]=now+rule.cooldown;s.activeUntil[id]=now+(rule.duration||2000);};
- const move=(n,back=false)=>{p._currentCombo=id;const result=comboDash(p,n,now,back);delete p._currentCombo;point=result.to;return result;};
+ const move=(n,back=false)=>{p._currentCombo=id;const result=comboDash(p,n,now,back,{x:data.dx,z:data.dz});delete p._currentCombo;point=result.to;return result;};
  if(id==='shiro_step'){
   if(!phase){move(7);next={step:1,until:now+12000};s.cooldowns[id]=next.until+rule.cooldown;}
   else{move(9);comboDamageNear(p,p.x,p.z,4.8,56,now);next=null;s.cooldowns[id]=now+rule.cooldown;}
@@ -331,7 +331,7 @@ function castHeroCombo(p,data,now=Date.now()){
    broadcast(p.room,{type:'power-vfx',kind:'leo-barrage',player:p.id,x:p.x,y:p.y,z:p.z,wave:i+1});
   },i*540);
  }else if(id==='butterfly_dash'){
-  if(!phase){const origin={x:p.x,y:p.y,z:p.z};let to=origin;for(let k=.5;k<=10;k+=.5){const q=dashVector(origin.x,origin.z,p.yaw,k);if(!locationValid(q.x,p.y,q.z,roomColliders(p.room)))break;to={x:q.x,y:p.y,z:q.z};}Object.assign(p,to,{lastMove:now});broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...to});next={step:1,until:now+12000,origin};s.cooldowns[id]=next.until+rule.cooldown;}
+  if(!phase){const origin={x:p.x,y:p.y,z:p.z};let to=origin;for(let k=.5;k<=10;k+=.5){const q=dashVector(origin.x,origin.z,p.yaw,k,{x:data.dx,z:data.dz});if(!locationValid(q.x,p.y,q.z,roomColliders(p.room)))break;to={x:q.x,y:p.y,z:q.z};}Object.assign(p,to,{lastMove:now});broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...to});next={step:1,until:now+12000,origin};s.cooldowns[id]=next.until+rule.cooldown;}
   else{if(phase.origin&&locationValid(phase.origin.x,phase.origin.y,phase.origin.z,roomColliders(p.room))){Object.assign(p,phase.origin,{lastMove:now});point=phase.origin;broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...point});}s.cooldowns[id]=now+rule.cooldown;}
  }else if(id==='butterfly_orbit'){
   if(!phase){next={step:1,until:now+12000,started:now};s.cooldowns[id]=next.until+rule.cooldown;s.activeUntil[id]=next.until;}
@@ -561,7 +561,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.3.1'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.3.2'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';

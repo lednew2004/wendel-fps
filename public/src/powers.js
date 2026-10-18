@@ -7,23 +7,23 @@ import {PowerMenu} from './powerMenu.js';
 import {CasualEconomy,STARTING_POWER} from './casualEconomy.js';
 export const POWER_DATA={
  push:{label:'REPULSÃO',icon:'◉',cool:12,help:'Empurrão extremo em 16 m'},
- freeze:{label:'CONGELAR',icon:'❄',cool:18,help:'Congela por 1,5 s em até 35 m'},
- teleport:{label:'TELEPORTE',icon:'↝',cool:28,help:'Mapa inteiro; retorno em 15 segundos'},
- flight:{label:'VOAR',icon:'↑',cool:21,duration:7000,help:'Voe durante 7 segundos'},
- invisible:{label:'INVISÍVEL',icon:'◌',cool:24,duration:5000,help:'Invisível por 5 segundos'},
- phase:{label:'INTANGÍVEL',icon:'◇',cool:30,duration:7000,help:'Atravesse paredes por 7 segundos'},
- blackhole:{label:'BURACO NEGRO',icon:'◉',cool:38,duration:5500,help:'Sucção extrema de 18 m por 5,5 s'},
- rewind:{label:'REWIND 10S',icon:'↶',cool:42,help:'Reverte posição e vida de 10 segundos'},
- chain:{label:'RAIO',icon:'ϟ',cool:20,help:'Raio fortalecido até 42 m'},
- gravity:{label:'GRAVIDADE',icon:'↟',cool:28,help:'Área de 13 m; suspende 2,7 s'},
- clones:{label:'CLONES',icon:'♧',cool:19,duration:10000,help:'Três cópias por 10 segundos'},
- clonejump:{label:'CLONE MÓVEL',icon:'✧',cool:26,duration:14000,help:'Clone corre por 14 s; reative para trocar'},
- shield:{label:'ESCUDO',icon:'⬡',cool:31,duration:7000,help:'Proteção por 7 segundos'},
- swap:{label:'TROCA',icon:'⇄',cool:28,help:'Troca dimensional até 60 m'},
- copy:{label:'COPIAR',icon:'⧉',cool:36,help:'Marque e elimine em 18s; copie por 30s'},
- resurrection:{label:'RESSURREIÇÃO',icon:'✚',cool:65,duration:4000,help:'Passiva: renasce automaticamente; imortal 4s'},
- heal:{label:'CURA',icon:'♥',cool:22,help:'Recupera 70 HP e 25 de escudo'},
- morph:{label:'VIRAR OBJETO',icon:'▣',cool:24,duration:10000,help:'Copie tambor, caminhão ou empilhadeira por 10s'},
+ freeze:{label:'CONGELAR',icon:'❄',cool:14,help:'Congela por 1,5 s em até 35 m'},
+ teleport:{label:'TELEPORTE',icon:'↝',cool:22,help:'Mapa inteiro; retorno em 15 segundos'},
+ flight:{label:'VOAR',icon:'↑',cool:16,duration:7000,help:'Voe durante 7 segundos'},
+ invisible:{label:'INVISÍVEL',icon:'◌',cool:17,duration:5000,help:'Invisível por 5 segundos'},
+ phase:{label:'INTANGÍVEL',icon:'◇',cool:23,duration:7000,help:'Atravesse paredes por 7 segundos'},
+ blackhole:{label:'BURACO NEGRO',icon:'◉',cool:28,duration:5500,help:'Sucção extrema de 18 m por 5,5 s'},
+ rewind:{label:'REWIND 10S',icon:'↶',cool:32,help:'Reverte posição e vida de 10 segundos'},
+ chain:{label:'RAIO',icon:'ϟ',cool:13,help:'Raio fortalecido até 42 m'},
+ gravity:{label:'GRAVIDADE',icon:'↟',cool:20,help:'Área de 13 m; suspende 2,7 s'},
+ clones:{label:'CLONES',icon:'♧',cool:15,duration:10000,help:'Três cópias por 10 segundos'},
+ clonejump:{label:'CLONE MÓVEL',icon:'✧',cool:20,duration:14000,help:'Clone corre por 14 s; reative para trocar'},
+ shield:{label:'ESCUDO',icon:'⬡',cool:23,duration:7000,help:'Proteção por 7 segundos'},
+ swap:{label:'TROCA',icon:'⇄',cool:21,help:'Troca dimensional até 60 m'},
+ copy:{label:'COPIAR',icon:'⧉',cool:27,help:'Marque e elimine em 18s; copie por 30s'},
+ resurrection:{label:'RESSURREIÇÃO',icon:'✚',cool:48,duration:4000,help:'Passiva: renasce automaticamente; imortal 4s'},
+ heal:{label:'CURA',icon:'♥',cool:17,help:'Recupera 70 HP e 25 de escudo'},
+ morph:{label:'VIRAR OBJETO',icon:'▣',cool:18,duration:10000,help:'Copie tambor, caminhão ou empilhadeira por 10s'},
  ...POWER_VARIANTS
 };
 const $=id=>document.getElementById(id);
@@ -172,10 +172,13 @@ export class PowerSystem {
   if(this.frozen())return;
   if(this.motion.hasDash()){g.toast('CONCLUA O DASH PARA REATIVAR');return;}
   if(!(stage?.until>t)&&(this.cooldowns[id]||0)>t){g.toast('RECARGA · '+Math.ceil((this.cooldowns[id]-t)/1000)+'s');return;}
-  if(g.mode==='multiplayer'){g.multiplayer.syncState();g.multiplayer.send({type:'power',id});return;}
+  if(g.mode==='multiplayer'){
+   const dir=g.parkour.dashDirection();
+   g.multiplayer.syncState();g.multiplayer.send({type:'power',id,dx:dir.x,dz:dir.z});return;
+  }
   const p=g.parkour,valid=(x,z)=>g.urban.canOccupy(x,z,p.y,1.8,.48);
   const origin={x:p.x,y:p.y,z:p.z};
-  const dash=(distance,back=false)=>{let last=origin;for(let n=.5;n<=distance;n+=.5){const q=dashVector(origin.x,origin.z,g.yaw,n*(back?-1:1));if(!valid(q.x,q.z))break;last={x:q.x,y:p.y,z:q.z};}this.motion.startDash(origin,last,{duration:DASH_DURATION_MS,color:back?0xffb368:0x67eaff});return last;};
+  const dash=(distance,back=false)=>{let last=origin;for(let n=.5;n<=distance;n+=.5){const q=dashVector(origin.x,origin.z,g.yaw,n*(back?-1:1),p.dashDirection());if(!valid(q.x,q.z))break;last={x:q.x,y:p.y,z:q.z};}this.motion.startDash(origin,last,{duration:DASH_DURATION_MS,color:back?0xffb368:0x67eaff});return last;};
   const damage=(x,z,r,amount)=>{for(const enemy of [...g.enemies.enemies])if(!enemy.dead&&Math.hypot(enemy.x-x,enemy.z-z)<r)g.enemies.damage(enemy,amount,new THREE.Vector3(enemy.x,1,enemy.z),'pulse');};
   let next=null;
   if(id==='shiro_step'){
@@ -198,7 +201,7 @@ export class PowerSystem {
    this.status.shield=t+2800;this.status[id]=t+2800;this.cooldowns[id]=t+data.cool*1000;this.motion.ultimate({x:p.x,y:p.y,z:p.z},0xffa45f,15);
    for(let i=0;i<3;i++)setTimeout(()=>{if(g.state==='playing'){for(const enemy of [...g.enemies.enemies])if(!enemy.dead)g.enemies.damage(enemy,65,new THREE.Vector3(enemy.x,1,enemy.z),'pulse');this.flash(0xffb35e,18);this.motion.ultimate({x:p.x,y:p.y,z:p.z},0xffaf62,17);}},i*500);
   }else if(id==='butterfly_dash'){
-   if(!stage?.until||stage.until<=t){let last=origin;for(let n=.5;n<=10;n+=.5){const q=dashVector(origin.x,origin.z,g.yaw,n);if(!valid(q.x,q.z))break;last={x:q.x,y:p.y,z:q.z};}p.spawn(last.x,last.y,last.z);this.motion.teleport(origin,last,0xe0a0ff);next={step:1,origin,until:t+COMBO_WINDOW_MS};this.cooldowns[id]=next.until+data.cool*1000;}
+   if(!stage?.until||stage.until<=t){let last=origin;for(let n=.5;n<=10;n+=.5){const q=dashVector(origin.x,origin.z,g.yaw,n,p.dashDirection());if(!valid(q.x,q.z))break;last={x:q.x,y:p.y,z:q.z};}p.spawn(last.x,last.y,last.z);this.motion.teleport(origin,last,0xe0a0ff);next={step:1,origin,until:t+COMBO_WINDOW_MS};this.cooldowns[id]=next.until+data.cool*1000;}
    else{if(valid(stage.origin.x,stage.origin.z)){const old={x:p.x,y:p.y,z:p.z};p.spawn(stage.origin.x,stage.origin.y,stage.origin.z);this.motion.teleport(old,stage.origin,0xe0a0ff);}this.cooldowns[id]=t+data.cool*1000;}
   }else if(id==='butterfly_orbit'){
    if(!stage?.until||stage.until<=t){next={step:1,started:t,until:t+COMBO_WINDOW_MS};this.cooldowns[id]=next.until+data.cool*1000;this.status[id]=next.until;this.showComboVisual(0xae94ff);}

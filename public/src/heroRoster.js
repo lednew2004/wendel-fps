@@ -1,18 +1,18 @@
 import {HERO_COMBOS} from './heroCombos.js';
 /** TITAN PROTOCOL — dez identidades jogáveis e 30 técnicas; dados puros compartilhados com o servidor. */
 export const POWER_VARIANTS=Object.freeze({
- shockwave:{base:'push',label:'PULSO TITÂNICO',icon:'◎',cool:23,range:22,help:'Onda de impacto de grande alcance.'},
- overclock:{base:'flight',label:'SOBRECARGA',icon:'✦',cool:18,duration:3500,help:'Propulsão de combate por 3,5 s.'},
- iceburst:{base:'freeze',label:'CRIOPRISÃO',icon:'❄',cool:25,range:24,duration:2400,help:'Congelamento mais longo, alcance menor.'},
- stasis:{base:'freeze',label:'TOQUE DE ESTASE',icon:'◈',cool:13,range:46,duration:900,help:'Paralisação curta a longa distância.'},
- jetburst:{base:'flight',label:'PROPULSÃO VETORIAL',icon:'↥',cool:15,duration:4200,help:'Voo rápido e curto.'},
- pulsegravity:{base:'gravity',label:'ONDA ANTIGRAVIDADE',icon:'⇧',cool:30,range:35,radius:17,duration:1800,help:'Eleva adversários numa área ampla.'},
- smoke:{base:'invisible',label:'CAMUFLAGEM ÓPTICA',icon:'◌',cool:32,duration:7000,help:'Invisibilidade prolongada.'},
- chronoback:{base:'rewind',label:'RETROCESSO RÁPIDO',icon:'↶',cool:26,history:5000,help:'Volta cinco segundos no tempo.'},
- skyfire:{base:'chain',label:'RAIO CIRÚRGICO',icon:'ϟ',cool:17,range:50,chainRadius:12,targets:2,damage:[80,42],help:'Raio preciso de longo alcance.'},
- thunderstorm:{base:'chain',label:'TEMPESTADE ELETRO',icon:'⚡',cool:34,range:36,chainRadius:20,targets:4,damage:[65,51,39,30],help:'Raio atinge quatro adversários.'},
- voidtrap:{base:'blackhole',label:'ARMADILHA DO VAZIO',icon:'⬡',cool:28,range:28,radius:12,duration:3200,help:'Vórtice compacto com sucção extrema.'},
- lifedrain:{base:'heal',label:'NANOCURA',icon:'✚',cool:19,health:42,shield:38,help:'Repara vida e recarrega o escudo.'},
+ shockwave:{base:'push',label:'PULSO TITÂNICO',icon:'◎',cool:17,range:22,help:'Onda de impacto de grande alcance.'},
+ overclock:{base:'flight',label:'SOBRECARGA',icon:'✦',cool:15,duration:3500,help:'Propulsão de combate por 3,5 s.'},
+ iceburst:{base:'freeze',label:'CRIOPRISÃO',icon:'❄',cool:17,range:24,duration:2400,help:'Congelamento mais longo, alcance menor.'},
+ stasis:{base:'freeze',label:'TOQUE DE ESTASE',icon:'◈',cool:12,range:46,duration:900,help:'Paralisação curta a longa distância.'},
+ jetburst:{base:'flight',label:'PROPULSÃO VETORIAL',icon:'↥',cool:12,duration:4200,help:'Voo rápido e curto.'},
+ pulsegravity:{base:'gravity',label:'ONDA ANTIGRAVIDADE',icon:'⇧',cool:23,range:35,radius:17,duration:1800,help:'Eleva adversários numa área ampla.'},
+ smoke:{base:'invisible',label:'CAMUFLAGEM ÓPTICA',icon:'◌',cool:23,duration:7000,help:'Invisibilidade prolongada.'},
+ chronoback:{base:'rewind',label:'RETROCESSO RÁPIDO',icon:'↶',cool:22,history:5000,help:'Volta cinco segundos no tempo.'},
+ skyfire:{base:'chain',label:'RAIO CIRÚRGICO',icon:'ϟ',cool:13,range:50,chainRadius:12,targets:2,damage:[80,42],help:'Raio preciso de longo alcance.'},
+ thunderstorm:{base:'chain',label:'TEMPESTADE ELETRO',icon:'⚡',cool:25,range:36,chainRadius:20,targets:4,damage:[65,51,39,30],help:'Raio atinge quatro adversários.'},
+ voidtrap:{base:'blackhole',label:'ARMADILHA DO VAZIO',icon:'⬡',cool:22,range:28,radius:12,duration:3200,help:'Vórtice compacto com sucção extrema.'},
+ lifedrain:{base:'heal',label:'NANOCURA',icon:'✚',cool:16,health:42,shield:38,help:'Repara vida e recarrega o escudo.'},
  ...HERO_COMBOS
 });
 export const HEROES=Object.freeze([

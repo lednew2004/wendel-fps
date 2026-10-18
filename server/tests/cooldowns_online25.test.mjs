@@ -25,7 +25,7 @@ test('online critical healing: near-death heal has longer authoritative cooldown
  const ws=await connect(),welcome=wait(ws,m=>m.type==='welcome');send(ws,{type:'join',create:true,room:'CD25BC',name:'Curandeiro',loadout:['heal','push']});const joined=await welcome;
  const p=[...players.values()].find(v=>v.id===joined.id);p.hp=20;p.shield=0;
  const state=wait(ws,m=>m.type==='power-state'&&m.powers.cooldowns.heal>Date.now());send(ws,{type:'power',id:'heal'});const result=await state;
- assert.ok(result.powers.cooldowns.heal-Date.now()>27500);
+ assert.ok(result.powers.cooldowns.heal-Date.now()>22500);
  assert.equal(p.hp,90);assert.equal(p.shield,25);
 });
 

@@ -13,7 +13,7 @@ test('18 combat powers, removed web, 10 second rewind, copy on marked eliminatio
  assert.equal(POWER_RULES.copy.markDuration,18000);
  assert.equal(POWER_RULES.copy.stealDuration,30000);
  assert.equal(POWER_RULES.blackhole.radius,18);
- assert.ok(POWER_RULES.rewind.cooldown>=40000);
+ assert.ok(POWER_RULES.rewind.cooldown>=30000);
  assert.match(src('powers.js'),/timestamp=now\(\)-\(POWER_DATA\[id\]\.history\|\|10000\)/);
  assert.doesNotMatch(src('powers.js'),/findWebAnchor/);
  assert.match(src('powers.js'),/this\.copyMark=\{enemy:target\.e/);

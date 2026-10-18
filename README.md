@@ -1,12 +1,19 @@
-# TITAN PROTOCOL 3.3.1 — SQUAD OPERATIONS (CORREÇÃO DE INICIALIZAÇÃO)
+# TITAN PROTOCOL 3.3.2 — SQUAD OPERATIONS (MOVIMENTAÇÃO E EQUILÍBRIO)
 
 FPS 3D com personagens e habilidades, câmera em **primeira ou terceira pessoa**, 13 heróis com três técnicas próprias, modos de combate e missões táticas de esquadrão. Projeto em HTML/CSS/JavaScript + Three.js com servidor HTTP/WebSocket Node.js >=22, sem dependências de npm. A biblioteca Three.js é carregada pela internet via CDN.
+
+## Novidades 3.3.2 — Dash direcional, recargas e cenário otimizado
+
+- **Dash comum (X) e habilidades de avanço:** agora usam a direção do movimento no teclado ou joystick. Aceitam frente, trás, lados e diagonais. Se o jogador soltar os controles durante um deslizamento, conservam a direção da velocidade; parado, usam a direção da mira. Os combos de Shiro e Leo têm o mesmo comportamento no casual e no multiplayer; seus trajetos continuam respeitando as colisões, enquanto o servidor calcula destinos e valida a distância. O recuo de Shiro permanece no sentido contrário ao comando de movimento, conforme sua identidade.
+- **39 recargas reequilibradas, idênticas no cliente e no servidor:** técnicas básicas 12–23 s, técnicas intensas 20–32 s, ultimates 30–35 s e Ressurreição 48 s. Cada poder mantém a duração do próprio efeito e sua identidade. As reativações permanecem abertas por **12 segundos**, separadas do tempo de recarga da próxima sequência.
+- **Mapa tático com gráficos mais definidos e leves:** janelas de fachada, acabamentos, objetos sobre telhados, faixa de pedestres, vegetação arredondada e placas de operação. São detalhes de baixo custo com materiais compartilhados e instanciamento (`THREE.InstancedMesh`); não há iluminação dinâmica nova, chuva nem pós-processamento pesado. A geometria de colisão e a disposição dos objetivos são as mesmas.
+- **Validação:** 77 testes automatizados, incluindo novas verificações de dash nas quatro direções, combos online, paridade de recargas e estrutura visual leve. Não é uma medição de FPS real; valide no PC e no celular.
 
 ## Correção 3.3.1 — Erro ao iniciar o motor 3D
 
 A tela de erro era causada por uma exceção JavaScript no `ParkourController.updateHud`: o novo mapa Squad não tem percursos de parkour cronometrados e a interface tentava acessar `route.name` de uma rota inexistente. Agora o HUD lida com ausência de percursos e as ações `T` / `m-trial` não ativam rotas inexistentes. Os recursos de salto, corrida e parkour livre permanecem disponíveis. O erro na tela também identifica a exceção real para facilitar futuros diagnósticos.
 
-**Validação:** 73 testes automatizados, incluindo 2 regressões específicas de inicialização, aprovados. A renderização WebGL completa ainda deve ser testada em um navegador real.
+**Validação da correção original:** 73 testes automatizados, incluindo 2 regressões específicas de inicialização, aprovados. A renderização WebGL completa ainda deve ser testada em um navegador real.
 
 ## Mudanças da versão 3.3
 
