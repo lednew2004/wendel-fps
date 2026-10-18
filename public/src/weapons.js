@@ -145,6 +145,17 @@ export class Weapons {
     this.muzzleLight=new THREE.PointLight(0xffc37b,0,5); this.muzzleLight.position.set(0,.03,-1.06); this.model.add(this.muzzleLight);
   }
 
+  setHeroAccent(hex=0x55e1ea){
+    if(!this.heroAccentMaterial){
+      this.heroAccentMaterial=new THREE.MeshBasicMaterial({color:hex,depthTest:false});
+      this.heroAccents=this.weaponObjects.map((group,index)=>{
+        const mesh=new THREE.Mesh(new THREE.CapsuleGeometry(.045,.22,3,7),this.heroAccentMaterial);
+        mesh.position.set(.17,.10,index===2?-.55:-.32);mesh.rotation.x=Math.PI/2;mesh.renderOrder=18;
+        group.add(mesh);return mesh;
+      });
+    }
+    this.heroAccentMaterial.color.setHex(hex);
+  }
   switchTo(i){
     if(i<0||i>=WEAPONS.length)return;
     if(this.index===i && this.weaponObjects.length && this.weaponObjects.every((o,j)=>o.visible===(j===i))) return;

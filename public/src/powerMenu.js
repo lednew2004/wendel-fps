@@ -1,3 +1,4 @@
+import {heroLoadout} from './heroRoster.js';
 import {WORLD_HALF} from './worldLayout.js';
 /** Seleção de habilidades e teleporte tático, comuns a PC e telas sensíveis ao toque. */
 const $=id=>document.getElementById(id);
@@ -35,9 +36,10 @@ export class PowerMenu{
   else this.renderWheel();
  }
  openWheel(){if(this.mode==='wheel'){this.close();return;}if(!this.mode)this.open('wheel');}
- setPage(next){const max=Math.ceil(Object.keys(this.abilities).length/this.pageSize);this.page=(next+max)%max;this.renderWheel();}
- setHovered(index){this.hoverIndex=index;for(const b of this.wheel.querySelectorAll('.titan-power-option'))b.classList.toggle('hovered',Number(b.dataset.index)===index);const item=Object.entries(this.abilities)[this.page*this.pageSize+index];$('titan-wheel-center').textContent=item?(this.system.isUnlocked(item[0])?item[1].label:item[1].label+' · '+this.system.economy.price(item[0])+' CR'):'ESCOLHA O PODER';}
- releaseWheel(){if(this.mode!=='wheel')return;const entry=Object.entries(this.abilities)[this.page*this.pageSize+this.hoverIndex];if(entry&&this.system.acquire(this.slot,entry[0])){this.game.toast(entry[1].label+' EQUIPADO EM PODER '+(this.slot+1));this.close();}else this.renderWheel();}
+ entries(){return heroLoadout(this.game.heroSelection?.selectedHero).map(id=>[id,this.abilities[id]]).filter(x=>x[1]);}
+ setPage(next){const max=Math.ceil(this.entries().length/this.pageSize);this.page=(next+max)%max;this.renderWheel();}
+ setHovered(index){this.hoverIndex=index;for(const b of this.wheel.querySelectorAll('.titan-power-option'))b.classList.toggle('hovered',Number(b.dataset.index)===index);const item=this.entries()[this.page*this.pageSize+index];$('titan-wheel-center').textContent=item?(this.system.isUnlocked(item[0])?item[1].label:item[1].label+' · '+this.system.economy.price(item[0])+' CR'):'ESCOLHA O PODER';}
+ releaseWheel(){if(this.mode!=='wheel')return;const entry=this.entries()[this.page*this.pageSize+this.hoverIndex];if(entry&&this.system.acquire(this.slot,entry[0])){this.game.toast(entry[1].label+' EQUIPADO EM PODER '+(this.slot+1));this.close();}else this.renderWheel();}
  openTeleport(){this.open('teleport');}
  close(){
   if(!this.mode)return;
@@ -45,7 +47,7 @@ export class PowerMenu{
   this.game.setState('playing');this.game.requestLock();
  }
  renderWheel(){
-  const entries=Object.entries(this.abilities),max=Math.ceil(entries.length/this.pageSize);
+  const entries=this.entries(),max=Math.ceil(entries.length/this.pageSize);
   const frag=document.createDocumentFragment();this.hoverIndex=-1;
   $('titan-wheel-center').textContent='ESCOLHA O PODER';
   const start=this.page*this.pageSize;
@@ -66,8 +68,7 @@ export class PowerMenu{
   }
   this.wheel.replaceChildren(frag);
   $('titan-wheel-page').textContent=`${this.page+1} / ${max}`;
-  this.shopInfo.textContent=this.system.isCasualRun()?`◈ ${this.system.economy.credits.toLocaleString('pt-BR')} CR DISPONÍVEIS · ${this.system.economy.owned.size} HABILIDADES COMPRADAS · ELIMINE MONSTROS PARA GANHAR MAIS`:'MULTIPLAYER · TODAS AS HABILIDADES LIBERADAS';
-  this.shopInfo=document.createElement('div');this.shopInfo.id='titan-wheel-credits';this.shopInfo.setAttribute('role','status');this.shopInfo.className='titan-wheel-credits';const wheelStage=this.wheel.closest('.titan-wheel-stage');wheelStage.parentNode.insertBefore(this.shopInfo,wheelStage);
+  this.shopInfo.textContent=this.system.isCasualRun()?`◈ ${this.system.economy.credits.toLocaleString('pt-BR')} CR · LIBERE OS TRÊS PODERES DO SEU PERSONAGEM`:'KIT FIXO DO PERSONAGEM · TODAS AS TRÊS HABILIDADES DISPONÍVEIS';
   for(const b of document.querySelectorAll('[data-power-target-slot]'))b.classList.toggle('selected',Number(b.dataset.powerTargetSlot)===this.slot);
  }
 

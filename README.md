@@ -1,53 +1,39 @@
-# TITAN PROTOCOL 2.8 — IDENTIDADE DOS PERSONAGENS
+# TITAN PROTOCOL 2.9 — HERO ROSTER (LIGHT EDITION)
 
-**Atualização real no código do jogo**, não uma imagem de referência. A versão 2.8 substitui a aparência de personagens quadrados por **modelos humanoides 3D estilizados renderizados com Three.js** no casual e no multiplayer, preservando o mundo expandido da 2.6.
+Esta versão parte do motor gráfico **2.7**, anterior ao cenário cyberpunk pesado da versão 2.8. NÃO inclui chuva, os vários painéis luminosos ou o bloom noturno pesado. O foco é manter a jogabilidade em celular.
 
-## Novidades gráficas implementadas
+## O que foi implementado
 
-- **Seis identidades inimigas:** Corredor Rubro, Vanguarda, Vigia Azul, Caçador, Colosso e Comandante Titã. Cada classe tem cor de facção, proporções e equipamentos exclusivos.
-- **Geometria orgânica:** cabeça, rosto, capacete, visor, tronco, couraça, mochila, braços e pernas construídos com formas arredondadas; não são mais corpos feitos de blocos retangulares.
-- **Animações articuladas:** passos de corrida, balanço dos braços, joelhos, postura de ataque, clarão de disparos e resposta visual a danos. Os inimigos continuam usando as mesmas regras de tiro, perseguição e colisão.
-- **Personagens online:** outros jogadores e hologramas usam o novo renderizador, com detalhes e cores de identificação variados. As barras de vida, escudo e disfarces continuam.
-- **Otimização:** geometrias primitivas compartilhadas, detalhes muito pequenos ocultos à distância, materiais de holograma reutilizados e descarte de recursos ao eliminar personagens.
+- **10 personagens jogáveis**, cada um com nome, especialidade, cor exclusiva, silhueta/acessórios próprios e **3 habilidades**.
+- **30 técnicas** no total: 18 existentes e 12 variantes novas com diferentes recargas, distâncias e durações.
+- Tela de escolha do personagem, arma inicial (M4A1, M870, M24, M249) e **primeira habilidade** antes de começar.
+- **Casual (campanha/sobrevivência):** a partida começa com o primeiro poder escolhido; mate monstros para obter créditos e compre os outros **dois** poderes desse mesmo personagem pela roda TAB/PODERES.
+- **Multiplayer:** o personagem entra com o trio completo. O servidor valida a seleção e ignora tentativas de equipar poderes de outro personagem.
+- **3 habilidades no HUD:** PC usa Z, V e B; celular possui três botões com mira por arrasto nas habilidades direcionadas e indicadores de recarga/duração.
+- Avatares dos outros jogadores mantêm cor e silhueta selecionadas mesmo em qualidade baixa; o FPS usa um pequeno detalhe luminoso na arma para indicar a cor do operador.
+- Preservados o mapa expandido, as casas, portas e janelas, minimapa, dano e escudo, controles móveis, código de sala, reconexão, dash com cooldown e modo casual.
 
-**Qualidade visual:** são personagens estilizados *procedurais* do próprio Three.js, não modelos fotorrealistas importados e animados por captura de movimento. Para chegar à aparência de jogos AAA, a próxima etapa seria integrar modelos humanoides GLB autorais/licenciados e animações esqueléticas.
+## Os 10 personagens
 
-**Compatibilidade:** mantém todas as funcionalidades da 2.6, incluindo mapa com casas e portas, minimapa, 18 habilidades, progressão casual, dash com recarga, códigos de sala personalizados e multiplayer Render gratuito.
+| Operador | Especialidade | Habilidades |
+| --- | --- | --- |
+| VEX | Impacto cinético | Repulsão, Pulso Titânico, Sobrecarga |
+| NYRA | Gelo | Congelar, Crioprisão, Toque de Estase |
+| KAIROS | Dimensão | Teleporte no mapa, Troca Dimensional, Intangibilidade |
+| ÍCARO | Voo | Voar, Propulsão Vetorial, Onda Antigravidade |
+| SOMBRA | Furtividade | Invisibilidade, Virar Objeto, Camuflagem Óptica |
+| ÉON | Tempo | Rewind 10 segundos, Ressurreição automática, Retrocesso Rápido 5 segundos |
+| MÍMICO | Ilusão | Clones Fantasmas, Clone Móvel, Copiar habilidade após eliminação |
+| VOLTA | Energia | Raio, Raio Cirúrgico, Tempestade Eletro |
+| NEXUS | Gravidade | Buraco Negro, Gravidade, Armadilha do Vazio |
+| ATLAS | Suporte | Cura, Escudo Absoluto, Nanocura |
 
-**Publicação:** extraia o ZIP na raiz do repositório, execute `git add .`, `git commit -m "Titan Protocol 2.8 - Personagens 3D"`, `git push origin main` e confirme `/health` com `"version":"2.8.0"`.
+## Publicação
 
-**Testes:** `npm test` verifica jogo, rede e os personagens criados. Ainda é necessário verificar o resultado gráfico no navegador e no celular real.
+No diretório raiz do projeto execute `npm test` para verificar os testes automatizados e `npm start` para iniciar Node. Na Render, Node >= 22, com um único servidor HTTP e WebSocket sem banco de dados.
 
----
+O ZIP contém `package.json`, `render.yaml`, `public/` e `server/` na raiz. Publique esses arquivos no seu repositório GitHub e envie com `git add .`, `git commit -m "TITAN 2.9 - 10 herois"`, `git push origin main`.
 
-## Histórico da versão 2.6 — Cidade Viva
+## Limitações
 
-FPS 3D para PC e celular, com campanha, sobrevivência e salas online via Node.js 22 + WebSocket. Projeto completo baseado na versão 2.5, **sem remover** os 18 poderes, progressão por créditos, roda de habilidades, dash com recarga, minimapa, barras de vida e controles móveis.
-
-## O que mudou nesta versão
-
-- **Mapa ampliado:** de aproximadamente 298 × 298 m para **438 × 438 m**, mais que o dobro da área útil. Bairros periféricos com edifícios coloridos e variados, região industrial, distritos residenciais, centro de prédios mais altos, vias conectadas, praças, lagoas, árvores e sinalização.
-- **8 casas jogáveis:** portas, 16 janelas com abertura, interiores mobiliados (sala, mesas, cama, cozinha), paredes reais, pisos, telhados acessíveis e escadas de acesso externo. Há mais de 60 novos prédios no perímetro, além das casas.
-- **Abrir e fechar:** no PC, aproxime-se e pressione **E**; no celular, use **USAR**. Interaja com portas e janelas. O HUD mostra `ABRIR`/`FECHAR`; as portas giram em dobradiças e as janelas se abrem. Uma janela aberta pode ser atravessada com um salto; a fechada bloqueia a passagem. Há apoio de impulso no salto perto de janelas abertas.
-- **Casual e online:** mesmo mundo nos dois modos. O servidor valida proximidade das interações, sincroniza portas/janelas entre os participantes e envia as já abertas a jogadores que entram depois. Não permite fechar uma passagem ocupada. Colisões do mundo expandido também estão no servidor.
-- **Visual:** vegetação verde mais vibrante, fachadas em várias cores, telhados coloridos, iluminação mais quente e céu azul, nuvens móveis, água levemente animada e luminárias internas. Interface com acentos ciano, dourado e verde. Mantivemos as texturas PBR originais do projeto.
-- **Parkour:** saltos e janela de tolerância no salto melhorados, colisão de móveis/partições, telhados e escadas, transposição de janela aberta.
-- **Desempenho:** o mapa usa blocos/chunks já existentes e descarte visual por distância; árvores com `InstancedMesh`, geometria de ruas reutilizada, sombras configuráveis. Smartphones continuam com configuração de qualidade e distância de renderização reduzidas.
-- **Minimapa e teleporte:** cobrem os novos limites. A habilidade Teleporte continua selecionando o destino pelo mapa completo, inclusive as novas regiões, com retorno ao ponto de origem.
-
-## Controles
-
-PC: WASD movimenta, mouse mira, **E** abre/fecha porta ou janela, **Espaço** pula/janelas, **X** dash, **TAB** abre/fecha roda, **Z/V** ativa habilidades. No celular, analógico esquerdo e controles de combate anteriores, com **USAR** para interações. A física de movimento também se aplica ao multiplayer. Consulte `GUIA_PUBLICACAO_GRATIS.md`.
-
-## Deploy GitHub + Render
-
-1. Extraia o ZIP na **raiz do repositório**: `package.json`, `render.yaml`, `public/`, `server/` e arquivos `.md` devem estar juntos.
-2. Faça `git add .`, `git commit -m "Titan Protocol 2.8 - Personagens 3D"` e `git push origin main`.
-3. Confira o deploy automático e visite `https://SEU-SITE/health`: `"version":"2.8.0"`.
-4. Se editar a planta da cidade em `public/src/worldLayout.js`, execute `node server/build_colliders.mjs` para reconstruir o arquivo de colisões do servidor antes de publicar.
-
-`npm test` roda os testes automatizados. Não requer pacotes npm externos; os módulos Three.js são importados pela rede CDN no navegador.
-
-## Limites de validação
-
-Os testes Node/WebSocket verificam geometrias declarativas, sala online, portas, janelas, poderes e recargas, mas não substituem testes manuais de WebGL, sensação de parkour, renderização e desempenho em modelos reais de smartphone. O ambiente atual bloqueou a conexão local do navegador automatizado, por isso **não** há validação visual completa da cena nesta entrega. O servidor Render gratuito guarda salas e estados em memória — reinícios descartam esses dados.
+Personagens utilizam malhas 3D estilizadas feitas com Three.js, não modelos GLB profissionais de alta densidade. Os 51 testes automatizados verificam regras, rede e integração estática; **a sensação da jogabilidade em dispositivos reais e a execução WebGL completa ainda precisam ser testadas**. O desempenho dependerá do aparelho.

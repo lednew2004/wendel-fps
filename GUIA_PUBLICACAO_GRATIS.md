@@ -1,9 +1,15 @@
-# Publicação gratuita — TITAN PROTOCOL 2.8
+# PUBLICAÇÃO TITAN PROTOCOL 2.9 — Render Grátis
 
-- Repositório GitHub: extraia **todos** os arquivos diretamente na raiz (não coloque a pasta inteira como subdiretório).
-- Render: mantenha o Web Service Node existente conectado ao repositório. `npm start` inicia HTTP e WebSocket na mesma URL. É possível usar o `render.yaml` como blueprint gratuito.
-- Após atualizar: `git add .` → `git commit -m "Titan Protocol 2.8 - Personagens 3D"` → `git push origin main`.
-- Aguarde o deploy e abra `/health`; a versão deve ser `2.8.0`. Faça recarregamento completo no celular para eliminar cache antigo.
-- Teste duas pessoas numa mesma sala: aproxime-se de uma casa, pressione **E** (PC) ou **USAR** (celular) e confirme que portas/janelas abrem para ambos.
-- Se alterar o desenho das casas, gere os colliders com `node server/build_colliders.mjs`.
-- Limites do gratuito: salas e portas em memória desaparecem se o servidor for reiniciado/suspenso. Há dependência de acesso à CDN do Three.js no navegador.
+1. Descompacte o ZIP e copie o conteúdo da raiz (`package.json`, `render.yaml`, `public/`, `server/`) para a pasta local do repositório GitHub.
+2. Em PowerShell, execute:
+   ```powershell
+   git add .
+   git commit -m "TITAN PROTOCOL 2.9 - Hero Roster Light"
+   git push origin main
+   ```
+3. A Render conectada ao `main` atualizará o serviço. Aguarde o estado **Live**.
+4. Abra `https://SEU-SITE.onrender.com/health` e confirme `"version":"2.9.0"`.
+5. Atualize a página do jogo sem cache. No celular, vire a tela na horizontal. Escolha um dos 10 personagens, selecione a arma e o poder inicial e inicie a campanha/sobrevivência. Para entrar numa sala, selecione o personagem no menu antes de criar/entrar.
+6. No casual, pressione TAB ou PODERES para comprar os outros dois poderes do personagem com créditos de monstros. Use **Z/V/B** no PC ou os três círculos no celular.
+
+O servidor usa Node.js >=22 sem dependências externas. Em instâncias gratuitas adormecidas/reiniciadas, as salas em memória são perdidas. O modo jogo carrega Three.js por CDN, exigindo conexão com a internet. Teste a fluidez real em dispositivos físicos antes de publicação pública.

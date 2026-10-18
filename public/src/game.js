@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import {HeroSelection} from './heroSelection.js';
+import {heroLoadout,heroById} from './heroRoster.js';
 import {isTypingIntoField,handlePowerWheelTab} from './keyboard.js';
 import {World} from './world.js';
 import {EnemySystem} from './enemies.js';
@@ -23,7 +25,7 @@ export class Game {
     this.enemies=new EnemySystem(this.world,this.audio,{onKill:e=>this.onEnemyKill(e),onPlayerHit:(d,p)=>this.takeDamage(d,p),onPickup:t=>this.pickup(t),onSummon:n=>{this.waveCount+=n;this.toast('REFORÇOS HOSTIS!');},onBossWarning:()=>this.toast('ALERTA: ONDA DE CHOQUE — AFASTE-SE!')});
     this.ordnance=new Ordnance(this.world,this.audio,this.enemies);
     this.weapons=new Weapons(this.world,this.audio,{onRay:(origin,dir,damage,range,weapon)=>this.shootRay(origin,dir,damage,range,weapon),onHitmarker:k=>this.hitmarker(k),onFire:()=>{if(this.mode==='multiplayer')this.multiplayer?.fire();},onWeaponChanged:()=>this.updateHud()});
-    this.fpsLimit=0;this.lastDraw=0;this.mode='campaign';this.campaign=new Campaign(this);this.urban=new UrbanCity(this.world);this.world.city=this.urban;this.world.spawnPoints=this.urban.spawnPoints;this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.parkour=new ParkourController(this,this.urban);this.adaptiveFPS=true;this.lowFPSTime=0;this.highFPSTime=0;this.cityTick=0;this.nativeScale=1;this.mobile=new MobileControls(this);this.multiplayer=new MultiplayerClient(this);this.powers=new PowerSystem(this);
+    this.fpsLimit=0;this.lastDraw=0;this.mode='campaign';this.campaign=new Campaign(this);this.urban=new UrbanCity(this.world);this.world.city=this.urban;this.world.spawnPoints=this.urban.spawnPoints;this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.parkour=new ParkourController(this,this.urban);this.adaptiveFPS=true;this.lowFPSTime=0;this.highFPSTime=0;this.cityTick=0;this.nativeScale=1;this.mobile=new MobileControls(this);this.multiplayer=new MultiplayerClient(this);this.powers=new PowerSystem(this);this.heroSelection=new HeroSelection(this);this.weapons.setHeroAccent(heroById(this.heroSelection.selectedHero).color);this.powers.loadout=heroLoadout(this.heroSelection.selectedHero);this.powers.menuLoadout=[...this.powers.loadout];this.powers.refreshButtons();
     if(this.mobile.enabled){
       // Coarse-pointer phones default to lean rendering while all PC presets remain available.
       this.world.setQuality('low');
@@ -83,6 +85,7 @@ export class Game {
       if(e.code==='KeyX')this.dash();
       if(e.code==='KeyZ')this.powers.useSlot(0);
       if(e.code==='KeyV')this.powers.useSlot(1);
+      if(e.code==='KeyB')this.powers.useSlot(2);
       if(e.code==='Backspace')this.parkour.resetCheckpoint();
     },true);
     window.addEventListener('keyup',e=>{if(handlePowerWheelTab(e,this.state,this.powers?.menu?.mode,document.activeElement)){this.keys.Tab=false;return;}this.keys[e.code]=false;},true);window.addEventListener('blur',()=>{if(this.state==='playing')this.pause();});
@@ -114,7 +117,7 @@ export class Game {
     this.campaign.disposeSector();
     this.audio.unlock();this.hideScreens();
     this.enemies.clear();this.ordnance.clear();this.ordnance.damageMultiplier=1;
-    this.world.resetBarrels();this.urban.resetInteractions();this.weapons.clearTracers();this.weapons.reset();
+    this.world.resetBarrels();this.urban.resetInteractions();this.weapons.clearTracers();this.weapons.reset();this.weapons.switchTo(this.heroSelection?.weapon??0);
     this.fx.forEach(f=>this.world.scene.remove(f.mesh));this.fx=[];
     this.keys={};this.mouseDown=false;this.rightDown=false;this.look.reset();
     this.grenadeCd=0;this.wave=0;this.score=0;this.kills=0;this.combo=0;this.comboTimer=0;

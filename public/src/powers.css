@@ -144,3 +144,8 @@ body.titan-resurrected #power-hud::after{content:'✚ IMORTAL TEMPORARIAMENTE';b
  .titan-wheel-stage{width:min(43dvh,185px,40vw)!important}
  .titan-wheel-navigation button,#titan-wheel-close{padding:5px 8px;font-size:9px}
 }
+
+/* v2.9: the hero kit replaces obsolete two-skill selectors. The selection wheel is read-only outside purchased kit. */
+.power-loadout{display:none!important}
+#power-hud .power-slot:nth-child(3){border-color:#ffcc80;background:#413023df}
+@media(pointer:coarse) and (orientation:landscape){#power-hud{gap:6px!important;right:clamp(190px,48vh,275px)!important}#power-hud .power-slot{min-width:clamp(48px,12vh,65px)!important;max-width:clamp(48px,12vh,65px)!important;height:clamp(50px,13vh,65px)!important}#titan-wheel-prev,#titan-wheel-next{display:none!important}}

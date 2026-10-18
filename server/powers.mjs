@@ -1,5 +1,6 @@
+import {POWER_VARIANTS} from '../public/src/heroRoster.js';
 /** Regras de habilidades autoritativas; compartilhadas com os testes do servidor. */
-export const POWER_RULES=Object.freeze({
+const BASE_POWER_RULES=Object.freeze({
  push:{name:'Repulsão',cooldown:12000,range:16},
  freeze:{name:'Congelar',cooldown:18000,range:35,duration:1500},
  teleport:{name:'Teleporte estratégico',cooldown:28000,range:700,returnWindow:15000},
@@ -19,12 +20,14 @@ export const POWER_RULES=Object.freeze({
  heal:{name:'Cura',cooldown:22000,health:70,shield:25},
  morph:{name:'Disfarce em Objeto',cooldown:24000,duration:10000,range:6}
 });
+export const POWER_RULES=Object.freeze({...BASE_POWER_RULES,...Object.fromEntries(Object.entries(POWER_VARIANTS).map(([id,v])=>[id,{...BASE_POWER_RULES[v.base],...v,name:v.label,cooldown:v.cool*1000}]))});
 export const VALID_POWERS=Object.keys(POWER_RULES);
 export function sanitizeLoadout(input){
  const a=Array.isArray(input)?input:[];
  const first=VALID_POWERS.includes(a[0])?a[0]:'push';
  let second=VALID_POWERS.includes(a[1])?a[1]:'freeze';
  if(second===first)second=VALID_POWERS.find(x=>x!==first);
+ if(a.length>=3){let third=VALID_POWERS.includes(a[2])?a[2]:'heal';if(third===first||third===second)third=VALID_POWERS.find(x=>x!==first&&x!==second);return [first,second,third];}
  return [first,second];
 }
 export function freshPowerState(){return {loadout:['push','freeze'],cooldowns:{},activeUntil:{},cloneJumpUsed:false,copyMark:null,copiedUntil:0,originalLoadout:null,frozenUntil:0,flightUntil:0,invisibleUntil:0,phaseUntil:0,shieldUntil:0,gravityUntil:0,resurrectionUntil:0,propUntil:0,propType:null,teleportReturn:null,safe:null,history:[]};}

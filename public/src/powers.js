@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {POWER_VARIANTS,heroAllows,heroLoadout} from './heroRoster.js';
 import {WORLD_HALF} from './worldLayout.js';
 import {PowerMenu} from './powerMenu.js';
 import {CasualEconomy,STARTING_POWER} from './casualEconomy.js';
@@ -20,22 +21,23 @@ export const POWER_DATA={
  copy:{label:'COPIAR',icon:'⧉',cool:36,help:'Marque e elimine em 18s; copie por 30s'},
  resurrection:{label:'RESSURREIÇÃO',icon:'✚',cool:65,duration:4000,help:'Passiva: renasce automaticamente; imortal 4s'},
  heal:{label:'CURA',icon:'♥',cool:22,help:'Recupera 70 HP e 25 de escudo'},
- morph:{label:'VIRAR OBJETO',icon:'▣',cool:24,duration:10000,help:'Copie tambor, caminhão ou empilhadeira por 10s'}
+ morph:{label:'VIRAR OBJETO',icon:'▣',cool:24,duration:10000,help:'Copie tambor, caminhão ou empilhadeira por 10s'},
+ ...POWER_VARIANTS
 };
 const $=id=>document.getElementById(id);
 const now=()=>Date.now();
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export class PowerSystem {
  constructor(game){
-  this.game=game;this.economy=new CasualEconomy();this.loadout=['push','teleport'];this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;
+  this.game=game;this.economy=new CasualEconomy();this.loadout=['push','teleport','heal'];this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;
   this.lastSafe={x:0,y:0,z:18};this.teleportMarker=null;this.effects=[];this.flightBefore=false;this.uiTick=0;this.history=[];this.localHazards=[];this.decoys=[];this.cloneTargets=[];this.cloneJumpUsed=false;this.aimTouch=null;this.prevGravity=null;this.copyMark=null;this.copyBuff=null;this.propLabel=null;
   try{const val=JSON.parse(localStorage.getItem('titan-power-loadout')||'null');if(Array.isArray(val)&&POWER_DATA[val[0]]&&POWER_DATA[val[1]]&&val[0]!==val[1])this.loadout=val;}catch{}
   this.menuLoadout=[...this.loadout];
   for(const select of document.querySelectorAll('[data-power-slot]')){
    select.addEventListener('change',()=>this.equip(Number(select.dataset.powerSlot),select.value));
   }
-  for(let slot=0;slot<2;slot++){
-   const button=$('power-'+(slot?'b':'a'));
+  for(let slot=0;slot<3;slot++){
+   const button=$('power-'+['a','b','c'][slot]);
    // Mouse/keyboard: fire immediately in crosshair direction. Touch: skill-shot joystick.
    button.addEventListener('click',()=>{if(!this.game.mobile?.enabled)this.useSlot(slot);});
    let touch=null;
@@ -112,23 +114,23 @@ export class PowerSystem {
  }
  reset(){if(this.copyBuff?.original){this.loadout=[...this.copyBuff.original];this.refreshSelects();this.refreshButtons();}this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;this.cleanupMarker();for(const e of this.effects){this.game.world.scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();}this.effects=[];this.lastSafe={x:0,y:0,z:18};this.history=[];this.localHazards=[];this.cloneTargets=[];this.cloneJumpUsed=false;this.copyMark=null;this.copyBuff=null;this.status.resurrection=0;this.status.morph=0;this.aimTouch=null;this.hideAimGuide();this.clearDecoys();this.menu?.close();this.refreshButtons();}
  restoreMenuLoadout(){this.loadout=[...this.menuLoadout];this.refreshSelects();this.refreshButtons();this.updateEconomyHUD();}
- startRun(mode){this.economy.reset();if(mode!=='multiplayer'){this.loadout=[STARTING_POWER,null];this.refreshButtons();this.refreshSelects();}else{if(!POWER_DATA[this.loadout[0]]||!POWER_DATA[this.loadout[1]])this.loadout=['push','teleport'];this.refreshButtons();this.refreshSelects();}this.updateEconomyHUD();}
+ startRun(mode){const hero=this.game.heroSelection,kit=heroLoadout(hero?.selectedHero),starter=kit.includes(hero?.starter)?hero.starter:kit[0];this.economy.reset(starter);this.loadout=mode==='multiplayer'?[...kit]:[starter,null,null];this.refreshButtons();this.refreshSelects();this.updateEconomyHUD();}
  isCasualRun(){return this.game.mode!=='multiplayer'&&this.game.mode!==undefined&&this.game.state!=='menu';}
  earnKillCredit(enemy){if(!this.isCasualRun())return 0;const credits=this.economy.reward(enemy.type,enemy.boss);this.updateEconomyHUD();return credits;}
  updateEconomyHUD(){const hud=$('titan-economy-hud');if(!hud)return;const active=this.isCasualRun();hud.classList.toggle('hidden',!active);if(active)hud.textContent='◈ '+this.economy.credits.toLocaleString('pt-BR')+' CR · '+this.economy.owned.size+' PODERES';}
  isUnlocked(id){return !this.isCasualRun()||this.economy.owns(id);}
  acquire(slot,id){if(!POWER_DATA[id])return false;if(this.loadout[1-slot]===id){this.game.toast('ESSE PODER JÁ ESTÁ NO OUTRO ESPAÇO');return false;}if(!this.isCasualRun())return this.equip(slot,id);const result=this.economy.buy(id);if(!result.ok){this.game.toast(result.reason);return false;}if(!result.already)this.game.toast('DESBLOQUEADO · '+POWER_DATA[id].label+' · -'+result.paid+' CR');this.updateEconomyHUD();return this.equip(slot,id);}
  equip(slot,id){
-  if(!POWER_DATA[id])return false;
+  if(!POWER_DATA[id]||!heroAllows(this.game.heroSelection?.selectedHero,id))return false;
   if(this.isCasualRun()&&!this.isUnlocked(id)){this.game.toast('BLOQUEADO · COMPRE NA RODA DE PODERES');this.refreshSelects();return false;}
-  if(this.loadout[1-slot]===id){this.game.toast('EQUIPE DUAS HABILIDADES DIFERENTES');this.refreshSelects();return false;}
+  if(this.loadout.some((power,i)=>i!==slot&&power===id)){this.game.toast('EQUIPE HABILIDADES DIFERENTES');this.refreshSelects();return false;}
   if(this.copyBuff){this.copyBuff=null;this.copyMark=null;}this.loadout[slot]=id;this.cancelTargeting();
   if(!this.isCasualRun()){this.menuLoadout=[...this.loadout];try{localStorage.setItem('titan-power-loadout',JSON.stringify(this.loadout));}catch{}}
   if(this.game.mode==='multiplayer'&&this.game.multiplayer?.connected)this.game.multiplayer.send({type:'equip',loadout:this.loadout});
   this.refreshSelects();this.refreshButtons();return true;
  }
  refreshSelects(){for(const s of document.querySelectorAll('[data-power-slot]'))s.value=this.loadout[Number(s.dataset.powerSlot)]||'';}
- refreshButtons(){for(let i=0;i<2;i++){const id=this.loadout[i],btn=$('power-'+(i?'b':'a'));btn.querySelector('.power-symbol').textContent=id?POWER_DATA[id]?.icon||'◇':'＋';btn.querySelector('.power-name').textContent=id?POWER_DATA[id]?.label||'PODER':'COMPRE NA RODA';btn.classList.toggle('power-empty',!id);}}
+ refreshButtons(){for(let i=0;i<3;i++){const id=this.loadout[i],btn=$('power-'+['a','b','c'][i]);btn.querySelector('.power-symbol').textContent=id?POWER_DATA[id]?.icon||'◇':'＋';btn.querySelector('.power-name').textContent=id?POWER_DATA[id]?.label||'PODER':'COMPRE NA RODA';btn.classList.toggle('power-empty',!id);}}
  isActive(id){return (this.status[id]||0)>now();}
  frozen(){return this.isActive('freeze')||this.isActive('gravity');}
  cancelTargeting(){this.targeting=false;this.cleanupMarker();}
@@ -148,7 +150,7 @@ export class PowerSystem {
   if(id==='morph'){const target=this.findMorphObject();if(!target){g.toast('APROXIME-SE DE UM TAMBOR, CAMINHÃO OU EMPILHADEIRA');return;}if(g.mode==='multiplayer'){g.multiplayer.syncState();g.multiplayer.send({type:'power',id});}else{this.status.morph=now()+10000;this.cooldowns.morph=now()+POWER_DATA.morph.cool*1000;g.toast('DISFARCE DE '+({barrel:'TAMBOR',truck:'CAMINHÃO',forklift:'EMPILHADEIRA'})[target.type]+' · 10S');}return;}
   if(g.mode==='multiplayer'){g.multiplayer.syncState();g.multiplayer.send({type:'power',id});return;}
   const hpRatioBefore=g.player.health/Math.max(1,g.player.maxHealth);this.lastCastPenalty=0;
-  if(this.applyLocal(id)!==false){const hpRatio=hpRatioBefore;const blackholeCenter=id==='blackhole'?this.aimLocal(28):null;const nearby=blackholeCenter?g.enemies.enemies.filter(e=>Math.hypot(e.x-blackholeCenter.x,e.z-blackholeCenter.z)<18).length:0;const penalty=(id==='heal'&&hpRatio<=.3?6000:0)+(id==='blackhole'&&nearby>=2?7000:0)+this.lastCastPenalty;this.cooldowns[id]=now()+POWER_DATA[id].cool*1000+penalty;}
+  if(this.applyLocal(id)!==false){const hpRatio=hpRatioBefore;const blackholeCenter=(POWER_VARIANTS[id]?.base||id)==='blackhole'?this.aimLocal(28):null;const nearby=blackholeCenter?g.enemies.enemies.filter(e=>Math.hypot(e.x-blackholeCenter.x,e.z-blackholeCenter.z)<18).length:0;const penalty=((POWER_VARIANTS[id]?.base||id)==='heal'&&hpRatio<=.3?6000:0)+((POWER_VARIANTS[id]?.base||id)==='blackhole'&&nearby>=2?7000:0)+this.lastCastPenalty;this.cooldowns[id]=now()+POWER_DATA[id].cool*1000+penalty;}
  }
  useTouch(slot,e,release=false){
   const id=this.loadout[slot];
@@ -156,29 +158,29 @@ export class PowerSystem {
   if(id==='teleport'&&!this.targeting&&!this.returnPoint){this.use(id);return;}
   this.use(id);
  }
- localArea(id,position,range){
+ localArea(id,position,range,duration=1500){
   const g=this.game;for(const enemy of [...g.enemies.enemies]){
    const dist=Math.hypot(enemy.x-position.x,enemy.z-position.z);if(dist>range)continue;
    if(id==='push'){
     const dx=(enemy.x-position.x)/(dist||1),dz=(enemy.z-position.z)/(dist||1);
     for(let t=7;t>=1;t--){const x=enemy.x+dx*t,z=enemy.z+dz*t;if(g.world.canMove(x,z,enemy.radius)&&g.urban.canOccupy(x,z,0,2,enemy.radius)){enemy.x=x;enemy.z=z;break;}}
    }
-   if(id==='freeze')enemy.frozenUntil=now()+1500;
+   if(id==='freeze')enemy.frozenUntil=now()+duration;
   }
  }
  applyLocal(id){
-  const g=this.game,p=g.parkour;switch(id){
-   case 'push':this.localArea('push',p,16);this.flash(0x8fdfff,16);break;
-   case 'freeze':this.localArea('freeze',p,35);this.flash(0x9de8ff,6);break;
-   case 'flight':this.status.flight=now()+7000;break;
-   case 'invisible':this.status.invisible=now()+5000;break;
-   case 'phase':this.status.phase=now()+7000;this.lastSafe={x:p.x,y:p.y,z:p.z};break;
+  const g=this.game,p=g.parkour,effect=POWER_VARIANTS[id]?.base||id;switch(effect){
+   case 'push':this.localArea('push',p,POWER_DATA[id].range||16);this.flash(0x8fdfff,POWER_DATA[id].range||16);break;
+   case 'freeze':this.localArea('freeze',p,POWER_DATA[id].range||35,POWER_DATA[id].duration||1500);this.flash(0x9de8ff,6);break;
+   case 'flight':this.status.flight=now()+(POWER_DATA[id].duration||7000);this.status[id]=this.status.flight;break;
+   case 'invisible':this.status.invisible=now()+(POWER_DATA[id].duration||5000);this.status[id]=this.status.invisible;break;
+   case 'phase':this.status.phase=now()+(POWER_DATA[id].duration||7000);this.status[id]=this.status.phase;this.lastSafe={x:p.x,y:p.y,z:p.z};break;
    case 'blackhole':{
-     const center=this.aimLocal(28);this.localHazards.push({...center,until:now()+5500,radius:18});this.status.blackhole=now()+5500;this.flash(0x8b7dff,18,center);break;
+     const center=this.aimLocal(28);this.localHazards.push({...center,until:now()+(POWER_DATA[id].duration||5500),radius:POWER_DATA[id].radius||18});this.status.blackhole=now()+(POWER_DATA[id].duration||5500);this.status[id]=this.status.blackhole;this.flash(0x8b7dff,18,center);break;
    }
    case 'rewind':{
-     if(!this.history.length||this.history[0].t>now()-9400){g.toast('AGUARDE 10S PARA ACUMULAR O HISTÓRICO');return false;}
-     const timestamp=now()-10000;
+     if(!this.history.length||this.history[0].t>now()-(POWER_DATA[id].history||10000)+600){g.toast('AGUARDE O HISTÓRICO TEMPORAL');return false;}
+     const timestamp=now()-(POWER_DATA[id].history||10000);
      const point=this.history.reduce((best,h)=>Math.abs(h.t-timestamp)<Math.abs(best.t-timestamp)?h:best,this.history[0]);
      if(g.urban.canOccupy(point.x,point.z,point.y,1.77,.48)){
        if(point.hp-g.player.health>=35)this.lastCastPenalty=9000;
@@ -186,15 +188,15 @@ export class PowerSystem {
      }break;
    }
    case 'chain':{
-     const enemies=[...g.enemies.enemies].filter(e=>Math.hypot(e.x-p.x,e.z-p.z)<42).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
+     const enemies=[...g.enemies.enemies].filter(e=>Math.hypot(e.x-p.x,e.z-p.z)<(POWER_DATA[id].range||42)).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
      const targets=[];if(enemies.length)targets.push(enemies.shift());
-     while(targets.length>0&&targets.length<3){const end=targets[targets.length-1];const next=enemies.find(e=>Math.hypot(e.x-end.x,e.z-end.z)<18);if(!next)break;targets.push(next);enemies.splice(enemies.indexOf(next),1);}
-     targets.forEach((e,i)=>g.enemies.damage(e,[95,72,51][i],new THREE.Vector3(e.x,e.y,e.z),'pulse'));
+     while(targets.length>0&&targets.length<(POWER_DATA[id].targets||3)){const end=targets[targets.length-1];const next=enemies.find(e=>Math.hypot(e.x-end.x,e.z-end.z)<(POWER_DATA[id].chainRadius||18));if(!next)break;targets.push(next);enemies.splice(enemies.indexOf(next),1);}
+     targets.forEach((e,i)=>g.enemies.damage(e,(POWER_DATA[id].damage||[95,72,51])[i],new THREE.Vector3(e.x,e.y,e.z),'pulse'));
      this.flash(0x7adaff,9);break;
    }
    case 'gravity':{
      const enemies=[...g.enemies.enemies].filter(e=>Math.hypot(e.x-p.x,e.z-p.z)<40).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
-     if(enemies.length){const focus=enemies[0];for(const e of g.enemies.enemies)if(Math.hypot(e.x-focus.x,e.z-focus.z)<13){e.frozenUntil=now()+2700;e.gravityUntil=now()+2700;}this.flash(0xd4b2ff,12,{x:focus.x,y:0,z:focus.z});}break;
+     if(enemies.length){const focus=enemies[0];for(const e of g.enemies.enemies)if(Math.hypot(e.x-focus.x,e.z-focus.z)<(POWER_DATA[id].radius||13)){e.frozenUntil=now()+(POWER_DATA[id].duration||2700);e.gravityUntil=now()+(POWER_DATA[id].duration||2700);}this.flash(0xd4b2ff,12,{x:focus.x,y:0,z:focus.z});}break;
    }
    case 'clones':this.spawnLocalClones();this.status.clones=now()+10000;break;
    case 'clonejump':this.spawnLocalClones(true);this.status.clonejump=now()+14000;this.cloneJumpUsed=false;break;
@@ -205,7 +207,7 @@ export class PowerSystem {
      this.copyMark={enemy:target.e,until:now()+18000};this.status.copy=now()+18000;this.flash(0xf7a0e7,5,{x:target.e.x,y:0,z:target.e.z});g.toast('MARCA ATIVA · ELIMINE O ALVO EM 18 S');break;
    }
    case 'shield':this.status.shield=now()+7000;this.flash(0x82ffd0,4);break;
-   case 'heal':{g.player.health=Math.min(g.player.maxHealth,g.player.health+70);g.player.shield=Math.min(g.player.maxShield,g.player.shield+25);g.updateHud();this.flash(0x82ffb6,5);break;}
+   case 'heal':{g.player.health=Math.min(g.player.maxHealth,g.player.health+(POWER_DATA[id].health||70));g.player.shield=Math.min(g.player.maxShield,g.player.shield+(POWER_DATA[id].shield||25));g.updateHud();this.flash(0x82ffb6,5);break;}
    case 'swap':{
      const candidates=g.enemies.enemies.filter(e=>Math.hypot(e.x-p.x,e.z-p.z)<60).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z));
      const e=candidates.find(e=>{const dx=e.x-p.x,dz=e.z-p.z,d=Math.hypot(dx,dz)||1;return(dx*(-Math.sin(g.yaw))+dz*(-Math.cos(g.yaw)))/d>.79;});
@@ -275,7 +277,7 @@ export class PowerSystem {
    mat.dispose();
  }
  cloneAvailable(){return !this.cloneJumpUsed&&this.cloneTargets.some(c=>c.until>now());}
- needsAim(id){return ['push','freeze','chain','gravity','blackhole','swap','copy'].includes(id)||(id==='clonejump'&&this.cloneAvailable());}
+ needsAim(id){id=POWER_VARIANTS[id]?.base||id;return ['push','freeze','chain','gravity','blackhole','swap','copy'].includes(id)||(id==='clonejump'&&this.cloneAvailable());}
  showAimGuide(id,touch=null){
    let guide=$('power-aim-guide');if(!guide){guide=document.createElement('div');guide.id='power-aim-guide';document.body.appendChild(guide);}
    guide.classList.add('visible');document.body.classList.add('power-targeting');const pick=id==='clonejump'&&this.cloneAvailable();
@@ -383,7 +385,7 @@ export class PowerSystem {
   if(!this.isActive('phase')&&g.urban.canOccupy(pk.x,pk.z,pk.y,1.77,.42))this.lastSafe={x:pk.x,y:pk.y,z:pk.z};
   for(let i=this.effects.length-1;i>=0;i--){const e=this.effects[i];e.ttl-=dt;const f=1-e.ttl/.45;e.mesh.scale.setScalar(1+(e.radius-1)*f);e.mesh.material.opacity=Math.max(0,.7*(1-f));if(e.ttl<=0){g.world.scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();this.effects.splice(i,1);}}
   $('power-descend').classList.toggle('visible',this.isActive('flight')&&!!g.mobile?.enabled);
-  this.uiTick-=dt;if(this.uiTick<0){for(let i=0;i<2;i++){const id=this.loadout[i],btn=$('power-'+(i?'b':'a'));const until=id?(this.cooldowns[id]||0):0;const left=Math.ceil((until-t)/1000);const active=id&&this.isActive(id);const back=id==='teleport'&&this.returnPoint?.until>t;const jump=id==='clonejump'&&this.cloneAvailable();const liveMs=Math.max(0,(id?this.status[id]||0:0)-t);
+  this.uiTick-=dt;if(this.uiTick<0){for(let i=0;i<3;i++){const id=this.loadout[i],btn=$('power-'+['a','b','c'][i]);const until=id?(this.cooldowns[id]||0):0;const left=Math.ceil((until-t)/1000);const active=id&&this.isActive(id);const back=id==='teleport'&&this.returnPoint?.until>t;const jump=id==='clonejump'&&this.cloneAvailable();const liveMs=Math.max(0,(id?this.status[id]||0:0)-t);
     const label=btn.querySelector('.power-time');label.textContent=!id?'BLOQUEADO':id==='resurrection'&&!active&&left<=0?'AUTO':back?'↶ '+Math.ceil((this.returnPoint.until-t)/1000)+'s':jump?'TROCAR '+Math.ceil((Math.max(...this.cloneTargets.map(c=>c.until))-t)/1000)+'s':active?('ATIVO '+(liveMs/1000).toFixed(1)+'s'):left>0?left+'s':'PRONTO';
     btn.classList.toggle('cooling',left>0&&!back&&!jump&&!active);btn.classList.toggle('active',active||back||jump);
     btn.style.setProperty('--power-progress',active?Math.max(0,Math.min(100,liveMs/(POWER_DATA[id]?.duration||((id==='copy')?18000:3000))*100))+'%':left>0?Math.max(0,100-(until-t)/((POWER_DATA[id]?.cool||1)*10))+'%':'100%');}this.uiTick=.2;}

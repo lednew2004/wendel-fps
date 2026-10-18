@@ -6,7 +6,7 @@ import {POWER_RULES,nearbyMorphObject,canAutoResurrect,canCast,powerSnapshot,fre
 
 const read=name=>fs.readFileSync(new URL('../../public/src/'+name,import.meta.url),'utf8');
 test('18 selectable skills, safe objects and four seconds of automatic resurrection',()=>{
- assert.equal(Object.keys(POWER_RULES).length,18);
+ assert.equal(Object.keys(POWER_RULES).length,30);
  assert.ok(POWER_RULES.resurrection.cooldown>=60000);
  assert.equal(POWER_RULES.resurrection.duration,4000);
  assert.equal(POWER_RULES.heal.health,70);

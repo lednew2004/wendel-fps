@@ -15,7 +15,7 @@ test('casual economy: one starting power, distinct prices, monster credits, no n
  assert.equal(economy.credits,580);assert.equal(economy.buy('heal').ok,true);
  assert.equal(economy.credits,410);assert.equal(economy.buy('heal').already,true);assert.equal(economy.credits,410);
  assert.equal(economy.buy('unknown').ok,false);
- assert.ok(Object.keys(POWER_PRICES).length===18);assert.equal(new Set(Object.values(POWER_PRICES)).size>10,true);
+ assert.ok(Object.keys(POWER_PRICES).length===30);assert.equal(new Set(Object.values(POWER_PRICES)).size>10,true);
  assert.ok(ENEMY_CREDITS.boss>ENEMY_CREDITS.scout);
  economy.reset();assert.equal(economy.credits,0);assert.deepEqual([...economy.owned],[STARTING_POWER]);
 });

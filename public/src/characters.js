@@ -25,9 +25,9 @@ function tube(parent,mat,x,y,z,rx,ry,rz,length,radius=.08){
 function capsule(parent,mat,x,y,z,scaleX,scaleY,scaleZ){return piece(parent,SHAPES.capsule,mat,[x,y,z],[scaleX,scaleY,scaleZ]);}
 
 // game root faces negative Z, matching the existing rifle and AI orientation.
-export function createOperative({role='scout',size=1,player=false,tint=null}={}){
+export function createOperative({role='scout',size=1,player=false,tint=null,hero=null}={}){
   const style=characterStyle(role,tint);
-  const root=new THREE.Group();root.name=`TITAN_${role.toUpperCase()}`;
+  const root=new THREE.Group();root.name=`TITAN_${(hero||role).toUpperCase()}`;
   const visual=new THREE.Group();visual.scale.setScalar(size);root.add(visual);
   const fabric=COLOR(style.uniform,.04,.93);
   const armor=COLOR(style.armor,.48,.42);
@@ -131,6 +131,54 @@ export function createOperative({role='scout',size=1,player=false,tint=null}={})
   if(role==='sniper'){
     const cape=new THREE.Mesh(new THREE.ConeGeometry(.4,.82,10,1,true),fabric);
     cape.position.set(.25,.08,.48);cape.rotation.z=.20;torso.add(cape);
+  }
+  // 10 operator silhouettes, legible at the lowest quality preset without textures.
+  // All parts reuse shared primitive geometry and the existing palette: no fetch or rig overhead.
+  if(hero){
+    const ornament=(x,y,z,sx,sy,sz,mat=glowing)=>orb(visual,mat,x,y,z,sx,sy,sz);
+    switch(hero){
+      case 'striker': // diagonal impact shoulder spikes
+        for(const s of [-1,1])piece(torso,SHAPES.cone,accent,[s*.53,.37,.02],[.17,.34,.15],[0,0,s*.50]);
+        break;
+      case 'cryomancer': // crystalline helmet and visor peaks
+        for(const s of [-1,0,1])piece(head,SHAPES.cone,glass,[s*.17,.42,0],[.13,.34+(.5-Math.abs(s))*.20,.13],[0,0,s*.20]);
+        break;
+      case 'riftwalker': // luminous portal ring behind the head
+        piece(visual,SHAPES.torus,glowing,[0,2.17,.24],[.42,.42,.10],[.15,0,0]);
+        break;
+      case 'aeronaut': // angled jet fins on the back
+        for(const s of [-1,1])piece(torso,SHAPES.cone,armor,[s*.41,-.08,.35],[.22,.72,.20],[0,0,s*.43]);
+        break;
+      case 'phantom': // deep tactical hood with two optic dots
+        ornament(0,2.45,.12,.38,.18,.33,helmet);
+        ornament(-.16,2.18,-.31,.068,.05,.025);
+        ornament(.16,2.18,-.31,.068,.05,.025);
+        break;
+      case 'chronos': // chronometer crown
+        piece(head,SHAPES.torus,glowing,[0,.48,.04],[.29,.29,.10],[Math.PI/2,0,0]);
+        ornament(0,2.80,0,.11,.15,.11,accent);
+        break;
+      case 'echo': // dual holographic horns
+        for(const s of [-1,1]){
+          piece(head,SHAPES.cone,accent,[s*.20,.44,.01],[.09,.36,.09],[0,0,s*.10]);
+          ornament(s*.32,1.49,.34,.09,.15,.075);
+        }
+        break;
+      case 'storm': // charged tesla antennae
+        for(const s of [-1,1]){
+          piece(head,SHAPES.tube,glowing,[s*.25,.52,.09],[.04,.42,.04],[0,0,s*.20]);
+          orb(head,glowing,s*.32,.75,.10,.11,.12,.11);
+        }
+        break;
+      case 'gravity': // heavy circular gravitic collar
+        piece(torso,SHAPES.torus,glowing,[0,.25,0],[.68,.48,.16],[Math.PI/2,0,0]);
+        ornament(0,1.15,.62,.18,.24,.08);
+        break;
+      case 'guardian': // oversized shoulder armor and medical cross
+        for(const s of [-1,1])ornament(s*.56,1.71,.05,.30,.22,.31,armor);
+        ornament(0,1.41,-.42,.075,.20,.04);ornament(0,1.41,-.45,.19,.07,.04);
+        break;
+    }
   }
   // Weapon barrel, muzzle and sight. Not used by melee hunters/scouts.
   const isMelee=['hunter','scout'].includes(role);

@@ -59,6 +59,6 @@ test('casual enemies and multiplayer avatars both instantiate the same humanoid 
   assert.match(enemy,/createOperative\(\{role:type,size\}\)/);
   assert.match(enemy,/animateOperative\(e\.body/);
   assert.doesNotMatch(enemy.slice(enemy.indexOf('  spawn(type,pos,wave=1)'),enemy.indexOf('  spawnAt(type')), /new THREE\.BoxGeometry\(/);
-  assert.match(multiplayer,/createOperative\(\{role:'player'/);
+  assert.match(multiplayer,/createOperative\(\{role:profile\?\.role\|\|'player'/);
   assert.match(multiplayer,/animateOperative\(entry\.group\.userData\.body/);
 });

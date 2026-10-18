@@ -5,10 +5,10 @@ const mat=(color,opts={})=>new THREE.MeshStandardMaterial({color,roughness:.85,m
 /** Decorative extension + actual collision-aware interiors and shared interactive apertures. */
 export class UrbanExpansion {
   constructor(city){
-    this.city=city;this.nodes=new Map();this.pools=[];this.clouds=[];this.windMeshes=[];this.elapsed=0;this.neonPanels=[];this.neonLights=[];
-    this.brick=mat(0x7a5d7f);this.trunk=mat(0x5c445d);this.leaves=[0x2e9f8a,0x38b7a4,0x216e63,0x58d9bf].map(c=>mat(c));
-    this.grass=mat(0x182036);this.road=mat(0x262c39);this.sidewalk=mat(0x51596b);this.wood=mat(0x855f76);this.floor=mat(0x2c2338);this.windowGlass=mat(0x72d9ff,{emissive:0x14ceff,emissiveIntensity:.32,roughness:.14,metalness:.2,transparent:true,opacity:.58,side:THREE.DoubleSide});
-    this.roofMats=[0x55385e,0x2e4a67,0x6b3f57,0x39445d,0x6b5d38].map(c=>mat(c));
+    this.city=city;this.nodes=new Map();this.pools=[];this.clouds=[];this.windMeshes=[];this.elapsed=0;
+    this.brick=mat(0xf4d9a2);this.trunk=mat(0x80604a);this.leaves=[0x4ab96b,0x60c47d,0x338e58,0x98cc66].map(c=>mat(c));
+    this.grass=mat(0x69c67a);this.road=mat(0x535969);this.sidewalk=mat(0xd2d7cb);this.wood=mat(0xa97850);this.floor=mat(0xefd9a7);this.windowGlass=mat(0x94d9f0,{roughness:.17,metalness:.09,transparent:true,opacity:.55,side:THREE.DoubleSide});
+    this.roofMats=[0xd87350,0xeb965c,0x9b5d45,0x5a7985,0xa54f67].map(c=>mat(c));
     this.build();
   }
   box(x,y,z,w,h,d,material,solid=false,parent=null){
@@ -96,37 +96,15 @@ export class UrbanExpansion {
     const locations=[[-172,-139,'DISTRITO INDUSTRIAL'],[171,138,'CENTRO ALTO'],[-164,137,'VILA DAS FLORES'],[131,-171,'RUA DO HORIZONTE']];
     for(const [x,z,name] of locations){
       const c=document.createElement('canvas');c.width=512;c.height=128;
-      const ctx=c.getContext('2d');const grad=ctx.createLinearGradient(0,0,512,128);grad.addColorStop(0,'#07111e');grad.addColorStop(1,'#18081f');ctx.fillStyle=grad;ctx.fillRect(0,0,512,128);
-      ctx.strokeStyle='#4df6ff';ctx.lineWidth=7;ctx.strokeRect(7,7,498,114);
-      ctx.font='bold 36px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#effcff';ctx.shadowColor='#4df6ff';ctx.shadowBlur=18;ctx.fillText(name,256,62);
+      const ctx=c.getContext('2d');ctx.fillStyle='#2d6872';ctx.fillRect(0,0,512,128);
+      ctx.strokeStyle='#c5f6dc';ctx.lineWidth=7;ctx.strokeRect(7,7,498,114);
+      ctx.font='bold 36px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#f7fff2';ctx.fillText(name,256,62);
       const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
-      const panel=new THREE.Mesh(new THREE.PlaneGeometry(8.5,2.1),new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide,transparent:true,opacity:.95,depthWrite:false}));
+      const panel=new THREE.Mesh(new THREE.PlaneGeometry(8.5,2.1),new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}));
       panel.position.set(x,4.8,z);panel.rotation.y=Math.PI*.22;
-      const parent=this.city.chunkFor(x,z);parent.add(panel);this.neonPanels.push(panel);
+      const parent=this.city.chunkFor(x,z);parent.add(panel);
       const post=new THREE.Mesh(new THREE.CylinderGeometry(.095,.095,3.7,7),this.wood);
-      post.position.set(x,1.85,z);parent.add(post);const light=new THREE.PointLight(0x4df6ff,.8,20,2);light.position.set(x,4.8,z+1.5);parent.add(light);this.neonLights.push(light);
-    }
-  }
-
-  addBillboards(){
-    const boards=[
-      [-118,-30,'AUGMENT',0x4df6ff],[-12,-118,'SYNAPSE',0xff4db8],[122,18,'NOVA',0xcc63ff],
-      [82,116,'QUANT',0xffb347],[-146,88,'VOID',0x8fff61],[-92,122,'BYTE',0x4df6ff]
-    ];
-    for(const [x,z,label,color] of boards){
-      const canvas=document.createElement('canvas');canvas.width=512;canvas.height=256;
-      const ctx=canvas.getContext('2d');
-      const grad=ctx.createLinearGradient(0,0,512,256);grad.addColorStop(0,'#060d16');grad.addColorStop(1,'#1a0922');
-      ctx.fillStyle=grad;ctx.fillRect(0,0,512,256);
-      ctx.strokeStyle='#'+color.toString(16).padStart(6,'0');ctx.lineWidth=8;ctx.strokeRect(12,12,488,232);
-      ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(22,22,468,42);
-      ctx.shadowColor='#'+color.toString(16).padStart(6,'0');ctx.shadowBlur=28;
-      ctx.fillStyle='#f7fbff';ctx.font='900 84px Barlow Condensed, Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,256,136,460);
-      const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;
-      const mesh=new THREE.Mesh(new THREE.PlaneGeometry(9.2,4.6),new THREE.MeshBasicMaterial({map:tex,transparent:true,side:THREE.DoubleSide,depthWrite:false}));
-      mesh.position.set(x,7.4,z);mesh.rotation.y=(x>0?-1:1)*Math.PI*.32;
-      const parent=this.city.chunkFor(x,z);parent.add(mesh);this.neonPanels.push(mesh);
-      const light=new THREE.PointLight(color,.95,24,2);light.position.set(x,7.2,z+2.6);parent.add(light);this.neonLights.push(light);
+      post.position.set(x,1.85,z);parent.add(post);
     }
   }
   scenery(){
@@ -168,7 +146,7 @@ export class UrbanExpansion {
     for(const b of expandedBuildings())this.city.addBuilding(b.x,b.z,b.w,b.d,b.h,b.accent,b.roofAccess);
     HOMES.forEach((h,i)=>this.addHome(h,i));
     PARK_SPOTS.forEach(([x,z],i)=>this.addPark(x,z,i));
-    this.scenery();this.addDistrictSigns();this.addBillboards();
+    this.scenery();this.addDistrictSigns();
   }
   nearby(x,z,y,maxDistance=2.7){
     let best=null,dist=Infinity;
@@ -200,8 +178,6 @@ export class UrbanExpansion {
       const c=this.clouds[i];c.position.x+=dt*(.62+i%3*.22);if(c.position.x>240)c.position.x=-240;
     }
     for(const p of this.pools)p.material.opacity=.77+.08*Math.sin(this.elapsed*1.6);
-    for(let i=0;i<this.neonPanels.length;i++){const panel=this.neonPanels[i];if(panel.material)panel.material.opacity=.84+.12*Math.sin(this.elapsed*2.1+i*.73);}
-    for(let i=0;i<this.neonLights.length;i++)this.neonLights[i].intensity=.72+.25*Math.sin(this.elapsed*1.8+i*.51);
     // Wind sway with zero new per-frame geometry allocations; visible near the player.
     if(this.treeTops&&Math.floor(this.elapsed*8)!==Math.floor((this.elapsed-dt)*8)){
       const dummy=new THREE.Object3D();const n=this.treeTops.count;

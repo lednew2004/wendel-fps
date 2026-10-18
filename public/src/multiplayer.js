@@ -1,3 +1,4 @@
+import {heroById} from './heroRoster.js';
 import * as THREE from 'three';
 import {MultiplayerMinimap} from './minimap.js';
 import {createOperative,animateOperative,disposeOperative} from './characters.js';
@@ -6,9 +7,9 @@ import {colorForName} from './characterIdentity.js';
 const byId=id=>document.getElementById(id);
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 
-function remoteAvatar(name){
+function remoteAvatar(name,hero=null){
   const root=new THREE.Group();
-  const body=createOperative({role:'player',size:.91,player:true,tint:colorForName(name)});
+  const profile=hero?heroById(hero):null;const body=createOperative({role:profile?.role||'player',size:.91,player:true,tint:profile?.color??colorForName(name),hero:profile?.id||null});
   root.add(body);
   const flashMat=new THREE.MeshBasicMaterial({color:0xffdb8c,transparent:true,opacity:.85,depthWrite:false});
   const flash=new THREE.Mesh(new THREE.SphereGeometry(.16,6,5),flashMat);flash.position.set(.18,1.22,-.86);flash.visible=false;body.add(flash);root.userData.flash=flash;
@@ -221,7 +222,7 @@ export class MultiplayerClient {
       this.lastServerMessage=Date.now();
       this.startKeepAlive(socket);
       this.setStatus('Entrando na sala...');
-      socket.send(JSON.stringify({type:'join',name,create,room,session:this.reconnectSession,loadout:this.game.powers?.loadout||['push','freeze']}));
+      socket.send(JSON.stringify({type:'join',name,create,room,session:this.reconnectSession,loadout:this.game.powers?.loadout||['push','freeze'],hero:this.game.heroSelection?.selectedHero||'striker',weapon:this.game.heroSelection?.weapon??0}));
     });
     socket.addEventListener('message',e=>{
       if(this.socket!==socket)return;
@@ -427,7 +428,7 @@ export class MultiplayerClient {
     if(!data||!data.id||data.id===this.id)return;
     let entry=this.others.get(data.id);
     if(!entry){
-      const group=remoteAvatar(data.name||'Jogador');this.game.world.scene.add(group);
+      const group=remoteAvatar(data.name||'Jogador',data.hero);this.game.world.scene.add(group);
       entry={group,target:new THREE.Vector3(data.x||0,data.y||0,data.z||0),yaw:0,flash:0,lastX:data.x||0,lastZ:data.z||0};
       group.position.copy(entry.target);this.others.set(data.id,entry);
     }
