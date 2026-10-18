@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import {characterStyle} from './characterIdentity.js';
 
-// Personagens esculpidos com superfícies arredondadas e articulações reais. Sem corpos cúbicos.
+// Titã VOXEL: silhuetas blocadas originais. O GLB com esqueleto assume quando termina de carregar.
 // Malhas e posições são relativas aos pivôs para animar sem carregar novos arquivos externos.
 const SHAPES={
-  orb:new THREE.SphereGeometry(1,14,10),
-  capsule:new THREE.CapsuleGeometry(1,1,5,9),
-  cone:new THREE.ConeGeometry(1,1,12),
-  tube:new THREE.CylinderGeometry(1,1,1,12),
+  orb:new THREE.BoxGeometry(2,2,2),
+  capsule:new THREE.BoxGeometry(2,2,2),
+  cone:new THREE.BoxGeometry(2,2,2),
+  tube:new THREE.BoxGeometry(2,1,2),
   torus:new THREE.TorusGeometry(1,.15,7,20),
   plane:new THREE.PlaneGeometry(1,1)
 };
@@ -242,9 +242,9 @@ export function createOperative({role='scout',size=1,player=false,tint=null,hero
   return root;
 }
 
-export function animateOperative(root,dt,{moving=0,firing=false,frozen=false,hit=false,distance=0,dash=false,airborne=false,aiming=false}={}){
+export function animateOperative(root,dt,{moving=0,firing=false,frozen=false,hit=false,distance=0,dash=false,airborne=false,aiming=false,strafe=0,reloading=false,casting=false,crouching=false}={}){
   const rig=root?.userData?.rig;if(!rig)return;
-  if(root.userData.skeletal&&globalThis.TITAN_SKINNED_RUNTIME?.animate?.(root,dt,{moving,firing,frozen,hit,distance,dash,airborne,aiming}))return;
+  if(root.userData.skeletal&&globalThis.TITAN_SKINNED_RUNTIME?.animate?.(root,dt,{moving,firing,frozen,hit,distance,dash,airborne,aiming,strafe,reloading,casting,crouching}))return;
   dt=Math.max(0,Math.min(.06,Number(dt)||0));
   const far=Number(distance)>47;
   if(far!==rig.lodFar){rig.lodFar=far;for(const part of rig.detailMeshes)part.visible=!far;}

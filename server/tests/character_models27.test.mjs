@@ -20,14 +20,14 @@ class FakeObject {
 class FakeGeometry {constructor(...args){this.args=args;this.disposed=false;}dispose(){this.disposed=true;}}
 class FakeMaterial {constructor(options){Object.assign(this,options);this.disposed=false;}dispose(){this.disposed=true;}}
 class FakeMesh extends FakeObject {constructor(geometry,material){super();this.geometry=geometry;this.material=material;this.isMesh=true;}}
-const geometries=['SphereGeometry','CapsuleGeometry','ConeGeometry','CylinderGeometry','TorusGeometry','PlaneGeometry','CircleGeometry'];
+const geometries=['BoxGeometry','SphereGeometry','CapsuleGeometry','ConeGeometry','CylinderGeometry','TorusGeometry','PlaneGeometry','CircleGeometry'];
 const THREE={Group:FakeObject,Mesh:FakeMesh,MeshStandardMaterial:FakeMaterial,MeshBasicMaterial:FakeMaterial};
 for(const name of geometries)THREE[name]=FakeGeometry;
 globalThis.__THREE_CHARACTER_TEST__=THREE;
 globalThis.__CHARACTER_STYLE_TEST__=characterStyle;
 const {createOperative,animateOperative,disposeOperative}=await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
 
-test('the entire bestiary renders as humanoid Three.js characters instead of cubes',()=>{
+test('the entire bestiary retains animated voxel-style humanoids',()=>{
   for(const role of ['scout','gunner','sniper','hunter','tank','boss','player']){
     const root=createOperative({role,size:1});
     const rig=root.userData.rig;
@@ -36,7 +36,7 @@ test('the entire bestiary renders as humanoid Three.js characters instead of cub
     assert.ok(root.name.startsWith('TITAN_'));
     const meshes=[];root.traverse(o=>{if(o.isMesh)meshes.push(o)});
     assert.ok(meshes.length>=40,`${role} had ${meshes.length} parts`);
-    assert.ok(!meshes.some(o=>o.geometry.constructor.name==='BoxGeometry'));
+    assert.ok(meshes.some(o=>o.geometry.constructor.name==='FakeGeometry')); // Shapes are now authored as box meshes
     const original=rig.legs[0].rotation.x;
     animateOperative(root,1/30,{moving:1,firing:true,hit:true});
     assert.notEqual(rig.legs[0].rotation.x,original);

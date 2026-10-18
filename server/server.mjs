@@ -561,7 +561,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.4.0'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.5.3'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';
@@ -572,7 +572,7 @@ const server=http.createServer((req,res)=>{
   fs.stat(abs,(err,st)=>{
     if(err||!st.isFile()){res.writeHead(404);res.end('Not found');return;}
     const ext=path.extname(abs);
-    const cache=['.html','.js','.css'].includes(ext)?'no-cache, must-revalidate':'public, max-age=3600';
+    const cache=['.html','.js','.css'].includes(ext)?'no-store':'public, max-age=3600';
     res.writeHead(200,{'Content-Type':mime[ext]||'application/octet-stream','Cache-Control':cache});
     fs.createReadStream(abs).pipe(res);
   });

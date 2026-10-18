@@ -3,11 +3,24 @@
  * No fake mouse events: mobile movement is blended into ParkourController,
  * touch aim updates the exact same LookController as pointer lock.
  */
+// Respond sooner to short thumb movements without changing the direction or
+// exceeding a normalized magnitude of 1. Used only by the touch joystick.
+export function responsiveJoystick(x,y){
+  const magnitude=Math.hypot(x,y);
+  if(!Number.isFinite(magnitude)||magnitude<=.04)return {x:0,y:0};
+  const normalized=Math.min(1,magnitude);
+  const strength=Math.min(1,1.12*Math.pow((normalized-.04)/.96,.76));
+  return {x:x/magnitude*strength,y:y/magnitude*strength};
+}
+
 export class MobileControls {
   constructor(game) {
     this.game=game;
     this.enabled=matchMedia('(pointer: coarse)').matches || ((navigator.maxTouchPoints||0)>0 && Math.min(window.innerWidth,window.innerHeight)<=600);
-    this.move={x:0,y:0};
+    this.move={x:0,y:0};this.activeButtons=new Map();
+    // Independent FIRE state, so missed pointer capture or a synthetic mouseup
+    // cannot steal an active finger holding down the trigger.
+    this.fireTouchIds=new Set();this.firePointerIds=new Set();
     this.activeMove=null;
     this.activeLook=null;
     this.aimFingers=new Map();
@@ -50,7 +63,8 @@ export class MobileControls {
   clear(){
     if(!this.enabled)return;
     this.move.x=this.move.y=0;this.lookFilter.x=this.lookFilter.y=0;
-    this.activeMove=null;this.activeLook=null;this.moveBase=null;this.aimFingers.clear();
+    this.activeMove=null;this.activeLook=null;this.moveBase=null;this.aimFingers.clear();this.activeButtons.clear();
+    this.fireTouchIds.clear();this.firePointerIds.clear();
     this.game.mouseDown=false;this.game.rightDown=false;
     this.game.keys.Space=false;this.game.keys.KeyF=false;this.game.keys.ControlLeft=false;
     this.sprintTouch=false;this.aimToggle=false;this.moreOpen=false;
@@ -61,23 +75,108 @@ export class MobileControls {
     if(this.moveElement)this.moveElement.querySelector('.stick-ring').style.transform='translate(0px,0px)';
     if(this.root)this.root.querySelectorAll('.pressed').forEach(x=>x.classList.remove('pressed'));
   }
+  isFiring(){return this.enabled&&this.landscape&&(this.fireTouchIds.size>0||this.firePointerIds.size>0);}
+  withinFire(x,y){
+    const button=document.getElementById('m-fire');
+    if(!button)return false;
+    const r=button.getBoundingClientRect();
+    return r.width>0&&r.height>0&&x>=r.left&&x<=(r.right??r.left+r.width)&&y>=r.top&&y<=(r.bottom??r.top+r.height);
+  }
+  refreshFire(){
+    const held=this.isFiring();
+    this.game.mouseDown=held;
+    document.getElementById('m-fire')?.classList.toggle('pressed',held);
+  }
+  startFire(kind,id){
+    if(this.game.state!=='playing'||!this.landscape)return false;
+    const contacts=kind==='touch'?this.fireTouchIds:this.firePointerIds;
+    if(contacts.has(id))return true;
+    const wasHeld=this.isFiring();
+    contacts.add(id);
+    this.refreshFire();
+    if(!wasHeld){
+      // Do not wait for requestAnimationFrame; short taps fire as well.
+      this.game.tryFire?.();
+    }
+    return true;
+  }
+  stopFire(kind,id){
+    const contacts=kind==='touch'?this.fireTouchIds:this.firePointerIds;
+    if(!contacts.delete(id))return;
+    this.refreshFire();
+  }
+  bindFire(){
+    const button=document.getElementById('m-fire');
+    const isActive=()=>this.landscape&&this.game.state==='playing';
+    const interactiveOther=target=>{
+      const other=target?.closest?.('button, input, select, textarea, a');
+      return !!other&&other!==button;
+    };
+    // Use native Touch Events in addition to Pointer Events. The capture-phase
+    // handler works even if a transparent overlay wins hit-testing over FIRE.
+    const onTouchStart=e=>{
+      if(!isActive())return;
+      let handled=false;
+      for(const t of e.changedTouches||[]){
+        if(!this.withinFire(t.clientX,t.clientY)||interactiveOther(t.target||e.target))continue;
+        handled=this.startFire('touch',t.identifier)||handled;
+      }
+      if(handled){e.preventDefault?.();e.stopPropagation?.();}
+    };
+    const onTouchEnd=e=>{
+      let handled=false;
+      for(const t of e.changedTouches||[]){
+        if(this.fireTouchIds.has(t.identifier)){
+          this.stopFire('touch',t.identifier);handled=true;
+        }
+      }
+      if(handled)e.preventDefault?.();
+    };
+    document.addEventListener('touchstart',onTouchStart,{capture:true,passive:false});
+    document.addEventListener('touchend',onTouchEnd,{capture:true,passive:false});
+    document.addEventListener('touchcancel',onTouchEnd,{capture:true,passive:false});
+
+    // Pointer Events remain a fallback for browsers without Touch Events and
+    // for stylus input. The trigger never depends on click or pointer lock.
+    const onPointerDown=e=>{
+      if(!isActive()||(e.target!==button&&!this.withinFire(e.clientX,e.clientY))||interactiveOther(e.target))return;
+      if(e.pointerType==='touch'&&('ontouchstart' in window))return;
+      if(!this.startFire('pointer',e.pointerId))return;
+      e.preventDefault?.();e.stopPropagation?.();
+      try{button.setPointerCapture(e.pointerId);}catch{}
+    };
+    const onPointerEnd=e=>this.stopFire('pointer',e.pointerId);
+    document.addEventListener('pointerdown',onPointerDown,true);
+    button.addEventListener('pointerdown',onPointerDown);
+    document.addEventListener('pointerup',onPointerEnd,true);
+    document.addEventListener('pointercancel',onPointerEnd,true);
+    button.addEventListener('pointerup',onPointerEnd);
+    button.addEventListener('pointercancel',onPointerEnd);
+    button.addEventListener('lostpointercapture',onPointerEnd);
+    button.addEventListener('contextmenu',e=>e.preventDefault());
+  }
   bindAction(id,down,up){
     const button=document.getElementById(id);
     button.addEventListener('pointerdown',e=>{
       if(this.game.state!=='playing'||!this.landscape)return;
       e.preventDefault();e.stopPropagation();
+      // Another finger must never steal an active held button's press.
+      if(this.activeButtons.has(id))return;
+      this.activeButtons.set(id,e.pointerId);
       try{button.setPointerCapture(e.pointerId);}catch{}
       button.classList.add('pressed');
       down?.();
     });
     const release=e=>{
-      e.preventDefault();e.stopPropagation();
+      if(this.activeButtons.get(id)!==e.pointerId)return;
+      e.preventDefault?.();e.stopPropagation?.();
+      this.activeButtons.delete(id);
       button.classList.remove('pressed');
       up?.();
     };
     button.addEventListener('pointerup',release);
     button.addEventListener('pointercancel',release);
-    button.addEventListener('lostpointercapture',()=>{button.classList.remove('pressed');up?.();});
+    button.addEventListener('lostpointercapture',release);
     button.addEventListener('contextmenu',e=>e.preventDefault());
   }
   attach(){
@@ -90,9 +189,11 @@ export class MobileControls {
       let y=(this.moveBase.y-e.clientY)/radius;
       const mag=Math.hypot(x,y);
       if(mag>1){x/=mag;y/=mag;}
-      this.move.x=Math.abs(x)<.035?0:x;
-      this.move.y=Math.abs(y)<.035?0:y;
-      this.knob.style.transform=`translate(${this.move.x*radius*.78}px,${-this.move.y*radius*.78}px)`;
+      const responsive=responsiveJoystick(x,y);
+      this.move.x=responsive.x;
+      this.move.y=responsive.y;
+      // Keep the knob following the finger rather than the accelerated value.
+      this.knob.style.transform=`translate(${x*radius*.78}px,${-y*radius*.78}px)`;
     };
     pad.addEventListener('pointerdown',e=>{
       if(this.activeMove!==null||this.game.state!=='playing')return;
@@ -119,7 +220,7 @@ export class MobileControls {
     document.addEventListener('pointerdown',e=>{
       if(!isPlayable(e)||e.clientX<window.innerWidth*.44||isOtherButton(e))return;
       if(e.target?.closest?.('.screen, .dialog, #multiplayer-lobby'))return;
-      if(e.target?.closest?.('#mobile-move'))return;
+      if(e.target?.closest?.('#mobile-move')||this.withinFire(e.clientX,e.clientY))return;
       this.aimFingers.set(e.pointerId,{x:e.clientX,y:e.clientY});
       this.game.look.armed=true;
       // Capture pointer on its real origin; global capture-phase listeners track its motion.
@@ -152,7 +253,7 @@ export class MobileControls {
     // A visible right-side look region remains accessible but is no longer a restriction.
     this.lookElement.style.touchAction='none';
 
-    this.bindAction('m-fire',()=>{this.game.mouseDown=true;},()=>{this.game.mouseDown=false;});
+    this.bindFire();
     this.bindAction('m-aim',()=>{this.aimToggle=!this.aimToggle;this.game.rightDown=this.aimToggle;document.getElementById('m-aim').classList.toggle('selected',this.aimToggle);});
     this.bindAction('m-jump',()=>{this.game.keys.Space=true;this.game.parkour.jump();},()=>{this.game.keys.Space=false;});
     this.bindAction('m-dash',()=>this.game.dash());

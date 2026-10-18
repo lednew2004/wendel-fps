@@ -172,6 +172,7 @@ export class PowerSystem {
   if(this.frozen())return;
   if(this.motion.hasDash()){g.toast('CONCLUA O DASH PARA REATIVAR');return;}
   if(!(stage?.until>t)&&(this.cooldowns[id]||0)>t){g.toast('RECARGA · '+Math.ceil((this.cooldowns[id]-t)/1000)+'s');return;}
+  
   if(g.mode==='multiplayer'){
    const dir=g.parkour.dashDirection();
    g.multiplayer.syncState();g.multiplayer.send({type:'power',id,dx:dir.x,dz:dir.z});return;
@@ -287,10 +288,9 @@ export class PowerSystem {
  findTarget(){
   const g=this.game,pk=g.parkour;
   const origin=new THREE.Vector3(),dir=new THREE.Vector3();
-  const aimNode=g.world.cameraMode==='third'?g.world.cameraPitch:g.world.camera;
+  const aimNode=g.world.camera;
   aimNode.getWorldPosition(origin);
-  if(g.world.cameraMode==='third')dir.set(0,0,-1).applyQuaternion(aimNode.getWorldQuaternion(new THREE.Quaternion()));
-  else aimNode.getWorldDirection(dir);
+  aimNode.getWorldDirection(dir);
   // First prefer a real downward-facing rooftop intersected by the crosshair.
   const targets=g.urban.rayTargets||[];
   const hits=new THREE.Raycaster(origin,dir,.1,35).intersectObjects(targets,false);

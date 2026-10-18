@@ -44,12 +44,12 @@ test('Squad PvE progresses through perimeter, sniper reconnaissance, bomber sabo
  assert.match(ai,/this\.game\.world\.canMove/);
 });
 
-test('PvP remains online free-for-all and 1/2/3 and optional third-person camera remain',()=>{
+test('PvP remains free-for-all, 1/2/3 skills and the HUD configurator are available',()=>{
  const game=read('game.js');
  const server=readFileSync(new URL('../server.mjs',import.meta.url),'utf8');
  assert.match(server,/team:room\.mode==='coop'\?0:room\.nextTeam\+\+/ );
  assert.doesNotMatch(server,/MOBA_BASES/);
  for(const code of ['Digit1','Digit2','Digit3'])assert.match(game,new RegExp(`e\\.code==='${code}'`));
- assert.match(game,/this\.thirdPerson\.toggle/);
+ assert.match(game,/new HudCustomizer\(this\)/);
  assert.match(game,/this\.squad\.toggleOrders/);
 });
