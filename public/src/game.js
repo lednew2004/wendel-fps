@@ -17,6 +17,9 @@ import {ParkourController} from './parkour.js';
 import {MobileControls} from './mobile.js';
 import {MultiplayerClient} from './multiplayer.js';
 import {PowerSystem} from './powers.js';
+import {VoxelForge} from './voxelForge.js';
+import {MapSupplies} from './mapSupplies.js';
+import {HEROES} from './heroRoster.js';
 import {WEAPONS,UPGRADES,PLAYER_HEIGHT,clamp,lerp,rand} from './constants.js';
 const el=id=>document.getElementById(id);
 const fmt=n=>String(Math.floor(n)).padStart(2,'0');
@@ -28,7 +31,7 @@ export class Game {
     this.enemies=new EnemySystem(this.world,this.audio,{onKill:e=>this.onEnemyKill(e),onPlayerHit:(d,p)=>this.takeDamage(d,p),onAllyHit:(ally,damage)=>this.squad?.damage(ally,damage),onPickup:t=>this.pickup(t),onSummon:n=>{this.waveCount+=n;this.toast('REFORÇOS HOSTIS!');},onBossWarning:()=>this.toast('ALERTA: ONDA DE CHOQUE — AFASTE-SE!')});
     this.ordnance=new Ordnance(this.world,this.audio,this.enemies);
     this.weapons=new Weapons(this.world,this.audio,{onRay:(origin,dir,damage,range,weapon)=>this.shootRay(origin,dir,damage,range,weapon),onHitmarker:k=>this.hitmarker(k),onFire:()=>{if(this.mode==='multiplayer')this.multiplayer?.fire();},onWeaponChanged:()=>this.updateHud()});
-    this.fpsLimit=0;this.lastDraw=0;this.mode='campaign';this.campaign=new Campaign(this);this.urban=new UrbanCity(this.world);this.world.city=this.urban;this.world.spawnPoints=this.urban.spawnPoints;this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.parkour=new ParkourController(this,this.urban);this.adaptiveFPS=true;this.lowFPSTime=0;this.highFPSTime=0;this.cityTick=0;this.nativeScale=1;this.mobile=new MobileControls(this);this.multiplayer=new MultiplayerClient(this);this.powers=new PowerSystem(this);this.heroSelection=new HeroSelection(this);this.hudCustomizer=new HudCustomizer(this);this.world.cameraMode='first';this.squad=new SquadAI(this);this.weapons.setHeroAccent(heroById(this.heroSelection.selectedHero).color);this.powers.loadout=heroLoadout(this.heroSelection.selectedHero);this.powers.menuLoadout=[...this.powers.loadout];this.powers.refreshButtons();
+    this.fpsLimit=0;this.lastDraw=0;this.mode='campaign';this.campaign=new Campaign(this);this.urban=new UrbanCity(this.world);this.world.city=this.urban;this.world.spawnPoints=this.urban.spawnPoints;this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.parkour=new ParkourController(this,this.urban);this.adaptiveFPS=true;this.lowFPSTime=0;this.highFPSTime=0;this.cityTick=0;this.nativeScale=1;this.mobile=new MobileControls(this);this.multiplayer=new MultiplayerClient(this);this.powers=new PowerSystem(this);this.heroSelection=new HeroSelection(this);this.forge=new VoxelForge(this);this.mapSupplies=new MapSupplies(this);this.ammoSpawnTimer=6;this.hudCustomizer=new HudCustomizer(this);this.world.cameraMode='first';this.squad=new SquadAI(this);this.weapons.setHeroAccent(heroById(this.heroSelection.selectedHero).color);this.powers.loadout=heroLoadout(this.heroSelection.selectedHero);this.powers.menuLoadout=[...this.powers.loadout];this.powers.refreshButtons();
     if(this.mobile.enabled){
       // Coarse-pointer phones default to lean rendering while all PC presets remain available.
       this.world.setQuality('low');
@@ -51,6 +54,7 @@ export class Game {
   saveBest(){if(this.score>this.best){this.best=this.score;try{localStorage.setItem('titan-protocol-best',String(this.best));}catch{}return true;}return false;}
   bind(){
     el('start-btn').addEventListener('click',()=>this.campaign.confirmNew());el('retry-btn').addEventListener('click',()=>this.start(this.mode,this.campaign.index));el('back-menu-btn').addEventListener('click',()=>this.menu());el('resume-btn').addEventListener('click',()=>this.resume());el('hud-pause').addEventListener('click',()=>this.pause());el('restart-from-pause').addEventListener('click',()=>this.start(this.mode,this.campaign.index));el('survival-btn').addEventListener('click',()=>this.start('survival'));
+    this.setupTrainingSwitcher();
     el('adaptive-fps').addEventListener('change',e=>{this.adaptiveFPS=e.target.checked;this.lowFPSTime=0;this.highFPSTime=0;});
     el('sensitivity').addEventListener('input',e=>{this.sensitivity=Number(e.target.value);el('sensitivity-value').textContent=this.sensitivity.toFixed(1)+'×';});
     el('quality').addEventListener('change',e=>{
@@ -76,6 +80,7 @@ export class Game {
     window.addEventListener('keydown',e=>{if(isTypingIntoField(e.target)||isTypingIntoField(document.activeElement))return;if(handlePowerWheelTab(e,this.state,this.powers?.menu?.mode,document.activeElement,()=>this.powers.menu.openWheel()))return;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace'].includes(e.code))e.preventDefault();this.keys[e.code]=true;if(e.repeat)return;if(e.code==='Escape'&&this.powers?.menu?.mode){this.powers.menu.close();return;}if(e.code==='Escape'){if(this.state==='playing')this.pause();else if(this.state==='paused')this.resume();return;}if(this.state!=='playing')return;
       if(e.code==='Space')this.parkour.jump();
       if(e.code==='KeyE')this.parkour.interact();
+      if(e.code==='KeyP'&&this.mode==='survival'){this.openTrainingSwitcher();return;}
       if(e.code==='KeyT'){const active=this.parkour.toggleTrial();document.body.classList.toggle('trial-active',active);this.toast(active?'PERCURSO OPCIONAL ATIVADO':'PERCURSO DESATIVADO');}
       if(e.code==='ControlLeft'||e.code==='ControlRight'||e.code==='KeyC')this.parkour.crouch();
       if(e.code==='KeyR')this.weapons.reload();
@@ -105,6 +110,7 @@ export class Game {
     document.body.classList.toggle('unified-play',inGame);
     document.body.classList.toggle('playing',state==='playing');
     document.body.classList.toggle('mode-multiplayer',inGame&&this.mode==='multiplayer');
+    document.body.classList.toggle('mode-training',inGame&&this.mode==='survival');
     document.body.classList.toggle('reloading',state==='playing'&&this.weapons.reloadTime>0);
     document.body.classList.toggle('trial-active',this.parkour.trialActive&&inGame);
     el('parkour-hud').classList.toggle('hidden',!inGame);
@@ -112,9 +118,37 @@ export class Game {
     el('hud').classList.toggle('hidden',!inGame);
     this.mobile?.sync();this.squad?.syncUI();
   }
+  setupTrainingSwitcher(){
+    const hud=document.getElementById('hud');
+    const button=document.createElement('button');button.id='training-change-hero';button.type='button';button.textContent='⇄ TROCAR PERSONAGEM';button.setAttribute('aria-label','Trocar personagem no treinamento');hud.appendChild(button);
+    button.addEventListener('click',e=>{e.stopPropagation();this.openTrainingSwitcher();});
+    const dialog=document.createElement('section');dialog.id='training-hero-screen';dialog.className='screen hidden';dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label','Trocar personagem durante o treino');
+    dialog.innerHTML='<div class="training-dialog"><h2>ESCOLHER PERSONAGEM</h2><p>Troque sem perder a onda, os pontos ou a posição. O kit de habilidades será renovado.</p><div class="training-hero-grid" id="training-hero-grid"></div><button type="button" id="training-cancel" class="secondary-btn">VOLTAR AO TREINO</button></div>';
+    document.body.appendChild(dialog);
+    dialog.querySelector('#training-cancel').addEventListener('click',()=>{dialog.classList.add('hidden');this.resume();});
+  }
+  openTrainingSwitcher(){
+    if(this.mode!=='survival'||this.state!=='playing')return;
+    this.pause();document.getElementById('pause-screen').classList.add('hidden');
+    const root=document.getElementById('training-hero-screen'),grid=document.getElementById('training-hero-grid');grid.replaceChildren();
+    for(const hero of HEROES){const b=document.createElement('button');b.type='button';b.style.setProperty('--hero-accent','#'+hero.color.toString(16).padStart(6,'0'));b.className='training-hero-choice'+(hero.id===this.heroSelection.selectedHero?' selected':'');
+      b.innerHTML='<b>'+hero.name+'</b><small>'+hero.class+'</small>';b.addEventListener('click',()=>this.changeTrainingHero(hero.id));grid.appendChild(b);}
+    root.classList.remove('hidden');
+  }
+  changeTrainingHero(id){
+    if(this.mode!=='survival'||this.state!=='paused'||!HEROES.some(h=>h.id===id))return false;
+    this.forge.clear();this.powers.reset();this.heroSelection.choose(id);this.powers.startRun('survival');this.powers.refreshButtons();this.weapons.switchTo(this.heroSelection.weapon);
+    document.getElementById('training-hero-screen').classList.add('hidden');this.resume();this.toast('TREINO · PERSONAGEM ALTERADO PARA '+this.heroSelection.selectedHero.toUpperCase());return true;
+  }
+  spawnMapAmmo(){
+    if(this.state!=='playing'||this.mode==='multiplayer'||this.enemies.pickups.filter(p=>p.type==='ammo').length>=7)return;
+    const p=this.parkour;for(let trial=0;trial<12;trial++){const angle=Math.random()*Math.PI*2,d=9+Math.random()*13,x=p.x+Math.cos(angle)*d,z=p.z+Math.sin(angle)*d;
+      if(this.urban.canOccupy(x,z,0,1.7,.7)){this.enemies.drop(new THREE.Vector3(x,0,z),'ammo');return;}}
+  }
   start(mode='campaign',index=this.campaign.index){
     this.mode=mode;
     this.powers.reset();
+    this.forge.clear();this.mapSupplies.clear();this.ammoSpawnTimer=5;
     this.powers.startRun(mode);
     this.campaign.disposeSector();this.squad.clear();
     this.audio.unlock();this.hideScreens();
@@ -144,7 +178,7 @@ export class Game {
     this.world.update(0);
     this.positionCamera();this.updateHud();this.requestLock();
   }
-  menu(){this.powers?.reset();el('power-hud').classList.add('hidden');if(this.mode==='multiplayer'&&this.multiplayer?.connected)this.multiplayer.disconnect();this.parkour.stop();this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.urban.resetInteractions();document.body.classList.remove('trial-active');this.campaign.disposeSector();this.hideScreens();el('start-screen').classList.remove('hidden');this.enemies.clear();this.ordnance.clear();this.pendingSpawns=[];this.setState('menu');this.powers.restoreMenuLoadout();el('menu-best').textContent=num(this.best);if(document.pointerLockElement)document.exitPointerLock();}
+  menu(){this.forge?.clear();this.mapSupplies?.clear();this.powers?.reset();el('power-hud').classList.add('hidden');if(this.mode==='multiplayer'&&this.multiplayer?.connected)this.multiplayer.disconnect();this.parkour.stop();this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.urban.resetInteractions();document.body.classList.remove('trial-active');this.campaign.disposeSector();this.hideScreens();el('start-screen').classList.remove('hidden');this.enemies.clear();this.ordnance.clear();this.pendingSpawns=[];this.setState('menu');this.powers.restoreMenuLoadout();el('menu-best').textContent=num(this.best);if(document.pointerLockElement)document.exitPointerLock();}
   pause(){if(this.state!=='playing')return;if(this.mode==='multiplayer'){this.multiplayer.openRoomPanel();return;}this.setState('paused');this.mobile?.clear();this.mouseDown=false;this.rightDown=false;el('pause-screen').classList.remove('hidden');if(document.pointerLockElement)document.exitPointerLock();}
   resume(){if(this.state!=='paused')return;if(this.mode==='multiplayer'&&this.multiplayer?.panelOpen){this.multiplayer.closeRoomPanel();return;}this.hideScreens();this.setState('playing');this.requestLock();}
   beginWave(){this.wave++;this.waveKilled=0;this.waveCount=4+this.wave*2+(this.wave%4===0?1:0);this.pendingSpawns=[];if(this.wave%4===0){this.pendingSpawns.push('boss');this.audio.play('boss');}
@@ -169,6 +203,7 @@ export class Game {
   takeDamage(damage){const p=this.player;if(this.powers?.observeLocalEvent('kinetic'))return;if(this.state!=='playing'||p.invulnerable>0||(this.powers?.isActive('phase')||this.powers?.isActive('shield')))return;p.lastDamage=this.animTime;p.invulnerable=.25;let left=damage;if(p.shield>0){const absorbed=Math.min(p.shield,left);p.shield-=absorbed;left-=absorbed;}if(left>0)p.health=Math.max(0,p.health-left);this.damageFlash=.75;this.audio.play('hurt');if(p.health<=0){if(!this.powers.tryResurrection())this.die();}this.updateHud();}
   die(){const record=this.saveBest();this.mouseDown=false;this.setState('dead');this.hideScreens();el('death-screen').classList.remove('hidden');el('final-wave').textContent=this.wave;el('final-kills').textContent=this.kills;el('final-score').textContent=this.score.toLocaleString('pt-BR');el('new-record').classList.toggle('hidden',!record||this.score===0);if(document.pointerLockElement)document.exitPointerLock();}
   shootRay(origin,dir,damage,range,weapon){
+    const voxel=this.forge?.hitFromShot(origin,dir,damage);
     if(this.mode==='multiplayer'){
       const wall=this.world.raycastSurface(origin,dir,range);
       return {hit:false,killed:false,point:wall?.point??origin.clone().addScaledVector(dir,range)};
@@ -177,6 +212,7 @@ export class Game {
     const wallDist=surface?.distance??range;
     const barrelHit=this.world.findBarrelHit(origin,dir,wallDist+.02);
     const enemyHit=this.enemies.raycast(origin,dir,wallDist);
+    if(voxel&&voxel.distance<wallDist&&(!enemyHit||voxel.distance<enemyHit.distance)&&(!barrelHit||voxel.distance<barrelHit.distance))return this.forge.hitFromShot(origin,dir,damage,true);
     // Resolve the nearest hit, not the barrel first if a soldier is in front.
     if(barrelHit?.barrel && (!enemyHit || barrelHit.distance<enemyHit.distance)){
       if(this.world.damageBarrel(barrelHit.barrel,damage))this.barrelBlast(barrelHit.barrel);
@@ -261,9 +297,10 @@ export class Game {
       if(this.powers.isActive('invisible'))this.powers.status.invisible=0;
       if(this.powers.isActive('morph'))this.powers.cancelMorph();
     }
+    if(this.forge?.active)return this.forge.place();
     return this.weapons.fire();
   }
-  loop(){requestAnimationFrame(()=>this.loop());let dt=Math.min(this.mobile?.enabled ? .09 : .04,this.clock.getDelta());this.animTime+=dt;this.world.update(dt);this.urban.animateEnvironment(dt);if(this.campaign)for(const a of this.campaign.artifacts)if(a.mesh.parent)a.mesh.rotation.y+=a.rotation*dt;this.dieFxUpdate(dt);this.fpsTick+=dt;if(this.fpsTick>=.7){this.fps=Math.round(this.fpsCount/this.fpsTick);el('perf-fps').textContent=this.fps+' FPS · '+this.world.renderer.info.render.calls+' DRAWS · '+Math.round(this.world.renderScale*100)+'%';this.optimizeFPS(.7);this.fpsCount=0;this.fpsTick=0;}
+  loop(){requestAnimationFrame(()=>this.loop());let dt=Math.min(this.mobile?.enabled ? .09 : .04,this.clock.getDelta());this.animTime+=dt;this.world.update(dt);this.urban.animateEnvironment(dt);this.forge?.update();this.mapSupplies?.update(dt);if(this.campaign)for(const a of this.campaign.artifacts)if(a.mesh.parent)a.mesh.rotation.y+=a.rotation*dt;this.dieFxUpdate(dt);this.fpsTick+=dt;if(this.fpsTick>=.7){this.fps=Math.round(this.fpsCount/this.fpsTick);el('perf-fps').textContent=this.fps+' FPS · '+this.world.renderer.info.render.calls+' DRAWS · '+Math.round(this.world.renderScale*100)+'%';this.optimizeFPS(.7);this.fpsCount=0;this.fpsTick=0;}
     if(this.state==='playing'){
       this.updateCombatTimers(dt);
       this.powers.update(dt);
@@ -275,7 +312,10 @@ export class Game {
       const moving=Math.hypot(this.parkour.vx,this.parkour.vz)>1;
       this.weapons.update(dt,moving,this.rightDown);
       if(this.mouseDown||this.mobile?.isFiring())this.tryFire();
-      if(this.mode!=='multiplayer'){this.enemies.decoys=this.powers.decoys;this.enemies.hiddenPlayer=this.powers.isActive('invisible');this.enemies.allies=this.mode==='campaign'?this.squad.members:[];this.enemies.update(dt,this.player,this.wave);this.ordnance.update(dt);}
+      if(this.mode!=='multiplayer'){this.enemies.decoys=this.powers.decoys;this.enemies.hiddenPlayer=this.powers.isActive('invisible');this.enemies.allies=this.mode==='campaign'?this.squad.members:[];this.enemies.update(dt,this.player,this.wave);this.ordnance.update(dt);
+        this.ammoSpawnTimer-=dt;
+        if(this.weapons.ammo.reserve<this.weapons.def.clip&&this.ammoSpawnTimer>3)this.ammoSpawnTimer=3;
+        if(this.ammoSpawnTimer<=0){this.spawnMapAmmo();this.ammoSpawnTimer=16;}}
       if(this.mode==='campaign'){this.squad.update(dt);this.campaign.update(dt);}
       if(this.state==='playing'&&this.mode!=='multiplayer'){if(this.pendingSpawns.length){this.spawnTimer-=dt;if(this.spawnTimer<=0&&this.enemies.count()<7){this.enemies.spawnAt(this.pendingSpawns.shift(),this.player,this.wave);this.spawnTimer=rand(.65,1.3);}}else if(this.enemies.count()===0){if(this.mode==='campaign'){if(this.campaign.phase==='clear'||this.campaign.phase==='boss')this.campaign.onCleared();}else this.waveComplete();}
         this.uiTick-=dt;if(this.uiTick<=0){this.updateHud();this.uiTick=.095;}this.radarTick-=dt;if(this.radarTick<=0){this.updateRadar();this.radarTick=.12;}}

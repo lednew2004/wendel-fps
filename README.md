@@ -1,3 +1,13 @@
+## Atualização 3.7.0 — VEX extremo, FORGE e Treino
+
+- **VEX** com salto físico até telhados elevados (planejamento e animação contínua), propulsão e Ultimate de parkour extremo.
+- **FORGE** (15º personagem) constrói blocos voxel por mira, transforma as construções em explosivos e cria estruturas aceleradas durante a Ultimate.
+- **Drops de munição** automáticos na Campanha/Treino e caixas sincronizadas por servidor no multiplayer.
+- **Treino · Sobrevivência** permite trocar o personagem durante a partida pelo botão `TROCAR PERSONAGEM` ou tecla `P`, sem reiniciar as ondas.
+- Ajustes gráficos: modelo voxel exclusivo, texturas dos blocos, efeitos de explosão e caixas emissivas.
+
+Veja os detalhes, controles e limites em `ATUALIZACAO_3_7.md`.
+
 ## Atualização 3.6.1 — Escalada e obstáculos mais altos
 
 VEX ultrapassa muros altos com aproximação, subida visível em primeira pessoa, passagem pelo topo e pouso. O movimento é reproduzido pelo servidor e pelos demais jogadores. O mapa inclui 24 barreiras urbanas temáticas, e os controles mobile da 3.6.0 permanecem. Detalhes em `ATUALIZACAO_3_6_1.md`.

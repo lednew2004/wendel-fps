@@ -137,6 +137,9 @@ export function createOperative({role='scout',size=1,player=false,tint=null,hero
   if(hero){
     const ornament=(x,y,z,sx,sy,sz,mat=glowing)=>orb(visual,mat,x,y,z,sx,sy,sz);
     switch(hero){
+      case 'forge': // voxel builder backpack and projected blocks
+        for(const side of [-1,1]){ornament(side*.40,1.60,.50,.17,.38,.18,armor);ornament(side*.53,1.42,-.28,.14,.18,.15,glowing);}
+        ornament(0,2.70,-.03,.45,.12,.34,accent);ornament(0,1.51,.58,.32,.35,.24,armor);break;
       case 'shiro': // twin blades and a sharp red striker silhouette
         for(const side of [-1,1]){piece(torso,SHAPES.cone,accent,[side*.58,.34,-.04],[.11,.58,.13],[0,0,side*.52]);orb(torso,glowing,side*.42,-.13,.37,.06,.3,.09);}break;
       case 'leo': // golden temporal crown and dual gyroscopic shoulder rings

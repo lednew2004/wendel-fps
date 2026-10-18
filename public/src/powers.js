@@ -7,7 +7,7 @@ import {PowerMenu} from './powerMenu.js';
 import {createOperative,animateOperative,disposeOperative} from './characters.js';
 import {observeAdaptation,learned,startUltimate,ADAPT_LABELS} from './adaptation.js';
 import {CasualEconomy,STARTING_POWER} from './casualEconomy.js';
-import {planVault} from './vaultTraversal.js';
+import {planVault,planSkyLeap} from './vaultTraversal.js';
 import {SQUAD_OBSTACLES} from './squadLayout.js';
 export const POWER_DATA={
  push:{label:'REPULSÃO',icon:'◉',cool:12,help:'Empurrão extremo em 16 m'},
@@ -20,9 +20,12 @@ export const POWER_DATA={
  rewind:{label:'REWIND 10S',icon:'↶',cool:32,help:'Reverte posição e vida de 10 segundos'},
  chain:{label:'RAIO',icon:'ϟ',cool:13,help:'Raio fortalecido até 42 m'},
  gravity:{label:'GRAVIDADE',icon:'↟',cool:20,help:'Área de 13 m; suspende 2,7 s'},
- vault:{label:'ESCALADA DE MURO',icon:'↥',cool:14,help:'Salto físico sobre muros altos, com subida e aterrissagem animadas'},
- wallrun_boost:{label:'CORRIDA VERTICAL',icon:'↗',cool:23,duration:6000,help:'Impulso de corrida na parede por 6 s'},
- vex_ultimate:{label:'SEM LIMITES',icon:'✦',cool:42,duration:10000,help:'Pulo duplo, escalada e impulso ampliado por 10 s'},
+ vault:{label:'SALTO ABSOLUTO',icon:'↥',cool:12,help:'Super salto cinematográfico até telhados e estruturas a 17 m de distância'},
+ wallrun_boost:{label:'PROPULSOR INFINITO',icon:'↗',cool:16,duration:8000,help:'Impulso aéreo + corrida vertical ampliada por 8 s'},
+ vex_ultimate:{label:'SEM LIMITES',icon:'✦',cool:48,duration:18000,help:'18 s de parkour extremo, saltos aéreos e impulsos gigantes'},
+ forge_build:{label:'MODO CRIATIVO',icon:'▦',cool:23,duration:12000,help:'12 s colocando blocos pela mira com o botão de atirar'},
+ forge_redstone:{label:'REDSTONE EXPLOSIVA',icon:'✹',cool:26,help:'Arma seus blocos, detone ao atirar e crie reações em cadeia'},
+ forge_ultimate:{label:'DOMÍNIO VOXEL',icon:'▩',cool:55,duration:16000,help:'16 s de construção acelerada e até 60 blocos ativos'},
  adapt_scan:{label:'EVOLUÇÃO FORÇADA',icon:'⟁',cool:22,duration:8000,help:'Aprende o próximo evento sofrido; imune ao repetir'},
  adapt_counter:{label:'CONTRAEVOLUÇÃO',icon:'⇄',cool:28,help:'Transforma adaptação recente em contra-ataque'},
  adapt_ultimate:{label:'ADAPTAÇÃO ABSOLUTA',icon:'◎',cool:60,duration:15000,help:'Aprende automaticamente três eventos e bloqueia um golpe fatal'},
@@ -291,11 +294,14 @@ export class PowerSystem {
  applyLocal(id){
   const g=this.game,p=g.parkour,effect=POWER_VARIANTS[id]?.base||id;
   if(effect==='vault'){
-    const plan=this.findVaultDestination();if(!plan||!p.startVault(plan)){g.toast('MIRE PARA UM MURO ALTO A ATÉ 5 METROS');return false;}
+    const plan=this.findVaultDestination();if(!plan||!p.startVault(plan)){g.toast('MIRE PARA UM OBSTÁCULO OU TELHADO PRÓXIMO');return false;}
     g.toast('VEX · ESCALADA INICIADA');return true;
   }
-  if(effect==='wallrun_boost'){this.status.wallrun_boost=now()+6000;p.vy=Math.max(p.vy,5);g.toast('CORRIDA VERTICAL · 6S');return true;}
-  if(effect==='vex_ultimate'){this.status.vex_ultimate=now()+10000;p.vy=Math.max(p.vy,7);g.toast('SEM LIMITES · 10S');return true;}
+  if(effect==='wallrun_boost'){this.status.wallrun_boost=now()+8000;p.vy=Math.max(p.vy,16);g.toast('PROPULSOR · 8S · PULE E CORRA POR PAREDES');return true;}
+  if(effect==='vex_ultimate'){this.status.vex_ultimate=now()+18000;p.vy=Math.max(p.vy,19);g.toast('SEM LIMITES · 18S · PARKOUR EXTREMO');return true;}
+  if(effect==='forge_build'){g.forge.enable(12000);this.status.forge_build=now()+12000;g.toast('MODO CRIATIVO · ATIRAR PARA COLOCAR BLOCOS');return true;}
+  if(effect==='forge_redstone'){const n=g.forge.arm('local');if(!n){g.toast('CONSTRUA BLOCOS ANTES DE ARMAR');return false;}g.forge.buildUntil=0;g.forge.ultimateUntil=0;this.status.forge_build=0;this.status.forge_ultimate=0;g.toast(n+' BLOCOS ARMADOS · ATIRE PARA DETONAR');this.flash(0xffb05c,7);return true;}
+  if(effect==='forge_ultimate'){g.forge.enable(16000,true);this.status.forge_ultimate=now()+16000;g.toast('DOMÍNIO VOXEL · CONSTRUÇÃO ULTRARRÁPIDA');this.flash(0x40ffec,10);return true;}
   if(effect==='adapt_scan'){this.adaptive.adaptScanUntil=now()+8000;this.status.adapt_scan=now()+8000;g.toast('ANALISANDO PRÓXIMO EVENTO');return true;}
   if(effect==='adapt_ultimate'){startUltimate(this.adaptive,now());this.status.adapt_ultimate=now()+15000;g.toast('ADAPTAÇÃO ABSOLUTA · APRENDIZADO AUTOMÁTICO');return true;}
   if(effect==='adapt_counter'){
@@ -400,8 +406,9 @@ export class PowerSystem {
  }
   findVaultDestination(){
     const g=this.game,p=g.parkour;
-    return planVault({x:p.x,y:p.y,z:p.z,yaw:g.yaw},SQUAD_OBSTACLES,
-      (x,y,z)=>g.urban.canOccupy(x,z,y,1.77,.48));
+    const pos={x:p.x,y:p.y,z:p.z,yaw:g.yaw};
+    return planSkyLeap(pos,g.urban.solids,(x,y,z)=>g.urban.canOccupy(x,z,y,1.77,.48))
+       || planVault(pos,SQUAD_OBSTACLES,(x,y,z)=>g.urban.canOccupy(x,z,y,1.77,.48));
   }
   observeLocalEvent(kind){
     if(this.game.heroSelection?.selectedHero!=='adaptomega')return false;

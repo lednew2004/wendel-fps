@@ -1,5 +1,5 @@
 import {HERO_COMBOS} from './heroCombos.js';
-/** TITAN PROTOCOL — dez identidades jogáveis e 30 técnicas; dados puros compartilhados com o servidor. */
+/** TITAN PROTOCOL — quinze identidades jogáveis com três técnicas exclusivas cada; dados puros compartilhados com o servidor. */
 export const POWER_VARIANTS=Object.freeze({
  shockwave:{base:'push',label:'PULSO TITÂNICO',icon:'◎',cool:17,range:22,help:'Onda de impacto de grande alcance.'},
  overclock:{base:'flight',label:'SOBRECARGA',icon:'✦',cool:15,duration:3500,help:'Propulsão de combate por 3,5 s.'},
@@ -29,6 +29,7 @@ export const HEROES=Object.freeze([
  {id:'shiro',name:'SHIRO',title:'LÂMINA CARMESIM',class:'Assassino',color:0xff526b,role:'hunter',weapon:1,skills:['shiro_step','shiro_retreat','shiro_ricochet'],description:'Dois avanços, recuo com tiro melhorado e ricochetes com escudo.'},
  {id:'leo',name:'LEO',title:'ARQUITETO DO CAOS',class:'Assassino',color:0xf5c35a,role:'boss',weapon:0,skills:['leo_dash','leo_immunity','leo_barrage'],description:'Dois avanços com retorno, imunidade instantânea e chuva de bombas.'},
  {id:'adaptomega',name:'ADAPT-Ω',title:'EVOLUÇÃO INTELIGENTE',class:'Adaptativo',color:0xa17aff,role:'tank',weapon:0,skills:['adapt_scan','adapt_counter','adapt_ultimate'],description:'Aprende ataques, desenvolve imunidades e evolui em combate.'},
+ {id:'forge',name:'FORGE',title:'ARQUITETO EXPLOSIVO',class:'Construção',color:0x48f0e1,role:'gunner',weapon:0,skills:['forge_build','forge_redstone','forge_ultimate'],description:'Constrói blocos livremente, arma bombas e cria fortalezas explosivas.'},
  {id:'butterfly',name:'BUTTERFLY',title:'ORBE ERRANTE',class:'Mobilidade',color:0xae94ff,role:'scout',weapon:2,skills:['butterfly_dash','butterfly_orbit','butterfly_launch'],description:'Dash de retorno, satélite orbital e cometa que repele e teleporta.'}
 ]);
 export const heroById=id=>HEROES.find(h=>h.id===id)||HEROES[0];

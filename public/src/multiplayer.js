@@ -304,6 +304,10 @@ export class MultiplayerClient {
         if(this.panelOpen){byId('mp-hud').classList.add('hidden');byId('mp-room-panel').classList.remove('hidden');}
         this.game.urban.resetInteractions();
         for(const id of msg.openInteractions||[])this.game.urban.toggleInteractable(id,true);
+        for(const b of msg.blocks||[])this.game.forge.spawn(b);
+        if((msg.builderUntil||0)>Date.now())this.game.forge.enable(msg.builderUntil-Date.now());
+        if((msg.builderUltimateUntil||0)>Date.now())this.game.forge.enable(msg.builderUltimateUntil-Date.now(),true);
+        this.game.mapSupplies.clear();for(const box of msg.supplies||[])this.game.mapSupplies.spawn(box); 
         this.receive({type:'snapshot',players:msg.players});if(msg.coop)this.receive(msg.coop);
         this.game.toast(msg.resumed?'CONEXÃO RESTABELECIDA · PARTIDA RETOMADA':this.roomMode==='coop'?'SQUAD COOPERATIVO · AGUARDANDO 4 FUNÇÕES':'PVP · TODOS CONTRA TODOS');
         break;
@@ -323,6 +327,13 @@ export class MultiplayerClient {
       }
       case 'world-error':this.game.toast(msg.message||'INTERAÇÃO INDISPONÍVEL');break;
       case 'dash-state':if(!msg.ok){this.game.player.dashDuration=0;this.game.parkour.dashTime=0;this.game.player.dashCd=Math.max(this.game.player.dashCd,Number(msg.remaining||0)/1000);this.game.toast('DASH EM RECARGA');}break;
+      case 'ammo-spawn':this.game.mapSupplies.spawn(msg.crate);break;
+      case 'ammo-remove':this.game.mapSupplies.remove(msg.id);break;
+      case 'ammo-refill':this.game.pickup('ammo');this.game.audio.play('pickup');break;
+      case 'builder-place':this.game.forge.spawn(msg.block);break;
+      case 'builder-remove':this.game.forge.remove(msg.id);break;
+      case 'builder-arm':{this.game.forge.arm(msg.owner);if(msg.owner===this.id){this.game.forge.buildUntil=0;this.game.forge.ultimateUntil=0;this.game.powers.status.forge_build=0;this.game.powers.status.forge_ultimate=0;this.game.toast('REDSTONE ARMADA · ATIRE PARA EXPLODIR');}break;}
+      case 'builder-blast':this.game.enemies.spawnParticles(new THREE.Vector3(msg.x,msg.y,msg.z),0xffb65f,20,1.1);break;
       case 'power-state':this.game.powers.onServerState(msg.powers);break;
       case 'power-error':this.game.toast(msg.message||'PODER NÃO ATIVADO');break;
       case 'adapt-learned':this.game.toast('EVOLUÇÃO · '+msg.event.toUpperCase()+(msg.blocked?' · BLOQUEADO':' · APRENDIDO'));break;
@@ -339,6 +350,9 @@ export class MultiplayerClient {
         break;
       }
       case 'power-vfx':{
+        if(msg.player===this.id&&msg.kind==='forge_build'){this.game.forge.enable(12000);this.game.powers.status.forge_build=Date.now()+12000;this.game.toast('MODO CRIATIVO · ATIRAR COLOCA BLOCOS');}
+        if(msg.player===this.id&&msg.kind==='forge_ultimate'){this.game.forge.enable(16000,true);this.game.powers.status.forge_ultimate=Date.now()+16000;this.game.toast('DOMÍNIO VOXEL · CONSTRUÇÃO ACELERADA');}
+
         if(msg.kind==='resurrection'&&msg.player===this.id)this.game.toast('RESSURREIÇÃO AUTOMÁTICA · IMORTAL POR 4S');
         if(msg.kind==='heal'&&msg.player===this.id)this.game.toast('CURA · VIDA E ESCUDO RESTAURADOS');
         if(msg.kind==='morph'&&msg.player===this.id)this.game.toast('DISFARCE DE OBJETO ATIVADO');

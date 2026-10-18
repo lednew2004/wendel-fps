@@ -600,3 +600,16 @@ html.is-touch.touch-playing #mobile-move{z-index:4!important}
 html.is-touch.touch-playing #hud{z-index:100!important;pointer-events:none!important}
 html.is-touch.touch-playing #hud .hud-top,html.is-touch.touch-playing #hud .top-right{pointer-events:none!important}
 html.is-touch.touch-playing #hud #hud-config-top,html.is-touch.touch-playing #hud #hud-pause{pointer-events:auto!important}
+
+/* TITAN 3.7 — Accessible, landscape-friendly training selector. */
+#training-change-hero{display:none;position:absolute;top:77px;left:50%;transform:translateX(-50%);pointer-events:auto;z-index:65;border:1px solid #52eedabb;background:#11333fe8;color:#e2fff7;border-radius:9px;padding:8px 15px;font-weight:800;letter-spacing:.06em;box-shadow:0 4px 25px #031219a8}
+.mode-training.playing #training-change-hero{display:block}
+#training-hero-screen{position:fixed;inset:0;z-index:190;background:#030d16e8;display:flex;align-items:center;justify-content:center;padding:12px}
+#training-hero-screen.hidden{display:none!important}
+.training-dialog{max-width:950px;width:100%;max-height:90dvh;overflow:auto;padding:22px;border-radius:17px;background:linear-gradient(145deg,#143044,#081a2c);border:1px solid #49e9e277;box-shadow:0 24px 90px #000a}
+.training-dialog h2{font-family:Rajdhani,sans-serif;font-size:clamp(22px,4vw,34px);color:#75fce7;margin:0 0 3px}
+.training-dialog p{color:#bfd4e5;margin:2px 0 12px}
+.training-hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;margin-bottom:14px}
+.training-hero-choice{background:#143c4a;color:white;border:1px solid var(--hero-accent,#2de1ed);border-radius:10px;padding:13px 8px;text-align:left;min-height:57px}
+.training-hero-choice b{display:block;color:var(--hero-accent)}.training-hero-choice small{display:block;color:#c2d6de}.training-hero-choice.selected{box-shadow:inset 0 0 0 2px var(--hero-accent)}
+@media (max-height:500px){#training-change-hero{top:54px;font-size:10px;padding:4px 8px}.training-dialog{padding:12px}.training-hero-grid{grid-template-columns:repeat(5,1fr)}}

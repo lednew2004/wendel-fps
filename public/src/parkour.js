@@ -89,7 +89,7 @@ export class ParkourController {
   jump(){
     if(this.hanging){this.mantle();return;}
     if(this.ladder){this.dismountLadder();return;}
-    if(this.game.powers?.isActive('vex_ultimate')&&!this.grounded&&!this.ladder&&!this.hanging&&!this.vexDoubleUsed){this.vy=CFG.jumpSpeed*1.10;this.vexDoubleUsed=true;this.prompt='VEX · PULO DUPLO';return;}
+    if(this.game.powers?.isActive('vex_ultimate')&&!this.grounded&&!this.ladder&&!this.hanging&&!this.vexDoubleUsed){this.vy=CFG.jumpSpeed*1.75;this.vexDoubleUsed=true;this.prompt='VEX · PULO DUPLO';return;}
     this.buffer=CFG.jumpBuffer;
     if(this.grounded){
       const dir=this.direction();
@@ -224,7 +224,7 @@ export class ParkourController {
     const isSprint=!!(k.ShiftLeft||k.ShiftRight||mobile?.sprintTouch)||(!!mobile?.enabled&&stickMagnitude>.72);
     // Mobile-only pace boost. Desktop physics, jump and dash are unchanged.
     const touchPace=mobile?.enabled&&this.slide<=0?(isSprint?1.10:1.18):1;
-    const vexBoost=powers?.isActive('vex_ultimate')?1.34:powers?.isActive('wallrun_boost')?1.12:1;
+    const vexBoost=powers?.isActive('vex_ultimate')?1.65:powers?.isActive('wallrun_boost')?1.3:1;
     const speed=(this.slide>0?CFG.slideSpeed:isSprint?CFG.sprintSpeed:CFG.walkSpeed)*touchPace*vexBoost*(this.game.player.speedBonus||1);
     const ax=dir.x*speed,az=dir.z*speed;
     const accel=(this.grounded?CFG.accelGround:CFG.accelAir)*dt;

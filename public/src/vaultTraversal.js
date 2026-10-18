@@ -57,3 +57,30 @@ export function vaultCameraMotion(progress){
   roll:Math.sin(t*Math.PI*2)*.035,
   fovBoost:Math.sin(t*Math.PI)*5};
 }
+/** 3.7: super leap onto virtually any reachable rooftop; no instant position changes.
+ * Big buildings are landing platforms, not walls to teleport through. */
+export function planSkyLeap(position,solids,canLand,{reach=17,maxHeight=34}={}){
+ const fx=-Math.sin(position.yaw),fz=-Math.cos(position.yaw);
+ let selected=null;
+ for(const b of solids){
+  if(b.active===false||b.maxY===undefined)continue;
+  const rise=b.maxY-position.y;
+  if(rise<1.4||rise>maxHeight)continue;
+  const hit=rayAabb(position.x,position.z,fx,fz,b,.2);
+  if(!hit||hit.entry<.25||hit.entry>reach)continue;
+  const targetY=b.maxY+.1;
+  // Aim slightly inside the rooftop rather than hopping past a whole building.
+  // Land far enough inside the platform for the full player capsule to be supported.
+  // The AABB ray adds 0.68 m of player/aim margin, so +0.75 could land on an unsupported ledge.
+  const inside=Math.min(hit.entry+1.75,hit.exit-.7);
+  if(inside<=hit.entry+.95)continue;
+  const to={x:position.x+fx*inside,y:targetY,z:position.z+fz*inside};
+  if(!canLand(to.x,to.y,to.z))continue;
+  const frontT=Math.max(0,hit.entry-1.0);
+  const front={x:position.x+fx*frontT,y:position.y,z:position.z+fz*frontT};
+  const back={x:position.x+fx*(hit.entry+.4),y:targetY,z:position.z+fz*(hit.entry+.4)};
+  const plan={from:{x:position.x,y:position.y,z:position.z},front,back,to,crest:targetY+Math.max(1.2,Math.min(2.5,rise*.12)),wallTop:b.maxY,kind:'sky-leap',duration:Math.min(3000,1000+rise*52)};
+  if(!selected||hit.entry<selected.dist)selected={dist:hit.entry,plan};
+ }
+ return selected?.plan||null;
+}

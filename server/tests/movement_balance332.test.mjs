@@ -25,7 +25,7 @@ test('movement-relative dash accepts side, reverse, diagonal and velocity fallba
 test('balanced cooldowns are identical in client UI and server for all 39 skills',()=>{
   const client=source('powers.js');
   const keys=[...Object.keys(POWER_RULES)];
-  assert.equal(keys.length,45);
+  assert.equal(keys.length,48);
   for(const id of keys){
     const cd=POWER_RULES[id].cooldown;
     assert.ok(cd>=12000&&cd<=60000,`${id} has an unreasonable cooldown: ${cd}`);

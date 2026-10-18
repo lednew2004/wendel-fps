@@ -12,7 +12,8 @@ import {fileURLToPath} from 'node:url';
 import {WORLD_HALF} from '../public/src/worldLayout.js';
 import {observeAdaptation,learned,startUltimate,ADAPT_LABELS} from '../public/src/adaptation.js';
 import {FFA_SPAWNS,SQUAD_START,roleForHero,ROLE_INFO,SQUAD_OBSTACLES} from '../public/src/squadLayout.js';
-import {planVault,vaultPosition} from '../public/src/vaultTraversal.js';
+import {planVault,planSkyLeap,vaultPosition} from '../public/src/vaultTraversal.js';
+import {FORGE_LIMIT,FORGE_LIFETIME,FORGE_RANGE,BLOCK_SIZE,snapVoxel,validVoxelPlacement,blockCollider} from '../public/src/voxelRules.js';
 import {newCoop,advanceCoop,coopSnapshot,coopFire,coopAbility,coopSupportPulse} from './coopEngine.mjs';
 import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,isGroundedDestination,within,nearbyMorphObject,canAutoResurrect,criticalPowerPenalty} from './powers.mjs';
 
@@ -25,11 +26,12 @@ const WS_DEAD_MS=75000;
 const rooms=new Map();
 const players=new Map();
 const SPAWNS=FFA_SPAWNS;
+const AMMO_LOCATIONS=[...FFA_SPAWNS,...SQUAD_OBSTACLES.slice(0,8).map(b=>[b.x+8,b.z+8]),[-8,-155],[10,-150],[-5,-90],[60,-15],[-70,48],[0,130]];
 const WEAPONS=[{id:0,damage:21,interval:.12,range:140},{id:1,damage:55,interval:.85,range:34},{id:2,damage:80,interval:1.24,range:180},{id:3,damage:17,interval:.095,range:130}];
 const colliders=JSON.parse(fs.readFileSync(new URL('colliders.json',import.meta.url),'utf8'));
 const interactions=JSON.parse(fs.readFileSync(new URL('interactables.json',import.meta.url),'utf8'));
 const interactionIndex=new Map(interactions.map(x=>[x.id,x]));
-function roomColliders(room){return room?[...colliders,...interactions.filter(o=>!room.openInteractions.has(o.id))]:colliders;}
+function roomColliders(room){return room?[...colliders,...interactions.filter(o=>!room.openInteractions.has(o.id)),...(room.blocks||[]).map(blockCollider)]:colliders;}
 function openList(room){return [...room.openInteractions];}
 const limit=(v,a,b)=>Math.max(a,Math.min(b,v));
 const finite=(n,a,b)=>Number.isFinite(n)&&n>=a&&n<=b;
@@ -50,7 +52,7 @@ function send(ws,data){
 function broadcast(room,msg,except=null){for(const p of room.players.values())if(p.socket&&p.socket!==except)send(p.socket,msg);}
 const cleanName=n=>String(n||'Operador').replace(/[^\p{L}\p{N} _-]/gu,'').trim().slice(0,18)||'Operador';
 const cleanRoom=n=>String(n||'').replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6);
-function createRoom(preferredCode='',mode='ffa'){let code=preferredCode;if(!code){do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));}const room={code,mode,coop:mode==='coop'?newCoop():null,nextTeam:0,players:new Map(),born:Date.now(),hazards:[],clones:[],openInteractions:new Set()};rooms.set(code,room);return room;}
+function createRoom(preferredCode='',mode='ffa'){let code=preferredCode;if(!code){do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));}const room={code,mode,coop:mode==='coop'?newCoop():null,nextTeam:0,players:new Map(),born:Date.now(),hazards:[],clones:[],blocks:[],blockSequence:0,ammoCrates:[],ammoSerial:0,nextSupply:Date.now()+9000,openInteractions:new Set()};rooms.set(code,room);for(const [x,z] of AMMO_LOCATIONS.slice(0,6))if(locationValid(x,0,z,colliders))room.ammoCrates.push({id:'ammo-'+(++room.ammoSerial),x,z});return room;}
 function spawn(i){const [x,z]=SPAWNS[i%SPAWNS.length];return {x,y:0,z};}
 function publicPlayer(p){const powers=powerSnapshot(p);return {id:p.id,name:p.name,hero:p.hero||null,team:p.team??0,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,weapon:p.weapon,hp:p.hp,shield:p.shield,kills:p.kills,deaths:p.deaths,alive:p.alive,shielded:powers.shielded,invisible:powers.invisible,phased:powers.phased,flying:powers.flying,frozen:powers.frozen,prop:powers.propType,immortal:powers.invulnerable};}
 const livePlayers=room=>[...room.players.values()].filter(p=>p.socket);
@@ -87,7 +89,7 @@ function join(ws,data){
     players.set(ws,existing);
     send(ws,{type:'welcome',id:existing.id,room:room.code,
       spawn:{x:existing.x,y:existing.y,z:existing.z},resumed:true,
-      players:livePlayers(room).map(publicPlayer),powers:powerSnapshot(existing),openInteractions:openList(room),mode:room.mode,coop:room.coop?coopSnapshot(room):null});
+      players:livePlayers(room).map(publicPlayer),powers:powerSnapshot(existing),blocks:room.blocks,supplies:room.ammoCrates,openInteractions:openList(room),builderUntil:existing.builderUntil||0,builderUltimateUntil:existing.builderUltimateUntil||0,mode:room.mode,coop:room.coop?coopSnapshot(room):null});
     broadcast(room,{type:'joined',player:publicPlayer(existing)},ws);
     return;
   }
@@ -102,7 +104,7 @@ function join(ws,data){
   p.powers.loadout=hero?heroLoadout(hero):sanitizeLoadout(data.loadout);
   room.players.set(id,p);players.set(ws,p);
   send(ws,{type:'welcome',id,room:room.code,spawn:s,
-    players:livePlayers(room).map(publicPlayer),powers:powerSnapshot(p),openInteractions:openList(room),mode:room.mode,coop:room.coop?coopSnapshot(room):null});
+    players:livePlayers(room).map(publicPlayer),powers:powerSnapshot(p),blocks:room.blocks,supplies:room.ammoCrates,openInteractions:openList(room),mode:room.mode,coop:room.coop?coopSnapshot(room):null});
   broadcast(room,{type:'joined',player:publicPlayer(p)},ws);
 }
 function interactWorld(p,id){
@@ -144,6 +146,41 @@ function obscured(origin,dir,dist,room){
   for(const box of roomColliders(room))if(hitBox(origin,dir,dist-.15,box))return true;
   return false;
 }
+function dropForgeBlock(room,block){
+ room.blocks=room.blocks.filter(b=>b.id!==block.id);
+ broadcast(room,{type:'builder-remove',id:block.id});
+}
+function blastForgeBlock(room,start,attacker=null){
+ const q=[start],visited=new Set();
+ while(q.length&&visited.size<14){const b=q.shift();if(!b||visited.has(b.id))continue;visited.add(b.id);
+  if(b.armed){for(const other of room.blocks)if(other.armed&&!visited.has(other.id)&&Math.hypot(other.x-b.x,other.z-b.z,other.y-b.y)<4.8)q.push(other);}
+  dropForgeBlock(room,b);
+  if(b.armed&&attacker)for(const victim of room.players.values())if(victim.alive&&victim.id!==attacker.id&&victim.team!==attacker.team){const distance=Math.hypot(victim.x-b.x,victim.z-b.z,victim.y+1-b.y);if(distance<5.7)applyAbilityDamage(attacker,victim,Math.round(90*(1-distance/6)),Date.now(),'explosion');}
+  broadcast(room,{type:'builder-blast',x:b.x,y:b.y,z:b.z,armed:b.armed});
+ }
+}
+function rayBoxDistance(o,d,b,reach){const box=blockCollider(b),bounds=[[box.x-box.hx,box.x+box.hx],[box.minY,box.maxY],[box.z-box.hz,box.z+box.hz]];let t0=0,t1=reach;
+ for(let i=0;i<3;i++){const [min,max]=bounds[i];if(Math.abs(d[i])<1e-8){if(o[i]<min||o[i]>max)return Infinity;continue;}let a=(min-o[i])/d[i],c=(max-o[i])/d[i];if(a>c)[a,c]=[c,a];t0=Math.max(t0,a);t1=Math.min(t1,c);if(t0>t1)return Infinity;}
+ return t0;
+}
+function placeForgeBlock(p,pos){
+ const t=Date.now(),room=p.room;
+ if(!p.alive||p.hero!=='forge'||(p.builderUntil||0)<=t&&(p.builderUltimateUntil||0)<=t)return;
+ if(t-(p.lastBuild||0)<((p.builderUltimateUntil||0)>t?125:210))return;
+ if(!pos||!Number.isFinite(pos.x)||!Number.isFinite(pos.y)||!Number.isFinite(pos.z))return;
+ const candidate={x:snapVoxel(pos.x),y:snapVoxel(pos.y),z:snapVoxel(pos.z)};
+ const solids=roomColliders(room);
+ if(!validVoxelPlacement(candidate,p,[],solids)||Math.abs(candidate.y-(p.y+1))>FORGE_RANGE)return;
+ if([...room.players.values()].some(other=>other.alive&&Math.abs(other.x-candidate.x)<1.15&&Math.abs(other.z-candidate.z)<1.15&&other.y<candidate.y+1.1&&other.y+1.8>candidate.y-.9))return;
+ const forward=[-Math.sin(p.yaw),-Math.cos(p.yaw)];const dx=candidate.x-p.x,dz=candidate.z-p.z,len=Math.hypot(dx,dz)||1;
+ if((dx*forward[0]+dz*forward[1])/len<.28)return;
+ const capacity=(p.builderUltimateUntil||0)>t?60:FORGE_LIMIT;
+ const mine=room.blocks.filter(b=>b.owner===p.id);
+ if(mine.length>=capacity)dropForgeBlock(room,mine[0]);
+ if(room.blocks.length>=180)dropForgeBlock(room,room.blocks[0]);
+ const b={id:p.id+'-'+(++room.blockSequence),owner:p.id,...candidate,armed:false,hp:3,until:t+FORGE_LIFETIME};room.blocks.push(b);p.lastBuild=t;
+ broadcast(room,{type:'builder-place',block:b});
+}
 function move(p,data){
   if(!p.alive||p.vaultTrack||p.powers.frozenUntil>Date.now()||p.powers.gravityUntil>Date.now()||(p.comboDashUntil||0)>Date.now())return;
   const {x,y,z,yaw,pitch,weapon}=data;
@@ -158,6 +195,7 @@ function move(p,data){
   if(!phased&&!flying&&!locationValid(x,y,z,roomColliders(p.room)))return;
   if(!phased&&!flying)p.powers.safe={x,y,z};
   p.x=x;p.y=y;p.z=z;p.yaw=yaw;p.pitch=pitch;p.weapon=weapon;p.lastMove=now;p.lastSeen=now;
+ for(const crate of [...p.room.ammoCrates])if(Math.hypot(p.x-crate.x,p.z-crate.z)<1.9&&p.y<3){p.room.ammoCrates=p.room.ammoCrates.filter(b=>b!==crate);broadcast(p.room,{type:'ammo-remove',id:crate.id});send(p.socket,{type:'ammo-refill'});}
 }
 function fire(p,data){
   if(!p.alive)return;
@@ -170,6 +208,11 @@ function fire(p,data){
   // Aim is based on server's last received yaw/pitch, not on client-provided hit IDs.
   const cp=Math.cos(p.pitch),dir=[-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp];
   const origin=[p.x,p.y+1.65,p.z];
+  let voxel=null,hitDistance=w.range;for(const b of p.room.blocks){const distance=rayBoxDistance(origin,dir,b,w.range);if(distance<hitDistance){hitDistance=distance;voxel=b;}}
+  let staticDepth=w.range;
+  if(voxel){for(const box of colliders){staticDepth=Math.min(staticDepth,rayBoxDistance(origin,dir,box,w.range));if(staticDepth<hitDistance-.01)break;}
+    if(staticDepth>=hitDistance-.01)for(const box of interactions)if(!p.room.openInteractions.has(box.id)){staticDepth=Math.min(staticDepth,rayBoxDistance(origin,dir,box,w.range));if(staticDepth<hitDistance-.01)break;}}
+  if(voxel&&hitDistance<=staticDepth+.01){if(voxel.armed){blastForgeBlock(p.room,voxel,p.room.players.get(voxel.owner)||p);}else{voxel.hp--;if(voxel.hp<=0)dropForgeBlock(p.room,voxel);}broadcast(p.room,{type:'shot',id:p.id,weapon:p.weapon});return;}
   if(p.room.mode==='coop'){
     const hit=coopFire(p.room,p,dir,origin,w,obscured);
     broadcast(p.room,{type:'shot',id:p.id,weapon:p.weapon});
@@ -238,9 +281,10 @@ function adaptedAgainst(victim,kind,now=Date.now()){
  return result.blocked;
 }
 function vaultEndpoint(p){
- // Server chooses both wall and endpoint from the shared, collision-authored map.
- return planVault({x:p.x,y:p.y,z:p.z,yaw:p.yaw},SQUAD_OBSTACLES,
-   (x,y,z)=>isGroundedDestination(x,y,z,roomColliders(p.room)));
+ // Roof vaults are server planned: no client-chosen teleport destinations.
+ const origin={x:p.x,y:p.y,z:p.z,yaw:p.yaw};
+ return planSkyLeap(origin,roomColliders(p.room),(x,y,z)=>isGroundedDestination(x,y,z,roomColliders(p.room))) ||
+        planVault(origin,SQUAD_OBSTACLES,(x,y,z)=>isGroundedDestination(x,y,z,roomColliders(p.room))); 
 }
 function autoResurrect(p,now=Date.now()){
  if(!canAutoResurrect(p,now))return false;
@@ -422,6 +466,7 @@ function castPower(p,data){
   const pendingRewind=effect==='rewind'&&state.history.length?state.history.reduce((best,h)=>Math.abs(h.t-(now-rule.history))<Math.abs(best.t-(now-rule.history))?h:best,state.history[0]):null;
   const restoredHealth=pendingRewind?Math.max(0,pendingRewind.hp-p.hp):0;
   if(effect==='adapt_counter'&&(!state.adaptLast||!learned(state,state.adaptLast,now))){send(p.socket,{type:'power-error',message:'Aprenda um ataque antes de contra-atacar.'});return;}
+  if(effect==='forge_redstone'&&!p.room.blocks.some(b=>b.owner===p.id)){send(p.socket,{type:'power-error',message:'Construa ao menos um bloco antes de armar a Redstone.'});return;}
   const plannedVault=effect==='vault'?vaultEndpoint(p):null;
   if(effect==='vault'&&(!plannedVault||p.vaultTrack)){send(p.socket,{type:'power-error',message:'Aproxime-se e mire para um muro alto do mapa.'});return;}
   state.cooldowns[id]=now+rule.cooldown+criticalPowerPenalty(effect,{hpRatio,nearbyTargets,restoredHealth});
@@ -429,6 +474,14 @@ function castPower(p,data){
   if(effect==='vault'){
     p.vaultTrack={...plannedVault,started:now};
     broadcast(p.room,{type:'power-effect',...plannedVault,kind:'vault',player:p.id});
+  }else if(effect==='forge_build'){
+    p.builderUntil=now+rule.duration;broadcast(p.room,{type:'power-vfx',kind:'forge_build',player:p.id});
+  }else if(effect==='forge_ultimate'){
+    p.builderUltimateUntil=now+rule.duration;broadcast(p.room,{type:'power-vfx',kind:'forge_ultimate',player:p.id});
+  }else if(effect==='forge_redstone'){
+    const blocks=p.room.blocks.filter(b=>b.owner===p.id);for(const b of blocks)b.armed=true;
+    p.builderUntil=now;p.builderUltimateUntil=now;
+    broadcast(p.room,{type:'builder-arm',owner:p.id});
   }else if(effect==='wallrun_boost'||effect==='vex_ultimate'){
     broadcast(p.room,{type:'power-vfx',kind:effect,player:p.id,x:p.x,y:p.y,z:p.z});
   }else if(effect==='adapt_scan'){
@@ -541,6 +594,7 @@ function onMessage(ws,data){
   else if(data.type==='move')move(p,data);
   else if(data.type==='fire')fire(p,data);
   else if(data.type==='world-interact')interactWorld(p,data.id);
+  else if(data.type==='builder-place')placeForgeBlock(p,data.pos);
   else if(data.type==='dash'){const now=Date.now(),cooldown=4800;const left=Math.max(0,cooldown-(now-p.lastDash));if(!p.alive||p.powers.frozenUntil>now||p.powers.gravityUntil>now){send(ws,{type:'dash-state',ok:false,remaining:Math.max(left,500)});}else if(left>0){send(ws,{type:'dash-state',ok:false,remaining:left});}else{p.lastDash=now;send(ws,{type:'dash-state',ok:true,remaining:cooldown});}}
   else if(data.type==='equip'){p.powers.loadout=p.hero?heroLoadout(p.hero):sanitizeLoadout(data.loadout);p.powers.copiedUntil=0;p.powers.originalLoadout=null;p.powers.copyMark=null;send(ws,{type:'power-state',powers:powerSnapshot(p)});}
   else if(data.type==='power'){
@@ -605,7 +659,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.5.3'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.7.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';
@@ -631,6 +685,8 @@ server.on('upgrade',(req,socket)=>{
 const tick=setInterval(()=>{
   for(const room of rooms.values()){
     const now=Date.now();
+    for(const b of [...room.blocks])if(b.until<now)dropForgeBlock(room,b);
+    if(room.nextSupply<=now){room.nextSupply=now+10000;if(room.ammoCrates.length<10){const [x,z]=AMMO_LOCATIONS[(room.ammoSerial+3)%AMMO_LOCATIONS.length];if(locationValid(x,0,z,colliders)){const crate={id:'ammo-'+(++room.ammoSerial),x,z};room.ammoCrates.push(crate);broadcast(room,{type:'ammo-spawn',crate});}}}
     for(const p of room.players.values()){
       if(p.vaultTrack&&!p.alive)p.vaultTrack=null;
       if(p.vaultTrack){

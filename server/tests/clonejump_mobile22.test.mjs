@@ -11,7 +11,7 @@ const mobileCss=fs.readFileSync(new URL('../../public/src/powers.css',import.met
 const multiplayerSource=fs.readFileSync(new URL('../../public/src/multiplayer.js',import.meta.url),'utf8');
 
 test('18 powers, scaled cooldowns and mobile powers',()=>{
- assert.equal(Object.keys(POWER_RULES).length,45);
+ assert.equal(Object.keys(POWER_RULES).length,48);
  assert.ok(Object.values(POWER_RULES).every(p=>p.cooldown>=12000));
  assert.deepEqual(sanitizeLoadout(['clonejump','freeze']),['clonejump','freeze']);
  assert.match(source,/clonejump:\{label:'CLONE MÓVEL'/);

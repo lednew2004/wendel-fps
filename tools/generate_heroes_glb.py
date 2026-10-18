@@ -18,7 +18,7 @@ HEROES={
 'aeronaut':('scout',0x5affdf,4),'phantom':('hunter',0xf18bff,5),'chronos':('boss',0xffc86d,6),
 'echo':('scout',0x75c2ff,7),'storm':('gunner',0xffe065,8),'gravity':('tank',0xbc86ff,9),
 'guardian':('gunner',0x83efa5,10),'shiro':('hunter',0xff526b,11),'leo':('boss',0xf5c35a,12),
-'butterfly':('scout',0xae94ff,13),'adaptomega':('tank',0xa17aff,14),
+'butterfly':('scout',0xae94ff,13),'adaptomega':('tank',0xa17aff,14),'forge':('gunner',0x48f0e1,15),
 'scout':('scout',0xff614d,0),'gunner':('gunner',0xf0b756,0),'sniper':('sniper',0x79ccf4,0),
 'hunter':('hunter',0x9bd66a,0),'tank':('tank',0xffa65c,0),'boss':('boss',0xed68fe,0),'player':('scout',0x59dce8,0)
 }
@@ -271,6 +271,14 @@ def manufacture(hero,role,accent,variant):
         for side in (-1,1):
             panel(1,6,(side*.35,1.66,.37),(.15,.64,.22),side*.20)
             sphere(1,5,(side*.34,1.65,.57),(.12,.19,.08),1)
+    elif hero=='forge':
+        # Reinforced voxel builder arms, block projector and construction harness.
+        for side in (-1,1):
+            panel(1,2,(side*.44,1.76,.13),(.25,.21,.35),side*.22)
+            panel(4 if side<0 else 6,5,(side*.62,1.07,-.25),(.24,.12,.30))
+        panel(1,8,(0,1.48,.49),(.53,.49,.32))
+        panel(2,2,(0,2.68,.06),(.67,.12,.46))
+        panel(1,6,(0,1.59,-.39),(.35,.11,.06))
     elif hero in ('striker',):
         for side in (-1,1):
             panel(1,2,(side*.42,1.77,-.12),(.25,.13,.30),side*.19)
