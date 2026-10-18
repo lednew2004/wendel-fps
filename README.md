@@ -1,8 +1,32 @@
-# TITAN PROTOCOL 3.3.3 — SQUAD OPERATIONS (MOVIMENTAÇÃO E EQUILÍBRIO)
+# TITAN PROTOCOL 3.4.0 — VISUAL EVOLUTION (SQUAD OPERATIONS)
 
 FPS 3D com personagens e habilidades, câmera em **primeira ou terceira pessoa**, 13 heróis com três técnicas próprias, modos de combate e missões táticas de esquadrão. Projeto em HTML/CSS/JavaScript + Three.js com servidor HTTP/WebSocket Node.js >=22, sem dependências de npm. A biblioteca Three.js é carregada pela internet via CDN.
 
-## Novidades 3.3.3 — Dash direcional, recargas e cenário otimizado
+
+## Novidades 3.4 — Personagens GLB, animações, arquitetura, iluminação e laboratório WebGPU
+
+**Personagens 3D:** a pasta `public/assets/models/operatives/` contém 20 arquivos GLB locais: modelos exclusivos para os 13 heróis mais 7 perfis genéricos/inimigos. Cada GLB contém **11 ossos**, materiais PBR, geometria com pesos de skin e **nove animações** (`idle`, `walk`, `run`, `dash`, `jump`, `fire`, `aim`, `hit`, `cast`). O carregamento é assíncrono e armazenado em cache por tipo; o jogo usa temporariamente o modelo procedural anterior e remove suas malhas quando o GLB fica pronto. As animações passam por `THREE.AnimationMixer` com transições entre ações. As silhuetas e as cores continuam reconhecíveis nas configurações baixas. **Os GLBs deste pacote foram modelados de forma autoral e programática, portanto não devem ser confundidos com personagens esculpidos, texturizados e animados manualmente em Blender.** Para substituir por modelos de artista, use os mesmos nomes de arquivo e preserve os nomes dos clipes de animação.
+
+**Arquitetura:** três prefabs originais `GLB` (`relay_tower`, `field_station` e `power_generator`) compõem detalhes de cobertura nas estruturas existentes, além de tubos e arcos desenhados com instanciamento. As colisões e as posições dos objetivos **não foram alteradas**. Os detalhes adicionais são ocultados na configuração **BAIXA**.
+
+**Luz e materiais:** `public/assets/baked/mission_ground_baked.webp` é uma textura pré-calculada de oclusão visual junto às 24 estruturas estáticas do mapa, evitando dezenas de luzes de preenchimento em tempo real. Os modelos são PBR e as texturas WebP do projeto foram preservadas. Sombras dinâmicas continuam sujeitas aos perfis de qualidade.
+
+**WebGPU:** a página **`/webgpu-lab.html`** oferece um teste opt-in que compara tempos CPU/JS em uma cena sintética com WebGL e WebGPU **no dispositivo do usuário**. WebGPU não substituiu o renderizador principal, que permanece em WebGL. Os resultados da página **não são medições de FPS do jogo real nem de tempo de GPU**; não há conclusão de desempenho sem testes em aparelhos reais.
+
+**Desempenho:** aproximadamente 2,1 MiB em personagens GLB compartilhados por tipo (arquivos individuais de cerca de 100–110 KiB), com reutilização de geometrias e materiais; download por demanda. O fallback procedural é liberado após a conclusão de cada GLB. Modelos detalhados distantes são ocultados e a atualização da animação distante é reduzida. Nenhuma tecnologia de streaming de backend ou dependência npm foi adicionada.
+
+**Gerar assets novamente** (opcional para desenvolvimento):
+
+```bash
+python tools/generate_heroes_glb.py
+python tools/generate_environment_assets.py
+```
+
+Requer Python com `trimesh`, `numpy` e `Pillow` **somente para gerar os assets**. Publicar o projeto não exige Python: todos os GLBs e texturas estão incluídos no ZIP.
+
+**Validação de código/arquivos:** `npm test` verifica multiplayer, missões, 20 GLB, esqueletos, clipes, materiais e arquivos de iluminação. A compatibilidade WebGL/WebGPU, a fluidez real das animações e o desempenho em celulares **ainda exigem testes gráficos em dispositivos reais**.
+
+## Histórico 3.3.3 — Dash direcional, recargas e cenário otimizado
 
 - **Dash comum (X) e habilidades de avanço:** agora usam a direção do movimento no teclado ou joystick. Aceitam frente, trás, lados e diagonais. Se o jogador soltar os controles durante um deslizamento, conservam a direção da velocidade; parado, usam a direção da mira. Os combos de Shiro e Leo têm o mesmo comportamento no casual e no multiplayer; seus trajetos continuam respeitando as colisões, enquanto o servidor calcula destinos e valida a distância. O recuo de Shiro permanece no sentido contrário ao comando de movimento, conforme sua identidade.
 - **39 recargas reequilibradas, idênticas no cliente e no servidor:** técnicas básicas 12–23 s, técnicas intensas 20–32 s, ultimates 30–35 s e Ressurreição 48 s. Cada poder mantém a duração do próprio efeito e sua identidade. As reativações permanecem abertas por **12 segundos**, separadas do tempo de recarga da próxima sequência.
@@ -72,7 +96,7 @@ Escolha `COOP` no lobby multiplayer e compartilhe o código da sala. Entram **qu
 npm start
 ```
 
-O servidor entrega o frontend e as salas WebSocket na mesma origem. Acesse `http://localhost:3000` e `/health` (deve informar `3.3.1`). Para rodar testes:
+O servidor entrega o frontend e as salas WebSocket na mesma origem. Acesse `http://localhost:3000` e `/health` (deve informar `3.4.0`). Para rodar testes:
 
 ```bash
 npm test
@@ -88,7 +112,7 @@ A pasta pode ser publicada na **Render** usando `render.yaml` e um repositório 
 
 ## Notas técnicas e limitações
 
-- Os gráficos foram mantidos leves para dispositivos móveis, sem o pós-processamento pesado da antiga versão cyberpunk. Os avatares são humanoides **procedurais em Three.js**, não modelos realistas externos com captura de movimento.
+- Os gráficos foram mantidos leves para dispositivos móveis, sem o pós-processamento pesado da antiga versão cyberpunk. Os avatares carregam GLB leves com esqueleto e animações autorais após o primeiro quadro. Durante o carregamento, aparece o modelo procedural anterior como fallback. Os modelos GLB são autorais e estilizados, não esculturas realistas feitas por artistas nem captura de movimento.
 - As missões solo combinam bots e objetivos por função com regras simplificadas; os bots não usam ainda todos os poderes exclusivos dos personagens e não possuem comportamento de IA equivalente a títulos AAA.
 - O PvE cooperativo funciona com estado de missão e inimigos autoritativos no servidor; é uma implementação básica, não uma simulação idêntica à campanha solo.
 - No plano gratuito da Render, o serviço pode hibernar/reiniciar; salas e partidas online estão em memória e podem se perder com o reinício.

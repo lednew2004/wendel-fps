@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {SQUAD_BLOCKS,SQUAD_POINTS} from './squadLayout.js';
 /** Linear FPS mission environment. No lanes, towers, jungle camps or MOBA bases. */
 export function createSquadWorld(city){
@@ -9,7 +10,10 @@ export function createSquadWorld(city){
  const road=new THREE.MeshStandardMaterial({color:0x414e5d,metalness:.08,roughness:.74});
  const panel=new THREE.MeshStandardMaterial({color:0x5faab0,emissive:0x27828c,emissiveIntensity:.24});
  const orange=new THREE.MeshStandardMaterial({color:0xffa65f,emissive:0xc55b28,emissiveIntensity:.20});
- const ground=new THREE.Mesh(new THREE.PlaneGeometry(435,435),new THREE.MeshStandardMaterial({color:0x527d68,roughness:1}));
+ // Static ground AO is baked offline; zero dynamic light or shadow cost.
+ const groundMap=new THREE.TextureLoader().load('./assets/baked/mission_ground_baked.webp');
+ groundMap.colorSpace=THREE.SRGBColorSpace;groundMap.anisotropy=2;
+ const ground=new THREE.Mesh(new THREE.PlaneGeometry(435,435),new THREE.MeshStandardMaterial({map:groundMap,color:0xffffff,metalness:0,roughness:1}));
  ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;root.add(ground);
  // Vehicle road, service roads and open plazas, no colored team lanes.
  const roadGeo=new THREE.PlaneGeometry(17,340);
@@ -99,6 +103,45 @@ export function createSquadWorld(city){
    const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;
    const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));s.position.set(point.x,6.9,point.z);s.scale.set(11,1.9,1);root.add(s);
  }
+ // Modular authored GLB landmarks: textured/painted geometry in only three
+ // unique files. Placed on existing collision rooftops; no extra colliders.
+ const models=new GLTFLoader();
+ const roofProps=new THREE.Group();roofProps.name='MODULAR_ARCHITECTURE_GLB';
+ root.add(roofProps);city.squadDetailRoot=roofProps;
+ roofProps.visible=city.world.quality!=='low';
+ for(const [file,spots] of [
+   ['relay_tower', [[-84,-50,12],[84,-50,12],[91,97,10]]],
+   ['field_station',[[-39,-104,6],[39,-104,6],[-46,145,8]]],
+   ['power_generator',[[-91,97,10],[91,97,10],[-105,18,9]]],
+ ]){
+   models.load(`./assets/models/environment/${file}.glb`,gltf=>{
+     for(const [x,z,y] of spots){
+       const model=gltf.scene.clone(true);
+       model.position.set(x,y+.34,z);
+       model.traverse(obj=>{if(obj.isMesh){obj.castShadow=false;obj.receiveShadow=true;}});
+       roofProps.add(model);
+     }
+   },undefined,error=>console.warn('Detalhe GLB indisponível:',file,error));
+ }
+ // Instance rounded roof ducts, arches and chamfer-like decorative edges.
+ // Shared buffers keep repeated geometry at a constant number of draw calls.
+ const copingMat=new THREE.MeshStandardMaterial({color:0xb3c2c8,metalness:.34,roughness:.63});
+ const cylinders=new THREE.InstancedMesh(new THREE.CylinderGeometry(.30,.30,1,10),copingMat,144);
+ const archMat=new THREE.MeshStandardMaterial({color:0x556f80,metalness:.48,roughness:.46});
+ const arches=new THREE.InstancedMesh(new THREE.TorusGeometry(1.3,.12,7,18,Math.PI),archMat,45);
+ let p=0,a=0;
+ for(const b of SQUAD_BLOCKS){
+   if(b.h<3)continue;
+   for(let n=0;n<6;n++){
+     const k=n%3;
+     dummy.position.set(b.x+(k-1)*b.w*.33,b.h+.65,b.z+(n<3?-.26:.26)*b.d);
+     dummy.rotation.set(0,0,0);dummy.scale.set(1,1.0+(n%2)*.8,1);dummy.updateMatrix();cylinders.setMatrixAt(p++,dummy.matrix);
+   }
+   if(a<45){dummy.position.set(b.x,b.h+.28,b.z+b.d/2+.10);dummy.rotation.set(0,0,0);dummy.scale.set(Math.min(2,b.w/8),1,1);dummy.updateMatrix();arches.setMatrixAt(a++,dummy.matrix);}
+ }
+ cylinders.count=p;cylinders.instanceMatrix.needsUpdate=true;
+ arches.count=a;arches.instanceMatrix.needsUpdate=true;
+ for(const m of [cylinders,arches]){m.castShadow=false;m.receiveShadow=true;roofProps.add(m);}
  // Titan extraction craft and radio masts identify the operation site even on LOW.
  for(const [x,z] of [[-85,-148],[0,-155],[70,-16]]){
    const mast=new THREE.Mesh(new THREE.CylinderGeometry(.15,.2,8,8),metal);mast.position.set(x+10,4,z+7);root.add(mast);

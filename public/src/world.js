@@ -107,7 +107,7 @@ export class World {
     this.renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure=1.13;
+    this.renderer.toneMappingExposure=1.08;
     this.renderer.shadowMap.enabled=true;
     this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     mount.appendChild(this.renderer.domElement);
@@ -136,23 +136,23 @@ export class World {
     this.pmrem=new THREE.PMREMGenerator(this.renderer);
     const envTarget=this.pmrem.fromScene(new RoomEnvironment());
     this.scene.environment=envTarget.texture;
-    this.scene.environmentIntensity=.31;
+    this.scene.environmentIntensity=.38;
     this.envTarget=envTarget;
     this.baseFOV=78;
     this.renderScale=1;
     this.customFar=260;
     this.vegetation=null;
 
-    const hemi=new THREE.HemisphereLight(0xfff3dd,0x66a279,1.26);
+    const hemi=new THREE.HemisphereLight(0xdbecff,0x657f70,1.12);
     this.scene.add(hemi);
-    const sun=new THREE.DirectionalLight(0xffe9c3,2.32);
+    const sun=new THREE.DirectionalLight(0xffe5c7,2.05);
     sun.position.set(-48,58,30);
     sun.castShadow=true;
     sun.shadow.mapSize.set(2048,2048);
-    sun.shadow.camera.left=-110;
-    sun.shadow.camera.right=110;
-    sun.shadow.camera.top=110;
-    sun.shadow.camera.bottom=-110;
+    sun.shadow.camera.left=-85;
+    sun.shadow.camera.right=85;
+    sun.shadow.camera.top=85;
+    sun.shadow.camera.bottom=-85;
     sun.shadow.camera.near=.1;
     sun.shadow.camera.far=240;
     sun.shadow.bias=-0.00012;
@@ -567,6 +567,7 @@ export class World {
     this.customFar=p.far;
     this.camera.far=p.far;
     this.camera.updateProjectionMatrix();
+    if(this.city?.squadDetailRoot)this.city.squadDetailRoot.visible=q!=='low';
     if(this.vegetation)this.vegetation.count=Math.floor(this.vegetation.instanceMatrix.count*p.vegetation);
     this.resize();
   }

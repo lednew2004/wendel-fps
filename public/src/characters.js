@@ -223,11 +223,28 @@ export function createOperative({role='scout',size=1,player=false,tint=null,hero
     if(obj.isMesh&&obj!==flare&&obj.geometry===SHAPES.orb&&obj.scale.x*obj.scale.y*obj.scale.z<.0015)detailMeshes.push(obj);
   });
   root.userData.rig={visual,torso,head,arms,legs,rifle,flare,materials,detailMeshes,lodFar:false,walk:0,blend:0,dashBlend:0,airBlend:0,aimBlend:0,flash:0,hit:0,role,player};
+  // The old mesh disappears from memory when the GLB has fully loaded.
+  // Shared primitive buffers must NOT be disposed: another fallback may use them.
+  root.userData.stripLegacy=()=>{
+    const r=root.userData.rig;
+    if(!r||r.stripped)return;
+    r.stripped=true;
+    r.visual.traverse(o=>{
+      if(o.isMesh&&o.geometry&&!Object.values(SHAPES).includes(o.geometry))o.geometry.dispose();
+      if(o.isMesh&&o.material&&!r.materials.includes(o.material))o.material.dispose?.();
+    });
+    root.remove(r.visual);
+    for(const m of r.materials)m.dispose();
+    r.materials=[];r.detailMeshes=[];r.arms=[];r.legs=[];
+  };
+  // GLB is optional and asynchronous: first-frame gameplay is never blocked.
+  globalThis.TITAN_SKINNED_RUNTIME?.request?.(root,{role,size,player,tint,hero});
   return root;
 }
 
 export function animateOperative(root,dt,{moving=0,firing=false,frozen=false,hit=false,distance=0,dash=false,airborne=false,aiming=false}={}){
   const rig=root?.userData?.rig;if(!rig)return;
+  if(root.userData.skeletal&&globalThis.TITAN_SKINNED_RUNTIME?.animate?.(root,dt,{moving,firing,frozen,hit,distance,dash,airborne,aiming}))return;
   dt=Math.max(0,Math.min(.06,Number(dt)||0));
   const far=Number(distance)>47;
   if(far!==rig.lodFar){rig.lodFar=far;for(const part of rig.detailMeshes)part.visible=!far;}
@@ -272,6 +289,7 @@ export function animateOperative(root,dt,{moving=0,firing=false,frozen=false,hit
 }
 
 export function disposeOperative(root){
+  globalThis.TITAN_SKINNED_RUNTIME?.release?.(root);
   const rig=root?.userData?.rig;if(!rig)return;
   // Shared primitive geometries are intentionally never disposed per character.
   const shared=new Set(Object.values(SHAPES));

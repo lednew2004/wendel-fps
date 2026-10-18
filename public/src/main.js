@@ -1,5 +1,7 @@
 import {Game} from './game.js';
+import {installSkinnedOperativeRuntime} from './skinnedOperatives.js';
 try{
+  installSkinnedOperativeRuntime();
   new Game();
   clearTimeout(window.__titanBootTimer);
 }catch(err){
