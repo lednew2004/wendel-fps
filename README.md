@@ -1,6 +1,14 @@
+## NOVO — TITAN PROTOCOL 3.8.1 | FORGE com bloco único
+
+A construção manual do FORGE foi simplificada: **um único bloco voxel (pedra)**, sem escolha de materiais e sem barra de tipos. Ative o Poder 1, mire e use **COLOCAR** (ou atire); **REMOVER** exclui blocos de sua autoria e **SAIR** encerra o modo. A habilidade **Redstone Explosiva** continua armando e detonando os blocos existentes. No multiplayer, o servidor obriga o material padrão, mesmo se um cliente alterado tentar enviar outro tipo de bloco. As habilidades de outros personagens e seus materiais continuam preservados.
+
+Detalhes em `ATUALIZACAO_3_8_1.md`.
+
+---
+
 ## NOVO — TITAN PROTOCOL 3.8.0 | Construção manual e 10 operadores
 
-**FORGE agora constrói manualmente bloco a bloco** com materiais pedra, madeira, metal, vidro, TNT e folhas; use a paleta **COLOCAR / REMOVER / SAIR** (PC: **B** para remover). Modo treinamento possui limite técnico de 160 blocos locais; online mantém limite de segurança e validação do servidor.
+**FORGE constrói manualmente bloco a bloco**, com um único material padrão; use os botões **COLOCAR / REMOVER / SAIR** (PC: **B** para remover). Modo treinamento possui limite técnico de 160 blocos locais; online mantém limite de segurança e validação do servidor.
 
 O elenco passou de 15 para **25 personagens**, com novos kits para **TERRA, PUPPET, THREAD, MIRROR, PIXEL, CIPHER, VECTOR, BLOOM, FUSION e ECHO**. As habilidades reaproveitam de forma consciente os motores de física, clones, voo e projéteis existentes. Os dez novos personagens têm modelos voxel GLB próprios. Detalhes, controles e limites em **`ATUALIZACAO_3_8.md`**.
 

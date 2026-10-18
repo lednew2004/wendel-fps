@@ -178,7 +178,7 @@ function placeForgeBlock(p,pos){
  const mine=room.blocks.filter(b=>b.owner===p.id);
  if(mine.length>=capacity)dropForgeBlock(room,mine[0]);
  if(room.blocks.length>=180)dropForgeBlock(room,room.blocks[0]);
- const b={id:p.id+'-'+(++room.blockSequence),owner:p.id,...candidate,material:['stone','wood','metal','glass','tnt','plant'].includes(pos.material)?pos.material:'stone',armed:false,hp:({stone:3,metal:7,wood:2,glass:1,tnt:1,plant:2})[pos.material]||3,until:t+FORGE_LIFETIME};room.blocks.push(b);p.lastBuild=t;
+ const b={id:p.id+'-'+(++room.blockSequence),owner:p.id,...candidate,material:'stone',armed:false,hp:3,until:t+FORGE_LIFETIME};room.blocks.push(b);p.lastBuild=t;
  broadcast(room,{type:'builder-place',block:b});
 }
 function move(p,data){
@@ -708,7 +708,7 @@ function onMessage(ws,data){
   else if(data.type==='move')move(p,data);
   else if(data.type==='fire')fire(p,data);
   else if(data.type==='world-interact')interactWorld(p,data.id);
-  else if(data.type==='builder-place')placeForgeBlock(p,{...data.pos,material:data.material});
+  else if(data.type==='builder-place')placeForgeBlock(p,data.pos);
   else if(data.type==='builder-remove'){const b=p.room.blocks.find(b=>b.id===data.id&&b.owner===p.id);if(b&&p.alive&&Math.hypot(p.x-b.x,p.z-b.z)<=FORGE_RANGE+2)dropForgeBlock(p.room,b);}
   else if(data.type==='dash'){const now=Date.now(),cooldown=4800;const left=Math.max(0,cooldown-(now-p.lastDash));if(!p.alive||p.powers.frozenUntil>now||p.powers.gravityUntil>now){send(ws,{type:'dash-state',ok:false,remaining:Math.max(left,500)});}else if(left>0){send(ws,{type:'dash-state',ok:false,remaining:left});}else{p.lastDash=now;send(ws,{type:'dash-state',ok:true,remaining:cooldown});}}
   else if(data.type==='equip'){p.powers.loadout=p.hero?heroLoadout(p.hero):sanitizeLoadout(data.loadout);p.powers.copiedUntil=0;p.powers.originalLoadout=null;p.powers.copyMark=null;send(ws,{type:'power-state',powers:powerSnapshot(p)});}
@@ -774,7 +774,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.8.0'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.8.1'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';

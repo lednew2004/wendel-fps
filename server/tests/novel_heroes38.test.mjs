@@ -22,10 +22,13 @@ test('3.8 offers 25 unique playable heroes, 75 distinct skills and actual client
   for(const hero of newIds){const glb=fs.readFileSync(new URL(`../../public/assets/models/operatives/${hero}.glb`,import.meta.url));const lod=fs.readFileSync(new URL(`../../public/assets/models/operatives/lod/${hero}.glb`,import.meta.url));assert.equal(glb.toString('ascii',0,4),'glTF');assert.equal(lod.toString('ascii',0,4),'glTF');}
 });
 
-test('3.8 manual builder palette and break affordance exist for mouse and touch',()=>{
+test('3.8.1 FORGE offers only one build block, with manual placement and removal on mouse and touch',()=>{
  const code=src('voxelForge.js');const css=src('styles.css');
  assert.match(code,/breakAimed\(\)/);assert.match(code,/builder-remove/);
- for(const material of ['stone','wood','metal','glass','tnt','plant'])assert.match(code,new RegExp(material));
+ assert.match(code,/FORGE · BLOCO ÚNICO/);
+ assert.doesNotMatch(code,/data-forge-material|forge-materials|selectedMaterial/);
+ assert.match(code,/owner,material:'stone',armed:false/);
+ assert.match(code,/send\(\{type:'builder-place',pos\}\)/);
  assert.match(css,/#forge-manual-tools/);
  assert.match(src('game.js'),/KeyB/);
 });
@@ -54,12 +57,12 @@ test('3.8 server handles real hero effects, recorded holograms and restricted bu
  const recorded=receive(e,m=>m.type==='power-vfx'&&m.kind==='echo_record');send(e,{type:'power',id:'echo_record'});await recorded;
  assert.equal(echo.powers.recordedRoute.length,4);
  const cloneMsg=receive(e,m=>m.type==='power-vfx'&&m.kind==='clones');send(e,{type:'power',id:'echo_playback'});const clones=(await cloneMsg).clones;assert.equal(clones.length,1);assert.ok(clones[0].route.length>=3);
- // FORGE: material is checked on the server; removal is owner-authorized.
+ // FORGE: server enforces one block even if a modified client submits another material.
  const f=await connect();const wf=receive(f,m=>m.type==='welcome');send(f,{type:'join',hero:'forge',name:'Forge',create:true,room:'FGE380'});const forgeWel=await wf;
  const forge=[...players.values()].find(p=>p.id===forgeWel.id);Object.assign(forge,{x:-140,y:0,z:-140,yaw:0,pitch:0});
  const mode=receive(f,m=>m.type==='power-vfx'&&m.kind==='forge_build');send(f,{type:'power',id:'forge_build'});await mode;
  const born=receive(f,m=>m.type==='builder-place');send(f,{type:'builder-place',pos:{x:-139.5,y:.9,z:-144.9},material:'glass'});const item=(await born).block;
- assert.equal(item.material,'glass');assert.equal(item.hp,1);
+ assert.equal(item.material,'stone');assert.equal(item.hp,3);
  const gone=receive(f,m=>m.type==='builder-remove'&&m.id===item.id);send(f,{type:'builder-remove',id:item.id});await gone;
  assert.equal(rooms.get('FGE380').blocks.some(b=>b.id===item.id),false);
  // Bloom: an individual player can create a real plant collider replicated as a voxel.
