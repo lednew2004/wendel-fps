@@ -513,3 +513,43 @@ body:not(.playing) #squad-status{display:none}body:not(.playing) #squad-command-
 @media(max-width:760px){#squad-status{top:48px;left:7px;min-width:148px;padding:4px 6px}.squad-member-grid{gap:3px}#squad-status>strong{font-size:11px}.squad-member-grid b{font-size:9px}.squad-member-grid small{font-size:8px}#squad-command-button{left:8px;bottom:36%;padding:7px;font-size:10px}.squad-role-choice{font-size:10px;padding:8px 2px}}
 
 .mp-mode-control{border:1px solid #5b9a9d69;background:#122732b3;padding:9px;margin:9px 0;display:grid;gap:5px}.mp-mode-control label{font:800 13px Rajdhani,sans-serif;color:#a4f2dd;letter-spacing:1px}.mp-mode-control select{background:#0a202b;color:white;padding:10px;border:1px solid #78b5ba}.mp-mode-control small{color:#acc6ca;font-size:11px}
+
+/* v3.3.3 — conserto do toque nos controles superiores em celulares.
+   Os gestos de mira usam #mobile-controls (z-index:22); o HUD estava no
+   z-index:8 e os toques atingiam a camada de mira, não os botões visíveis.
+   Elevamos somente o HUD da partida. Como .hud usa pointer-events:none,
+   apenas seus botões recebem o toque; as áreas restantes continuam mirando.
+   As telas de pausa e sala seguem acima de ambas as camadas. */
+html.is-touch.touch-playing #hud {
+  z-index: 27;
+  pointer-events: none;
+}
+html.is-touch.touch-playing #hud .top-right {
+  pointer-events: none;
+}
+html.is-touch.touch-playing #hud #camera-mode-switch,
+html.is-touch.touch-playing #hud #hud-pause {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  min-height: 44px;
+}
+@media (pointer:coarse) and (orientation:landscape) {
+  html.is-touch.touch-playing #hud #camera-mode-switch {
+    min-width: 93px;
+    max-width: 124px;
+    padding: 6px 10px;
+    font-size: 11px;
+    overflow: visible;
+    text-overflow: clip;
+    border-radius: 8px;
+  }
+  html.is-touch.touch-playing #hud #hud-pause {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 22px;
+  }
+}

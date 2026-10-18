@@ -1,8 +1,8 @@
-# TITAN PROTOCOL 3.3.2 — SQUAD OPERATIONS (MOVIMENTAÇÃO E EQUILÍBRIO)
+# TITAN PROTOCOL 3.3.3 — SQUAD OPERATIONS (MOVIMENTAÇÃO E EQUILÍBRIO)
 
 FPS 3D com personagens e habilidades, câmera em **primeira ou terceira pessoa**, 13 heróis com três técnicas próprias, modos de combate e missões táticas de esquadrão. Projeto em HTML/CSS/JavaScript + Three.js com servidor HTTP/WebSocket Node.js >=22, sem dependências de npm. A biblioteca Three.js é carregada pela internet via CDN.
 
-## Novidades 3.3.2 — Dash direcional, recargas e cenário otimizado
+## Novidades 3.3.3 — Dash direcional, recargas e cenário otimizado
 
 - **Dash comum (X) e habilidades de avanço:** agora usam a direção do movimento no teclado ou joystick. Aceitam frente, trás, lados e diagonais. Se o jogador soltar os controles durante um deslizamento, conservam a direção da velocidade; parado, usam a direção da mira. Os combos de Shiro e Leo têm o mesmo comportamento no casual e no multiplayer; seus trajetos continuam respeitando as colisões, enquanto o servidor calcula destinos e valida a distância. O recuo de Shiro permanece no sentido contrário ao comando de movimento, conforme sua identidade.
 - **39 recargas reequilibradas, idênticas no cliente e no servidor:** técnicas básicas 12–23 s, técnicas intensas 20–32 s, ultimates 30–35 s e Ressurreição 48 s. Cada poder mantém a duração do próprio efeito e sua identidade. As reativações permanecem abertas por **12 segundos**, separadas do tempo de recarga da próxima sequência.
