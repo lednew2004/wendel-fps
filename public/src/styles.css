@@ -498,3 +498,18 @@ body:not(.touch-playing) .radar-card{border-color:#65cfe655}
 #camera-mode-switch:focus-visible{outline:2px solid #b5f9ec;outline-offset:2px}
 @media (pointer:coarse) and (orientation:landscape){#camera-mode-switch{min-height:37px;max-height:43px;font-size:10px;padding:7px 8px;letter-spacing:0;max-width:102px;overflow:hidden;text-overflow:ellipsis} .hud-top .top-right{gap:5px}}
 @media(max-width:700px){#camera-mode-switch{font-size:10px;padding:7px}}
+
+/* V3.3 — Squad Operations: one tactical role per operator. */
+.squad-role-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:8px 0 12px}
+.squad-role-choice{background:#162934;color:#d1dfeb;border:1px solid #5a859080;border-radius:6px;padding:9px 4px;font:800 12px Rajdhani,sans-serif;letter-spacing:.5px}
+.squad-role-choice span{display:block;font-size:18px}.squad-role-choice.chosen{border-color:#56e6d1;color:#91ffee;background:#20444d}
+#squad-status{position:fixed;z-index:12;top:122px;left:28px;background:#081923cf;color:#d7fff1;border:1px solid #5da7ab70;padding:9px 11px;pointer-events:none;font:700 12px Rajdhani,sans-serif;min-width:196px}
+#squad-status>strong{font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:#9df8d9}.squad-member-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px}.squad-member-grid span{display:flex;flex-direction:column;font-size:11px}.squad-member-grid b{color:#e1f8f2}.squad-member-grid small{font-size:9px;color:#9cbdc0}.squad-member-grid span.downed b{color:#ff8e84}
+#squad-command-button{position:fixed;z-index:23;bottom:156px;left:32px;border:1px solid #73c4c5aa;border-radius:8px;background:#10242bdc;color:#b7ffec;padding:9px 13px;font:800 12px Rajdhani,sans-serif;letter-spacing:1px;box-shadow:0 3px 15px #0006}
+#squad-orders{position:fixed;z-index:38;top:50%;left:50%;transform:translate(-50%,-50%);width:min(370px,94vw);padding:22px;background:#07171df2;color:#fff;border:1px solid #7ce9dc;box-shadow:0 12px 90px #000b;font:700 15px Rajdhani,sans-serif}
+#squad-orders strong{font:800 27px 'Barlow Condensed',sans-serif;letter-spacing:1px}#squad-orders p{color:#9bbbbb;margin:8px 0 14px}#squad-orders small{display:block;margin-top:12px;color:#75d6cc}
+.squad-order-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.squad-order-grid button{background:#16313b;color:#d9fff5;border:1px solid #5fa5b0;border-radius:6px;padding:13px;font:800 13px Rajdhani,sans-serif}
+body:not(.playing) #squad-status{display:none}body:not(.playing) #squad-command-button{display:none}
+@media(max-width:760px){#squad-status{top:48px;left:7px;min-width:148px;padding:4px 6px}.squad-member-grid{gap:3px}#squad-status>strong{font-size:11px}.squad-member-grid b{font-size:9px}.squad-member-grid small{font-size:8px}#squad-command-button{left:8px;bottom:36%;padding:7px;font-size:10px}.squad-role-choice{font-size:10px;padding:8px 2px}}
+
+.mp-mode-control{border:1px solid #5b9a9d69;background:#122732b3;padding:9px;margin:9px 0;display:grid;gap:5px}.mp-mode-control label{font:800 13px Rajdhani,sans-serif;color:#a4f2dd;letter-spacing:1px}.mp-mode-control select{background:#0a202b;color:white;padding:10px;border:1px solid #78b5ba}.mp-mode-control small{color:#acc6ca;font-size:11px}

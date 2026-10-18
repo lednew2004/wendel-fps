@@ -1,21 +1,19 @@
-# Publicação gratuita — TITAN PROTOCOL 3.2 DUAL CAMERA
+# Publicação gratuita — TITAN PROTOCOL 3.3 SQUAD OPERATIONS
 
-1. Descompacte o ZIP e copie `package.json`, `render.yaml`, `public/`, `server/` e os arquivos de documentação para a **raiz** do repositório GitHub, substituindo os antigos.
-2. Na pasta do repositório, execute `git add .`, depois `git commit -m "TITAN PROTOCOL 3.2 - Terceira pessoa animada"` e `git push origin main`.
-3. Aguarde o deploy da Render chegar ao estado **Live**. O projeto usa Node.js 22 ou superior, sem Redis ou outro serviço externo.
-4. Acesse `https://SEU-DOMINIO.onrender.com/health` e verifique `"version":"3.2.0"`. Atualize o jogo sem cache no PC/celular.
-5. Antes de jogar, escolha um dos **13 heróis** e uma das quatro armas. Todos os **3 poderes** do personagem estão disponíveis imediatamente.
-6. No PC, use **1/2/3** para poderes, **4/F** ou roda do mouse para trocar de arma, **TAB** para abrir/fechar o kit. No celular, use os três botões de poderes.
-7. Teste separadamente: base azul/vermelha, TOP/MID/ADC, jungle, Shiro (1 duas vezes), Leo (1 três vezes), Butterfly (2 duas vezes) e partida online com dois jogadores.
-8. Se o desempenho estiver baixo, selecione qualidade gráfica **BAIXA/MÉDIA**, sem sombras no celular.
+1. Extraia o ZIP. Na **raiz** do repositório GitHub devem ficar `package.json`, `render.yaml`, `public/`, `server/`, `README.md` e este guia. Não coloque tudo dentro de uma subpasta.
+2. Use Node.js 22+ no ambiente local. Para verificar a instalação, execute `npm test` e, depois, `npm start`. A aplicação sobe na porta indicada pela variável `PORT`, ou `3000` localmente.
+3. Para atualizar o repositório, execute:
 
-O online utiliza equipes para respawn em bases opostas e não permite dano aliado. As rotas e os acampamentos compõem a geografia MOBA, mas **não há ainda torres destrutíveis ou minions com combate de rotas automatizado**. A execução visual completa e a sensação física precisam de testes reais em navegadores.
+   ```bash
+   git add .
+   git commit -m "TITAN PROTOCOL 3.3 - Squad Operations"
+   git push origin main
+   ```
 
-## Teste específico da 3.2
+4. A Render executará o deploy usando `render.yaml`. Quando estiver em **Live**, visite `https://SEU-SITE.onrender.com/health` e confira `"version":"3.3.0"`. Recarregue a página do jogo sem cache após atualizar.
+5. **Campanha:** escolha função, herói e arma no menu; inicie Operações Squad. Confira os três bots aliados, defesa, reconhecimento, sabotagem, chefe e extração. Use `G` para escolher ordens ao esquadrão. Cada fase acontece na instalação tática nova, não no mapa MOBA.
+6. **Todos contra todos:** entre no MULTIPLAYER, selecione `PVP · TODOS CONTRA TODOS`, crie uma sala e convide até outros sete jogadores.
+7. **Cooperativo:** antes de entrar no lobby, cada um dos quatro jogadores escolhe no menu um herói de função **diferente**. No multiplayer, todos selecionam `COOP · OPERAÇÃO SQUAD` e entram com o mesmo código. A missão começa quando houver um Frente, um Suporte, um Sniper e um Bomber na mesma sala.
+8. Em PC e celular, teste as três habilidades (`1`, `2`, `3`), dash, tiros, primeira/terceira pessoa (`V`), minimapa e as áreas de missão. Para aparelhos fracos, use gráfico **BAIXO/MÉDIO**.
 
-1. Entre no modo Sobrevivência, escolha um herói e confira o personagem visível na câmera atrás do ombro.
-2. Pressione **V** para voltar à primeira pessoa; pressione novamente para ativar a terceira pessoa. No celular, use o botão **CÂMERA** no HUD.
-3. Caminhe, corra, salte, faça dash, atire e use habilidades em ambas as perspectivas; confira se a mira permanece alinhada.
-4. Aproxime-se de uma casa, parede e passagem estreita: a câmera deve se aproximar sem atravessar o obstáculo.
-5. Teste com outro jogador no multiplayer, de preferência um no PC e outro no celular.
-6. Para desempenho, mantenha gráfico BAIXO/MÉDIO no celular. É normal que o desempenho real dependa do aparelho e do navegador.
+**Avisos:** Three.js é importado de uma CDN, então os jogadores precisam de internet. O plano Render gratuito pode suspender o servidor e perder partidas online, pois as salas ficam em memória. Os testes automatizados não garantem FPS ou aparência visual; valide a partida em navegadores reais antes de divulgar a atualização.

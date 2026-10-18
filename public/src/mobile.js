@@ -165,7 +165,7 @@ export class MobileControls {
     this.bindAction('m-slide',()=>this.game.parkour.crouch());
     this.bindAction('m-grenade',()=>this.game.grenade());
     this.bindAction('m-pulse',()=>this.game.pulse());
-    this.bindAction('m-weapon',()=>this.game.weapons.switchTo((this.game.weapons.index+1)%this.game.weapons.state.length));
+    this.bindAction('m-weapon',()=>this.game.cycleWeapon());
     this.bindAction('m-trial',()=>{
       const active=this.game.parkour.toggleTrial();
       document.body.classList.toggle('trial-active',active);

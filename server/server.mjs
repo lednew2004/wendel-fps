@@ -10,7 +10,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {WORLD_HALF} from '../public/src/worldLayout.js';
-import {MOBA_BASES} from '../public/src/mobaLayout.js';
+import {FFA_SPAWNS,SQUAD_START,roleForHero,ROLE_INFO} from '../public/src/squadLayout.js';
+import {newCoop,advanceCoop,coopSnapshot,coopFire,coopAbility,coopSupportPulse} from './coopEngine.mjs';
 import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,isGroundedDestination,within,nearbyMorphObject,canAutoResurrect,criticalPowerPenalty} from './powers.mjs';
 
 const root=path.resolve(fileURLToPath(new URL('../public/',import.meta.url)));
@@ -21,7 +22,7 @@ const WS_HEARTBEAT_MS=15000;
 const WS_DEAD_MS=75000;
 const rooms=new Map();
 const players=new Map();
-const SPAWNS=[[MOBA_BASES.blue.x,MOBA_BASES.blue.z],[MOBA_BASES.red.x,MOBA_BASES.red.z]];
+const SPAWNS=FFA_SPAWNS;
 const WEAPONS=[{id:0,damage:21,interval:.12,range:140},{id:1,damage:55,interval:.85,range:34},{id:2,damage:80,interval:1.24,range:180},{id:3,damage:17,interval:.095,range:130}];
 const colliders=JSON.parse(fs.readFileSync(new URL('colliders.json',import.meta.url),'utf8'));
 const interactions=JSON.parse(fs.readFileSync(new URL('interactables.json',import.meta.url),'utf8'));
@@ -47,8 +48,8 @@ function send(ws,data){
 function broadcast(room,msg,except=null){for(const p of room.players.values())if(p.socket&&p.socket!==except)send(p.socket,msg);}
 const cleanName=n=>String(n||'Operador').replace(/[^\p{L}\p{N} _-]/gu,'').trim().slice(0,18)||'Operador';
 const cleanRoom=n=>String(n||'').replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6);
-function createRoom(preferredCode=''){let code=preferredCode;if(!code){do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));}const room={code,players:new Map(),born:Date.now(),hazards:[],clones:[],openInteractions:new Set()};rooms.set(code,room);return room;}
-function spawn(i){const base=i%2?MOBA_BASES.red:MOBA_BASES.blue;return {x:base.x+(i%4===3?3:0),y:0,z:base.z};}
+function createRoom(preferredCode='',mode='ffa'){let code=preferredCode;if(!code){do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));}const room={code,mode,coop:mode==='coop'?newCoop():null,nextTeam:0,players:new Map(),born:Date.now(),hazards:[],clones:[],openInteractions:new Set()};rooms.set(code,room);return room;}
+function spawn(i){const [x,z]=SPAWNS[i%SPAWNS.length];return {x,y:0,z};}
 function publicPlayer(p){const powers=powerSnapshot(p);return {id:p.id,name:p.name,hero:p.hero||null,team:p.team??0,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,weapon:p.weapon,hp:p.hp,shield:p.shield,kills:p.kills,deaths:p.deaths,alive:p.alive,shielded:powers.shielded,invisible:powers.invisible,phased:powers.phased,flying:powers.flying,frozen:powers.frozen,prop:powers.propType,immortal:powers.invulnerable};}
 const livePlayers=room=>[...room.players.values()].filter(p=>p.socket);
 const cleanSession=s=>typeof s==='string'&&/^[a-zA-Z0-9-]{20,100}$/.test(s)?s:null;
@@ -56,6 +57,7 @@ function join(ws,data){
   if(players.has(ws))return;
   const name=cleanName(data.name);
   const hero=HEROES.some(h=>h.id===data.hero)?data.hero:null;
+  const requestedMode=data.mode==='coop'?'coop':'ffa';
   const session=cleanSession(data.session);
   let room;
   if(data.create===true){
@@ -67,9 +69,10 @@ function join(ws,data){
     if(code&&rooms.has(code)){
       send(ws,{type:'error',message:'Este código já está em uso. Escolha outro ou clique em ENTRAR NA SALA.'});return;
     }
-    room=createRoom(code);
+    room=createRoom(code,requestedMode);
   }else room=rooms.get(cleanRoom(data.room));
   if(!room){send(ws,{type:'error',message:'Sala não encontrada ou expirada. Peça um novo código ao anfitrião.'});return;}
+  if(room.mode!==requestedMode){send(ws,{type:'error',message:'Modo diferente do modo da sala. Selecione PVP ou COOP corretamente.'});return;}
 
   // The session token lives only on the player's browser, never in public room snapshots.
   // A temporary network loss does not erase the room, score or available slot.
@@ -82,21 +85,22 @@ function join(ws,data){
     players.set(ws,existing);
     send(ws,{type:'welcome',id:existing.id,room:room.code,
       spawn:{x:existing.x,y:existing.y,z:existing.z},resumed:true,
-      players:livePlayers(room).map(publicPlayer),powers:powerSnapshot(existing),openInteractions:openList(room)});
+      players:livePlayers(room).map(publicPlayer),powers:powerSnapshot(existing),openInteractions:openList(room),mode:room.mode,coop:room.coop?coopSnapshot(room):null});
     broadcast(room,{type:'joined',player:publicPlayer(existing)},ws);
     return;
   }
 
-  if(room.players.size>=maxPlayers){send(ws,{type:'error',message:'Esta sala está cheia (8 jogadores).'});return;}
+  if(room.players.size>=(room.mode==='coop'?4:maxPlayers)){send(ws,{type:'error',message:room.mode==='coop'?'Esquadrão completo (4 jogadores).':'Esta sala está cheia (8 jogadores).'});return;}
+  if(room.mode==='coop'&&(!hero||[...room.players.values()].some(p=>roleForHero(p.hero)===roleForHero(hero)))){send(ws,{type:'error',message:'O COOP exige um herói de função diferente: Frente, Suporte, Sniper e Bomber.'});return;}
   const id=crypto.randomBytes(5).toString('hex');
-  const s=spawn(room.players.size);
-  const p={id,name,session,socket:ws,room,team:room.players.size%2,x:s.x,y:s.y,z:s.z,yaw:0,pitch:0,
-    hero,weapon:Number.isInteger(data.weapon)&&data.weapon>=0&&data.weapon<4?data.weapon:0,hp:100,shield:40,kills:0,deaths:0,alive:true,spawnUntil:Date.now()+1200,
+  const s=room.mode==='coop'?{x:SQUAD_START.x+(room.players.size%2?3:-3),y:0,z:SQUAD_START.z+Math.floor(room.players.size/2)*3}:spawn(room.players.size);
+  const p={id,name,session,socket:ws,room,team:room.mode==='coop'?0:room.nextTeam++,x:s.x,y:s.y,z:s.z,yaw:0,pitch:0,
+    hero,weapon:Number.isInteger(data.weapon)&&data.weapon>=0&&data.weapon<4&&(room.mode!=='coop'||ROLE_INFO[roleForHero(hero)]?.weapons.includes(data.weapon))?data.weapon:0,hp:100,shield:40,kills:0,deaths:0,alive:true,spawnUntil:Date.now()+1200,
     lastMove:Date.now(),lastFire:0,lastDash:0,lastSeen:Date.now(),disconnectedAt:0,powers:freshPowerState()};
   p.powers.loadout=hero?heroLoadout(hero):sanitizeLoadout(data.loadout);
   room.players.set(id,p);players.set(ws,p);
   send(ws,{type:'welcome',id,room:room.code,spawn:s,
-    players:livePlayers(room).map(publicPlayer),powers:powerSnapshot(p),openInteractions:openList(room)});
+    players:livePlayers(room).map(publicPlayer),powers:powerSnapshot(p),openInteractions:openList(room),mode:room.mode,coop:room.coop?coopSnapshot(room):null});
   broadcast(room,{type:'joined',player:publicPlayer(p)},ws);
 }
 function interactWorld(p,id){
@@ -142,6 +146,7 @@ function move(p,data){
   if(!p.alive||p.powers.frozenUntil>Date.now()||p.powers.gravityUntil>Date.now()||(p.comboDashUntil||0)>Date.now())return;
   const {x,y,z,yaw,pitch,weapon}=data;
   if(!finite(x,-WORLD_HALF,WORLD_HALF)||!finite(z,-WORLD_HALF,WORLD_HALF)||!finite(y,-1,40)||!finite(yaw,-1e7,1e7)||!finite(pitch,-1.48,1.48)||!Number.isInteger(weapon)||weapon<0||weapon>3)return;
+  if(p.room.mode==='coop'&&!ROLE_INFO[roleForHero(p.hero)]?.weapons.includes(weapon))return;
   const now=Date.now();const dt=limit((now-p.lastMove)/1000,.01,.35);
   const distance=Math.hypot(x-p.x,z-p.z);
   const dy=Math.abs(y-p.y);
@@ -163,6 +168,12 @@ function fire(p,data){
   // Aim is based on server's last received yaw/pitch, not on client-provided hit IDs.
   const cp=Math.cos(p.pitch),dir=[-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp];
   const origin=[p.x,p.y+1.65,p.z];
+  if(p.room.mode==='coop'){
+    const hit=coopFire(p.room,p,dir,origin,w,obscured);
+    broadcast(p.room,{type:'shot',id:p.id,weapon:p.weapon});
+    if(hit){send(p.socket,{type:'coop-hit',...hit});if(hit.dead)broadcast(p.room,{type:'coop-kill',owner:p.id,enemy:hit.id});}
+    return;
+  }
   let victim=null,nearest=w.range;
   for(const target of p.room.players.values()){
     if(target.id===p.id||target.team===p.team||!target.alive||now<target.spawnUntil||target.powers.phaseUntil>now)continue;
@@ -202,7 +213,7 @@ function fire(p,data){
   broadcast(p.room,death);
   setTimeout(()=>{
     if(victim.room.players.get(victim.id)!==victim||victim.alive)return;
-    const s=spawn(victim.team);Object.assign(victim,s,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
+    const s=spawn(victim.deaths%SPAWNS.length);Object.assign(victim,s,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
     victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];victim.powers.copyMark=null;victim.powers.copiedUntil=0;victim.powers.propUntil=0;victim.powers.propType=null;victim.powers.resurrectionUntil=0;victim.powers.combo={};victim.powers.empoweredUntil=0;if(victim.powers.originalLoadout){victim.powers.loadout=sanitizeLoadout(victim.powers.originalLoadout);victim.powers.originalLoadout=null;}
     send(victim.socket,{type:'respawn',spawn:s,hp:100,shield:40,powers:powerSnapshot(victim)});
     broadcast(p.room,{type:'revived',player:publicPlayer(victim)},victim.socket);
@@ -488,7 +499,25 @@ function onMessage(ws,data){
   else if(data.type==='world-interact')interactWorld(p,data.id);
   else if(data.type==='dash'){const now=Date.now(),cooldown=4800;const left=Math.max(0,cooldown-(now-p.lastDash));if(!p.alive||p.powers.frozenUntil>now||p.powers.gravityUntil>now){send(ws,{type:'dash-state',ok:false,remaining:Math.max(left,500)});}else if(left>0){send(ws,{type:'dash-state',ok:false,remaining:left});}else{p.lastDash=now;send(ws,{type:'dash-state',ok:true,remaining:cooldown});}}
   else if(data.type==='equip'){p.powers.loadout=p.hero?heroLoadout(p.hero):sanitizeLoadout(data.loadout);p.powers.copiedUntil=0;p.powers.originalLoadout=null;p.powers.copyMark=null;send(ws,{type:'power-state',powers:powerSnapshot(p)});}
-  else if(data.type==='power')castPower(p,data);
+  else if(data.type==='power'){
+    if(p.room.mode==='coop'){
+      const id=data.id,rule=POWER_RULES[id],effect=POWER_VARIANTS[id]?.base||id,now=Date.now();
+      const needsTarget=['freeze','chain','gravity','swap','copy'].includes(effect);
+      if(needsTarget&&rule){
+        const error=canCast(p,id,now);
+        if(error)send(p.socket,{type:'power-error',message:error});
+        else {p.powers.cooldowns[id]=now+rule.cooldown;const hits=coopAbility(p.room,p,id);send(p.socket,{type:'power-state',powers:powerSnapshot(p)});broadcast(p.room,{type:'power-vfx',kind:effect,player:p.id,x:p.x,y:p.y,z:p.z,hits});}
+      }else{
+        const before=p.powers.cooldowns[id]||0;castPower(p,data);
+        if(id&&p.powers.cooldowns[id]>before){
+          const hits=coopAbility(p.room,p,id);if(hits)broadcast(p.room,{type:'power-vfx',kind:id,player:p.id,x:p.x,y:p.y,z:p.z,hits});
+          // A Support specialist heals/reinforces nearby squad members as well as themself.
+          const helped=coopSupportPulse(p.room,p,effect);
+          for(const ally of helped)broadcast(p.room,{type:'health',id:ally.id,hp:ally.hp,shield:ally.shield});
+        }
+      }
+    }else castPower(p,data);
+  }
   else if(data.type==='leave'){depart(ws,true);ws.end(Buffer.from([0x88,0x00]));}
 }
 function setupSocket(ws){
@@ -532,7 +561,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.2.0'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.3.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';
@@ -600,6 +629,17 @@ const tick=setInterval(()=>{
       const powers=player.powers;
       if(powers.copyMark?.until<=now)powers.copyMark=null;
       if(powers.copiedUntil&&powers.copiedUntil<=now){powers.loadout=sanitizeLoadout(powers.originalLoadout);powers.originalLoadout=null;powers.copiedUntil=0;notifyPower(player,'copy');}
+    }
+    if(room.mode==='coop'){
+      const actions=advanceCoop(room,.1,(x,z)=>locationValid(x,0,z,colliders));
+      for(const action of actions){
+        if(action.kind==='damage'||action.kind==='down'){
+          const victim=room.players.get(action.id);if(victim){send(victim.socket,{type:'damaged',hp:victim.hp,shield:victim.shield});broadcast(room,{type:'health',id:victim.id,hp:victim.hp,shield:victim.shield});if(action.kind==='down')send(victim.socket,{type:'coop-downed'});}
+        }else if(action.kind==='revive'){
+          const revived=room.players.get(action.id);if(revived){send(revived.socket,{type:'respawn',spawn:{x:action.x,y:0,z:action.z},hp:100,shield:40,powers:powerSnapshot(revived)});broadcast(room,{type:'revived',player:publicPlayer(revived)},revived.socket);}
+        }else if(action.kind==='phase')broadcast(room,{type:'coop-phase',phase:action.phase});
+      }
+      if(Math.floor(now/200)!==Math.floor((now-100)/200))broadcast(room,coopSnapshot(room));
     }
     const list=livePlayers(room).map(publicPlayer);
     broadcast(room,{type:'snapshot',players:list});

@@ -1,4 +1,4 @@
-import {MOBA_LANES,MOBA_BASES,JUNGLE_CAMPS} from './mobaLayout.js';
+import {SQUAD_POINTS,SQUAD_BLOCKS} from './squadLayout.js';
 /** Minimapa tático multiplayer: cidade inteira, norte fixo e posições da sala.
  * Nenhuma consulta ao servidor: os dados são os snapshots/movimentos WebSocket
  * já recebidos pelo cliente. Desenho em canvas 2D (baixo custo no celular).
@@ -41,16 +41,12 @@ export class MultiplayerMinimap {
   paintCity(){
     const ctx=this.base.getContext('2d');
     ctx.fillStyle='#101d25';ctx.fillRect(0,0,SIZE,SIZE);
-    // Three continuous MOBAs lanes and jungle are always represented even at low graphics quality.
-    ctx.fillStyle='#193225';ctx.fillRect(PADDING,PADDING,SIZE-2*PADDING,SIZE-2*PADDING);
-    for(const [name,points] of Object.entries(MOBA_LANES)){
-      ctx.beginPath();ctx.lineJoin='round';ctx.lineCap='round';
-      points.forEach(([x,z],i)=>{const q=projectPlayer(x,z);if(!i)ctx.moveTo(q.x,q.y);else ctx.lineTo(q.x,q.y);});
-      ctx.lineWidth=12;ctx.strokeStyle='#34484b';ctx.stroke();
-      ctx.lineWidth=3;ctx.strokeStyle={top:'#84bafa',mid:'#f3d88a',adc:'#7de8ad'}[name];ctx.stroke();
+    // Tactical outpost sectors replace MOBA lanes and jungle.
+    ctx.fillStyle='#2c433f';ctx.fillRect(PADDING,PADDING,SIZE-2*PADDING,SIZE-2*PADDING);
+    ctx.strokeStyle='#68757d';ctx.lineWidth=3;ctx.beginPath();const start=projectPlayer(0,-155);const end=projectPlayer(0,150);ctx.moveTo(start.x,start.y);ctx.lineTo(end.x,end.y);ctx.stroke();
+    for(const [key,p] of Object.entries(SQUAD_POINTS)){
+      const at=projectPlayer(p.x,p.z);ctx.fillStyle=key==='boss'?'#fd9a71':key==='extraction'?'#a4efb6':'#78d5e7';ctx.beginPath();ctx.arc(at.x,at.y,key==='boss'?7:4,0,Math.PI*2);ctx.fill();
     }
-    for(const camp of JUNGLE_CAMPS){const q=projectPlayer(camp.x,camp.z);ctx.fillStyle='#477d58';ctx.beginPath();ctx.arc(q.x,q.y,4,0,Math.PI*2);ctx.fill();}
-    for(const [team,p] of Object.entries(MOBA_BASES)){const q=projectPlayer(p.x,p.z);ctx.fillStyle=team==='blue'?'#4fc8ff':'#ff7285';ctx.beginPath();ctx.arc(q.x,q.y,9,0,Math.PI*2);ctx.fill();ctx.font='bold 8px sans-serif';ctx.fillText(team==='blue'?'B':'R',q.x-2,q.y+3);}
     // Building footprints, separated from their collision geometry and GPU assets.
     ctx.fillStyle='rgba(112,122,116,.45)';
     ctx.strokeStyle='rgba(160,163,160,.4)';ctx.lineWidth=.75;

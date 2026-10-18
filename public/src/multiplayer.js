@@ -76,7 +76,7 @@ function updateLifeTag(group,hp,shield){
 
 export class MultiplayerClient {
   constructor(game){
-    this.game=game;this.minimap=new MultiplayerMinimap(game);this.socket=null;this.connected=false;this.id=null;this.room='';this.alive=true;
+    this.game=game;this.minimap=new MultiplayerMinimap(game);this.roomMode='ffa';this.coopState=null;this.coopEntities=new Map();this.socket=null;this.connected=false;this.id=null;this.room='';this.alive=true;
     this.others=new Map();this.decoys=new Map();this.syncTick=0;this.isJoining=false;this.players=[];this.heartbeat=0;this.reconnectAttempts=0;this.reconnectTimer=null;this.reconnectSession=(globalThis.crypto?.randomUUID?.()||('titan-'+Date.now()+'-'+Math.random().toString(36).slice(2)));this.wantReconnect=false;
     // Keep the reconnect token on the same tab if the mobile browser reloads it.
     try{
@@ -90,6 +90,13 @@ export class MultiplayerClient {
     else try{const savedRoom=sessionStorage.getItem('titan-online-room');if(savedRoom&&/^[A-Za-z0-9]{6}$/.test(savedRoom))byId('mp-code').value=savedRoom;}catch{}
     const presetServer=new URLSearchParams(location.search).get('server');
     if(presetServer)byId('mp-server').value=presetServer;
+    // Optional 4-player co-op room, distinct from unrestricted PvP FFA rooms.
+    const lobby=byId('multiplayer-lobby'),selector=document.createElement('div');selector.className='mp-mode-control';selector.innerHTML='<label for="mp-mode">MODO DA SALA</label><select id="mp-mode"><option value="ffa">TODOS CONTRA TODOS · PVP</option><option value="coop">OPERAÇÃO SQUAD · COOP 4 PESSOAS</option></select><small>COOP: 1 Frente, 1 Suporte, 1 Sniper e 1 Bomber. Inicia com quatro jogadores.</small>';
+    if(typeof lobby?.querySelector==='function'){
+      lobby.querySelector('.power-loadout,.hero-lobby-badge')?.before?.(selector);
+      if(!selector.parentNode)lobby.querySelector('form,.dialog,.mp-panel')?.prepend?.(selector);
+    }
+    byId('mp-mode')?.addEventListener?.('change',e=>{this.roomMode=e.target.value;});
     byId('mp-open').addEventListener('click',()=>this.openLobby());
     byId('mp-close').addEventListener('click',()=>this.closeLobby());
     byId('mp-create').addEventListener('click',()=>this.connect(true));
@@ -222,7 +229,7 @@ export class MultiplayerClient {
       this.lastServerMessage=Date.now();
       this.startKeepAlive(socket);
       this.setStatus('Entrando na sala...');
-      socket.send(JSON.stringify({type:'join',name,create,room,session:this.reconnectSession,loadout:this.game.powers?.loadout||['push','freeze'],hero:this.game.heroSelection?.selectedHero||'striker',weapon:this.game.heroSelection?.weapon??0}));
+      socket.send(JSON.stringify({type:'join',name,create,room,mode:this.roomMode,session:this.reconnectSession,loadout:this.game.powers?.loadout||['push','freeze'],hero:this.game.heroSelection?.selectedHero||'striker',weapon:this.game.heroSelection?.weapon??0}));
     });
     socket.addEventListener('message',e=>{
       if(this.socket!==socket)return;
@@ -278,6 +285,7 @@ export class MultiplayerClient {
     switch(msg.type){
       case 'error':this.setStatus(msg.message||'Erro na sala.',true);if(this.isJoining){this.disconnect();byId('multiplayer-lobby').classList.remove('hidden');}break;
       case 'welcome':{
+        this.roomMode=msg.mode||'ffa';if(byId('mp-mode'))byId('mp-mode').value=this.roomMode;this.coopState=null;
         this.connected=true;this.isJoining=false;this.wantReconnect=true;this.reconnectAttempts=0;this.id=msg.id;this.room=msg.room;byId('mp-code').value=msg.room;try{sessionStorage.setItem('titan-online-room',this.room);}catch{}
         // On automatic reconnect do not restart the whole game/camera.
         if(this.game.mode!=='multiplayer')this.game.start('multiplayer');
@@ -295,10 +303,18 @@ export class MultiplayerClient {
         if(this.panelOpen){byId('mp-hud').classList.add('hidden');byId('mp-room-panel').classList.remove('hidden');}
         this.game.urban.resetInteractions();
         for(const id of msg.openInteractions||[])this.game.urban.toggleInteractable(id,true);
-        this.receive({type:'snapshot',players:msg.players});
-        this.game.toast(msg.resumed?'CONEXÃO RESTABELECIDA · PARTIDA RETOMADA':'PARTIDA ONLINE · TOQUE EM SALA PARA CONVIDAR');
+        this.receive({type:'snapshot',players:msg.players});if(msg.coop)this.receive(msg.coop);
+        this.game.toast(msg.resumed?'CONEXÃO RESTABELECIDA · PARTIDA RETOMADA':this.roomMode==='coop'?'SQUAD COOPERATIVO · AGUARDANDO 4 FUNÇÕES':'PVP · TODOS CONTRA TODOS');
         break;
       }
+      case 'coop-state':this.applyCoopState(msg);break;
+      case 'coop-phase':{
+        const names={defend:'DEFENDER O PERÍMETRO',recon:'RECONHECIMENTO · SNIPER',sabotage:'SABOTAGEM · BOMBER',boss:'ELIMINAR O TITÃ',extract:'EXTRAÇÃO',victory:'MISSÃO CONCLUÍDA'};
+        this.game.toast('OPERAÇÃO SQUAD · '+(names[msg.phase]||msg.phase));break;
+      }
+      case 'coop-hit':this.game.hitmarker(!!msg.dead);if(msg.dead){this.game.score+=120;this.game.kills++;this.game.toast('ALVO NEUTRALIZADO · +120');}break;
+      case 'coop-kill':break;
+      case 'coop-downed':this.alive=false;byId('mp-respawn').textContent='OPERADOR CAÍDO · REAGRUPANDO EM 7 SEGUNDOS';byId('mp-respawn').classList.remove('hidden');break;
       case 'world-interaction':{
         if(this.game.urban.toggleInteractable(msg.id,!!msg.open)){
           this.game.parkour.prompt=(msg.open?'ABERTO · ':'FECHADO · ')+(msg.kind==='door'?'PORTA':'JANELA');
@@ -421,8 +437,8 @@ export class MultiplayerClient {
   }
   updateScore(){
     if(!this.connected)return;
-    byId('mp-count').textContent=this.players.length+'/8';
-    byId('mp-roster-count').textContent=this.players.length+'/8';
+    const cap=this.roomMode==='coop'?4:8;byId('mp-count').textContent=this.players.length+'/'+cap;
+    byId('mp-roster-count').textContent=this.players.length+'/'+cap;
     const sorted=[...this.players].sort((a,b)=>b.kills-a.kills);
     byId('mp-scores').replaceChildren(...sorted.map(p=>{
       const item=document.createElement('div');item.setAttribute('role','listitem');item.textContent=`${p.id===this.id?'VOCÊ':p.name} · ${p.kills} eliminações`;
@@ -457,7 +473,33 @@ export class MultiplayerClient {
       if(o.isSprite){o.material?.map?.dispose();o.material?.dispose();}
     });
   }
-  removeAll(){for(const id of [...this.others.keys()])this.removeRemote(id);for(const id of [...this.decoys.keys()])this.removeDecoy(id);this.players=[];}
+  applyCoopState(state){
+    if(this.roomMode!=='coop')return;
+    this.coopState=state;
+    const labels={waiting:'AGUARDANDO ESQUADRÃO',defend:'DEFENDER O PERÍMETRO',recon:'RECONHECIMENTO · SNIPER',sabotage:'SABOTAGEM · BOMBER',boss:'ELIMINAR O TITÃ',extract:'EXTRAÇÃO · REUNIR TODOS',victory:'MISSÃO CONCLUÍDA'};
+    this.game.campaign.active=false;
+    this.game.world.spawnPoints=this.game.urban.spawnPoints;
+    byId('objective').textContent=labels[state.phase]||'OPERAÇÃO SQUAD';
+    byId('mission-id').textContent='SQUAD COOP · SALA '+this.room;
+    byId('chapter-label').textContent=state.phase==='waiting'?'AGUARDANDO '+state.waiting+' JOGADORES':String(state.phase||'').toUpperCase();
+    byId('wave-progress').style.width=(state.phase==='defend'?100*(1-(state.defense||0)/29):state.progress||0)+'%';
+    byId('mission-progress-label').textContent=state.phase==='defend'?`PERÍMETRO ${state.integrity}%`:String(state.phase||'').toUpperCase();
+    if(state.phase==='victory'&&!this.coopVictoryShown){this.coopVictoryShown=true;this.game.toast('MISSÃO COOPERATIVA CONCLUÍDA · TITÃ NEUTRALIZADO');}
+    const existing=new Set();
+    for(const unit of state.enemies||[]){
+      existing.add(unit.id);let enemy=this.coopEntities.get(unit.id);
+      if(!enemy){enemy=this.game.enemies.spawn(unit.type,[unit.x,unit.z],1);this.coopEntities.set(unit.id,enemy);}
+      const dx=unit.x-enemy.x,dz=unit.z-enemy.z;enemy.lastMoving=Math.hypot(dx,dz)>.03?1:0;
+      enemy.x=unit.x;enemy.z=unit.z;enemy.group.position.set(unit.x,0,unit.z);
+      enemy.hp=unit.hp;enemy.maxHp=unit.maxHp;enemy.bar.scale.x=Math.max(0,unit.hp/Math.max(1,unit.maxHp));
+      enemy.bar.position.x=-(1-enemy.bar.scale.x)*.925*enemy.cfg.scale;
+    }
+    for(const [id,enemy] of this.coopEntities)if(!existing.has(id))this.removeCoopEnemy(id);
+  }
+  removeCoopEnemy(id){const e=this.coopEntities.get(id);if(!e)return;this.game.world.scene.remove(e.group);this.game.enemies.disposeEnemy(e);const index=this.game.enemies.enemies.indexOf(e);if(index!==-1)this.game.enemies.enemies.splice(index,1);this.coopEntities.delete(id);}
+  clearCoopEnemies(){for(const id of [...this.coopEntities.keys()])this.removeCoopEnemy(id);this.coopState=null;this.coopVictoryShown=false;}
+  coopObjectiveLabel(){const s=this.coopState;if(!s)return 'AGUARDANDO O ESQUADRÃO';return {waiting:`AGUARDANDO ${s.waiting} INTEGRANTES`,defend:`DEFENDA O PERÍMETRO · ${s.defense}S`,recon:`SNIPER · RECONHECIMENTO ${s.progress}%`,sabotage:`BOMBER · SABOTAGEM ${s.progress}%`,boss:'ELIMINE O TITÃ',extract:`EXTRAÇÃO · ${s.progress}%`,victory:'MISSÃO CONCLUÍDA'}[s.phase]||'OPERAÇÃO SQUAD';}
+  removeAll(){this.clearCoopEnemies();for(const id of [...this.others.keys()])this.removeRemote(id);for(const id of [...this.decoys.keys()])this.removeDecoy(id);this.players=[];}
   syncState(){
     const pk=this.game.parkour;
     if(this.game.powers?.motion?.hasDash())return;
@@ -479,6 +521,10 @@ export class MultiplayerClient {
       item.group.position.lerp(item.target,Math.min(1,dt*13));
       animateOperative(item.group.userData.body,dt,{moving:Math.min(1,delta/Math.max(.01,dt*6)),distance:Math.hypot(item.group.position.x-this.game.player.x,item.group.position.z-this.game.player.z)});
     }}
+    if(this.roomMode==='coop')for(const enemy of this.coopEntities.values()){
+      animateOperative(enemy.body,dt,{moving:enemy.lastMoving||0,distance:Math.hypot(enemy.x-this.game.player.x,enemy.z-this.game.player.z)});
+      const cam=this.game.world.camera.getWorldPosition(new THREE.Vector3());enemy.bar.lookAt(cam);enemy.barBg.lookAt(cam);
+    }
     // Keepalive now runs on a separate timer; do not depend on the render loop.
     for(const entry of this.others.values()){
       entry.flash=Math.max(0,entry.flash-dt);entry.group.userData.flash.visible=entry.flash>0;

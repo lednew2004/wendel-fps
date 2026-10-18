@@ -1,4 +1,5 @@
-import {MOBA_BASES} from './mobaLayout.js';
+import {SQUAD_START,ROLE_INFO,roleForHero} from './squadLayout.js';
+import {SquadAI} from './squadAI.js';
 import * as THREE from 'three';
 import {HeroSelection} from './heroSelection.js';
 import {heroLoadout,heroById} from './heroRoster.js';
@@ -24,10 +25,10 @@ const num=n=>String(Math.floor(n)).padStart(6,'0');
 export class Game {
   constructor(){
     this.world=new World(el('viewport'));this.audio=new AudioEngine();this.clock=new THREE.Clock();this.look=new LookController();this.state='menu';this.keys={};this.mouseDown=false;this.rightDown=false;this.yaw=0;this.pitch=0;this.sensitivity=1;this.invertY=false;this.grenadeCd=0;this.fps=60;this.fpsTick=0;this.fpsCount=0;this.damageFlash=0;this.hitmarkTimer=0;this.toastTimer=0;this.calloutTimer=0;this.uiTick=0;this.radarTick=0;this.animTime=0;this.fx=[];this.pendingSpawns=[];this.spawnTimer=0;this.waveCount=0;this.waveKilled=0;this.wave=0;this.score=0;this.kills=0;this.combo=0;this.comboTimer=0;this.best=this.loadBest();this.player={x:0,z:13,eyeY:PLAYER_HEIGHT,radius:.48,health:100,maxHealth:100,shield:60,maxShield:60,lastDamage:0,velY:0,jump:0,moveX:0,moveZ:0,dashCd:0,pulseCd:0,dashDuration:0,slideDuration:0,invulnerable:0,speedBonus:1,killsHeal:0,dashFactor:1};
-    this.enemies=new EnemySystem(this.world,this.audio,{onKill:e=>this.onEnemyKill(e),onPlayerHit:(d,p)=>this.takeDamage(d,p),onPickup:t=>this.pickup(t),onSummon:n=>{this.waveCount+=n;this.toast('REFORÇOS HOSTIS!');},onBossWarning:()=>this.toast('ALERTA: ONDA DE CHOQUE — AFASTE-SE!')});
+    this.enemies=new EnemySystem(this.world,this.audio,{onKill:e=>this.onEnemyKill(e),onPlayerHit:(d,p)=>this.takeDamage(d,p),onAllyHit:(ally,damage)=>this.squad?.damage(ally,damage),onPickup:t=>this.pickup(t),onSummon:n=>{this.waveCount+=n;this.toast('REFORÇOS HOSTIS!');},onBossWarning:()=>this.toast('ALERTA: ONDA DE CHOQUE — AFASTE-SE!')});
     this.ordnance=new Ordnance(this.world,this.audio,this.enemies);
     this.weapons=new Weapons(this.world,this.audio,{onRay:(origin,dir,damage,range,weapon)=>this.shootRay(origin,dir,damage,range,weapon),onHitmarker:k=>this.hitmarker(k),onFire:()=>{this.thirdPerson?.emitFire();if(this.mode==='multiplayer')this.multiplayer?.fire();},onWeaponChanged:()=>this.updateHud()});
-    this.fpsLimit=0;this.lastDraw=0;this.mode='campaign';this.campaign=new Campaign(this);this.urban=new UrbanCity(this.world);this.world.city=this.urban;this.world.spawnPoints=this.urban.spawnPoints;this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.parkour=new ParkourController(this,this.urban);this.adaptiveFPS=true;this.lowFPSTime=0;this.highFPSTime=0;this.cityTick=0;this.nativeScale=1;this.mobile=new MobileControls(this);this.multiplayer=new MultiplayerClient(this);this.powers=new PowerSystem(this);this.heroSelection=new HeroSelection(this);this.thirdPerson=new ThirdPersonCamera(this);this.weapons.setHeroAccent(heroById(this.heroSelection.selectedHero).color);this.powers.loadout=heroLoadout(this.heroSelection.selectedHero);this.powers.menuLoadout=[...this.powers.loadout];this.powers.refreshButtons();
+    this.fpsLimit=0;this.lastDraw=0;this.mode='campaign';this.campaign=new Campaign(this);this.urban=new UrbanCity(this.world);this.world.city=this.urban;this.world.spawnPoints=this.urban.spawnPoints;this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.parkour=new ParkourController(this,this.urban);this.adaptiveFPS=true;this.lowFPSTime=0;this.highFPSTime=0;this.cityTick=0;this.nativeScale=1;this.mobile=new MobileControls(this);this.multiplayer=new MultiplayerClient(this);this.powers=new PowerSystem(this);this.heroSelection=new HeroSelection(this);this.thirdPerson=new ThirdPersonCamera(this);this.squad=new SquadAI(this);this.weapons.setHeroAccent(heroById(this.heroSelection.selectedHero).color);this.powers.loadout=heroLoadout(this.heroSelection.selectedHero);this.powers.menuLoadout=[...this.powers.loadout];this.powers.refreshButtons();
     if(this.mobile.enabled){
       // Coarse-pointer phones default to lean rendering while all PC presets remain available.
       this.world.setQuality('low');
@@ -82,9 +83,10 @@ export class Game {
       if(e.code==='Digit1'){e.preventDefault();this.powers.useSlot(0);}
       if(e.code==='Digit2'){e.preventDefault();this.powers.useSlot(1);}
       if(e.code==='Digit3'){e.preventDefault();this.powers.useSlot(2);}
-      if(e.code==='Digit4'||e.code==='KeyF')this.weapons.switchTo((this.weapons.index+1)%this.weapons.state.length);
+      if(e.code==='Digit4'||e.code==='KeyF')this.cycleWeapon();
       if(e.code==='KeyQ')this.pulse();
-      if(e.code==='KeyG')this.grenade();
+      if(e.code==='KeyG'){if(this.mode==='campaign')this.squad.toggleOrders();else this.grenade();}
+      if(e.code==='KeyH'&&this.mode==='campaign')this.grenade();
       if(e.code==='KeyX')this.dash();
       if(e.code==='KeyV'){e.preventDefault();this.thirdPerson.toggle();this.toast(this.thirdPerson.mode==='third'?'CÂMERA · TERCEIRA PESSOA':'CÂMERA · PRIMEIRA PESSOA');}
 
@@ -92,7 +94,7 @@ export class Game {
     },true);
     window.addEventListener('keyup',e=>{if(handlePowerWheelTab(e,this.state,this.powers?.menu?.mode,document.activeElement)){this.keys.Tab=false;return;}this.keys[e.code]=false;},true);window.addEventListener('blur',()=>{if(this.state==='playing')this.pause();});
     document.addEventListener('mousemove',e=>{if(this.state!=='playing'||document.pointerLockElement!==this.world.renderer.domElement)return;if(this.look.move(e.movementX,this.invertY?-e.movementY:e.movementY,this.sensitivity)){this.positionCamera();}});
-    const canvas=this.world.renderer.domElement;canvas.addEventListener('mousedown',e=>{if(this.mobile?.enabled)return;if(this.state!=='playing')return;if(document.pointerLockElement!==canvas){this.requestLock();return;}if(e.button===0){if(this.powers?.targeting){this.powers.confirmTeleport();return;}this.mouseDown=true;}if(e.button===2)this.rightDown=true;});document.addEventListener('mouseup',e=>{if(e.button===0)this.mouseDown=false;if(e.button===2)this.rightDown=false;});document.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{if(this.state==='playing'){e.preventDefault();this.weapons.switchTo((this.weapons.index+(e.deltaY>0?1:this.weapons.state.length-1))%this.weapons.state.length);}}, {passive:false});
+    const canvas=this.world.renderer.domElement;canvas.addEventListener('mousedown',e=>{if(this.mobile?.enabled)return;if(this.state!=='playing')return;if(document.pointerLockElement!==canvas){this.requestLock();return;}if(e.button===0){if(this.powers?.targeting){this.powers.confirmTeleport();return;}this.mouseDown=true;}if(e.button===2)this.rightDown=true;});document.addEventListener('mouseup',e=>{if(e.button===0)this.mouseDown=false;if(e.button===2)this.rightDown=false;});document.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{if(this.state==='playing'){e.preventDefault();this.cycleWeapon(e.deltaY>0?1:-1);}}, {passive:false});
     document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement===canvas){this.look.onLock(performance.now());this.positionCamera();}else if(this.state==='playing'&&!this.mobile?.enabled){this.pause();}});
     document.addEventListener('visibilitychange',()=>{if(document.hidden&&this.state==='playing')this.pause();});
     const rs=el('radar');this.radarCtx=rs.getContext('2d');
@@ -110,13 +112,13 @@ export class Game {
     el('parkour-hud').classList.toggle('hidden',!inGame);
     el('titan-power-picker').classList.toggle('hidden',!inGame);
     el('hud').classList.toggle('hidden',!inGame);
-    this.mobile?.sync();
+    this.mobile?.sync();this.squad?.syncUI();
   }
   start(mode='campaign',index=this.campaign.index){
     this.mode=mode;
     this.powers.reset();
     this.powers.startRun(mode);
-    this.campaign.disposeSector();
+    this.campaign.disposeSector();this.squad.clear();
     this.audio.unlock();this.hideScreens();
     this.enemies.clear();this.ordnance.clear();this.ordnance.damageMultiplier=1;
     this.world.resetBarrels();this.urban.resetInteractions();this.weapons.clearTracers();this.weapons.reset();this.weapons.switchTo(this.heroSelection?.weapon??0);
@@ -124,10 +126,10 @@ export class Game {
     this.keys={};this.mouseDown=false;this.rightDown=false;this.look.reset();
     this.grenadeCd=0;this.wave=0;this.score=0;this.kills=0;this.combo=0;this.comboTimer=0;
     this.pendingSpawns=[];this.spawnTimer=0;this.animTime=0;
-    Object.assign(this.player,{x:MOBA_BASES.blue.x,z:MOBA_BASES.blue.z,eyeY:PLAYER_HEIGHT,health:100,maxHealth:100,shield:60,maxShield:60,lastDamage:-100,velY:0,jump:0,moveX:0,moveZ:0,dashCd:0,pulseCd:0,dashDuration:0,slideDuration:0,invulnerable:0,speedBonus:1,killsHeal:0,dashFactor:1});
+    Object.assign(this.player,{x:SQUAD_START.x,z:SQUAD_START.z,eyeY:PLAYER_HEIGHT,health:100,maxHealth:100,shield:60,maxShield:60,lastDamage:-100,velY:0,jump:0,moveX:0,moveZ:0,dashCd:0,pulseCd:0,dashDuration:0,slideDuration:0,invulnerable:0,speedBonus:1,killsHeal:0,dashFactor:1});
     this.world.setUrbanMode(true);
     this.world.spawnPoints=this.urban.spawnPoints;
-    this.parkour.startCombat(MOBA_BASES.blue.x,MOBA_BASES.blue.z);
+    this.parkour.startCombat(SQUAD_START.x,SQUAD_START.z);
     this.setState('playing');this.powers.updateEconomyHUD();el('power-hud').classList.remove('hidden');
     if(mode==='campaign'){
       this.campaign.applyArmory();this.campaign.configure(index);
@@ -136,7 +138,7 @@ export class Game {
       this.campaign.active=false;document.body.dataset.sector='0';
       this.pendingSpawns=[];this.enemies.clear();el('wave').classList.add('hidden');
       this.player.maxShield=40;this.player.shield=40;
-      el('objective').textContent='DERROTE O TIME ADVERSÁRIO';
+      el('objective').textContent='TODOS CONTRA TODOS · ELIMINAÇÕES';
     }else{
       this.campaign.active=false;document.body.dataset.sector='0';
       this.beginWave();
@@ -153,6 +155,14 @@ export class Game {
   waveComplete(){if(this.state!=='playing')return;this.setState('upgrade');this.mouseDown=false;this.rightDown=false;if(document.pointerLockElement)document.exitPointerLock();const options=[...UPGRADES].sort(()=>Math.random()-.5).slice(0,3);el('upgrade-choices').replaceChildren();for(const opt of options){const b=document.createElement('button');b.type='button';b.className='upgrade-choice';b.innerHTML=`<span class="upgrade-icon">${opt.icon}</span><small>${opt.tag}</small><strong>${opt.name}</strong><p>${opt.desc}</p>`;b.addEventListener('click',()=>this.applyUpgrade(opt.id));el('upgrade-choices').appendChild(b);}el('upgrade-screen').classList.remove('hidden');this.audio.play('pickup');}
   applyUpgrade(id){const p=this.player,w=this.weapons;if(id==='damage')w.damageMultiplier*=1.25;if(id==='speed')p.speedBonus*=1.17;if(id==='health'){p.maxHealth+=25;p.health=p.maxHealth;}if(id==='shield'){p.maxShield+=25;p.shield=p.maxShield;}if(id==='rapid')w.fireMultiplier*=1.14;if(id==='heal')p.killsHeal+=8;if(id==='ammo')for(const [i,s] of w.state.entries())s.reserve+=Math.ceil(WEAPONS[i].reserve*.5);if(id==='dash')p.dashFactor*=.7;if(id==='grenade')this.ordnance.damageMultiplier*=1.28;
     this.hideScreens();this.setState('playing');this.beginWave();this.requestLock();}
+  cycleWeapon(direction=1){
+    const squadMatch=this.mode==='campaign'||this.mode==='survival'||(this.mode==='multiplayer'&&this.multiplayer?.roomMode==='coop');
+    const allowed=squadMatch?ROLE_INFO[roleForHero(this.heroSelection?.selectedHero)]?.weapons:[0,1,2,3];
+    if(!allowed?.length)return;
+    const current=allowed.indexOf(this.weapons.index);
+    const next=allowed[((current<0?0:current)+ (direction<0?-1:1)+allowed.length)%allowed.length];
+    this.weapons.switchTo(next);
+  }
   grenade(){if(this.mode==='multiplayer')return;if(this.state!=='playing'||this.grenadeCd>0)return;this.grenadeCd=7.5;this.ordnance.throw(this.thirdPerson?.mode==='third'?this.world.cameraPitch:this.world.camera);this.toast('GRANADA DE PLASMA LANÇADA');}
   dash(){const p=this.player;if(this.state!=='playing'||p.dashCd>0||this.powers.frozen())return;p.dashDuration=.21;p.invulnerable=.26;p.dashCd=Math.max(2.5,4.8*p.dashFactor);if(this.mode==='multiplayer')this.multiplayer.send({type:'dash'});this.audio.play('dash');this.parkour.tacticalDash();this.toast('DASH · RECARGA '+p.dashCd.toFixed(1)+'S');}
   pulse(){if(this.mode==='multiplayer')return;const p=this.player;if(this.state!=='playing'||p.pulseCd>0)return;p.pulseCd=12;const center=new THREE.Vector3(p.x,1.1,p.z);const ring=new THREE.Mesh(new THREE.TorusGeometry(1,.08,8,90),new THREE.MeshBasicMaterial({color:0x73fff0,transparent:true,opacity:1,depthWrite:false}));ring.position.copy(center);ring.rotation.x=Math.PI/2;this.world.scene.add(ring);this.fx.push({mesh:ring,life:.65,max:.65,type:'ring'});for(const e of [...this.enemies.enemies]){const dist=Math.hypot(e.x-p.x,e.z-p.z);if(dist<13){const scale=1-dist/18;const k=this.enemies.damage(e,120*scale*this.weapons.damageMultiplier,new THREE.Vector3(e.x,e.y,e.z),'pulse');if(!k){const dx=(e.x-p.x)/Math.max(.1,dist),dz=(e.z-p.z)/Math.max(.1,dist),nx=e.x+dx*3,nz=e.z+dz*3;if(this.world.canMove(nx,nz,e.radius)) {e.x=nx;e.z=nz;}}}}this.audio.play('pulse');this.toast('PULSO ELETROMAGNÉTICO · ÁREA LIMPA');}
@@ -211,8 +221,8 @@ export class Game {
     if(this.mode==='multiplayer')for(const entry of this.multiplayer.others.values()){const dx=entry.group.position.x-this.player.x,dz=entry.group.position.z-this.player.z;const rx=cx+(dx*Math.cos(this.yaw)-dz*Math.sin(this.y))*scale,ry=cy+(dx*Math.sin(this.y)+dz*Math.cos(this.y))*scale;if(Math.hypot(rx-cx,ry-cy)<78){ctx.fillStyle='#ff956a';ctx.beginPath();ctx.arc(rx,ry,4,0,Math.PI*2);ctx.fill();}}
     ctx.fillStyle='#72ffde';ctx.beginPath();ctx.moveTo(cx,cy-7);ctx.lineTo(cx-4,cy+6);ctx.lineTo(cx+4,cy+6);ctx.closePath();ctx.fill();}
   updateHud(){if(!this.weapons)return;const p=this.player,w=this.weapons,s=w.ammo;el('health-number').textContent=Math.ceil(p.health);el('health-bar').style.width=(p.health/p.maxHealth*100)+'%';el('health-number').nextElementSibling.textContent='/'+Math.ceil(p.maxHealth);el('shield-number').textContent=Math.ceil(p.shield);el('shield-bar').style.width=(p.shield/p.maxShield*100)+'%';el('wave').textContent=fmt(this.wave);el('hostiles').textContent=fmt(this.enemies.count()+this.pendingSpawns.length);el('wave-progress').style.width=(this.waveCount?this.waveKilled/this.waveCount*100:0)+'%';el('score').textContent=num(this.score);el('weapon-name').textContent=w.def.name;el('weapon-sub').textContent=w.def.sub;el('weapon-type').textContent=w.def.type;el('ammo').textContent=fmt(s.clip);el('reserve').textContent=s.reserve;el('combo').textContent=this.combo>2?'COMBO ×'+this.combo:'';
-    const dashReady=1-p.dashCd/Math.max(2.5,4.8*p.dashFactor),pulseReady=1-p.pulseCd/12;el('grenade-fill').style.width=(100*Math.max(0,1-this.grenadeCd/7.5))+'%';el('grenade-label').textContent=this.grenadeCd>0?this.grenadeCd.toFixed(1)+' S':'PRONTO';el('grenade-ui').classList.toggle('cooling',this.grenadeCd>0);el('dash-fill').style.width=(Math.max(0,dashReady)*100)+'%';el('pulse-fill').style.width=(Math.max(0,pulseReady)*100)+'%';el('dash-label').textContent=p.dashCd>0?p.dashCd.toFixed(1)+' S':'PRONTO';el('pulse-label').textContent=p.pulseCd>0?p.pulseCd.toFixed(1)+' S':'PRONTO';el('dash-ui').classList.toggle('cooling',p.dashCd>0);el('pulse-ui').classList.toggle('cooling',p.pulseCd>0);if(this.mode==='multiplayer'){el('objective').textContent='DERROTE O TIME ADVERSÁRIO';el('hostiles').textContent=fmt(Math.max(0,this.multiplayer.players.length-1));}else if(this.mode!=='campaign')el('objective').textContent=this.wave%4===0?'NEUTRALIZE O COLOSSUS':'ELIMINE OS HOSTIS';document.body.classList.toggle('reloading',this.state==='playing'&&w.reloadTime>0);
-    const boss=this.enemies.enemies.find(e=>e.boss);el('boss-hud').classList.toggle('hidden',!boss);if(boss)el('boss-fill').style.width=Math.max(0,boss.hp/boss.maxHp*100)+'%';if(this.mode==='campaign'&&this.campaign.active)this.campaign.refreshHUD();else if(this.mode==='multiplayer'){el('mission-id').textContent='MULTIPLAYER · SALA '+this.multiplayer.room;el('chapter-label').textContent='PVP ONLINE';el('wave').classList.add('hidden');el('mission-progress-label').textContent='JOGADORES';}else{el('mission-id').textContent='MODO SOBREVIVÊNCIA';el('chapter-label').textContent='ONDA';el('wave').classList.remove('hidden');el('mission-progress-label').textContent='ONDA';}}
+    const dashReady=1-p.dashCd/Math.max(2.5,4.8*p.dashFactor),pulseReady=1-p.pulseCd/12;el('grenade-fill').style.width=(100*Math.max(0,1-this.grenadeCd/7.5))+'%';el('grenade-label').textContent=this.grenadeCd>0?this.grenadeCd.toFixed(1)+' S':'PRONTO';el('grenade-ui').classList.toggle('cooling',this.grenadeCd>0);el('dash-fill').style.width=(Math.max(0,dashReady)*100)+'%';el('pulse-fill').style.width=(Math.max(0,pulseReady)*100)+'%';el('dash-label').textContent=p.dashCd>0?p.dashCd.toFixed(1)+' S':'PRONTO';el('pulse-label').textContent=p.pulseCd>0?p.pulseCd.toFixed(1)+' S':'PRONTO';el('dash-ui').classList.toggle('cooling',p.dashCd>0);el('pulse-ui').classList.toggle('cooling',p.pulseCd>0);if(this.mode==='multiplayer'){el('objective').textContent=this.multiplayer.roomMode==='coop'?this.multiplayer.coopObjectiveLabel():'TODOS CONTRA TODOS · ELIMINAÇÕES';el('hostiles').textContent=fmt(this.multiplayer.roomMode==='coop'?this.multiplayer.coopState?.enemies?.length||0:Math.max(0,this.multiplayer.players.length-1));}else if(this.mode!=='campaign')el('objective').textContent=this.wave%4===0?'NEUTRALIZE O COLOSSUS':'ELIMINE OS HOSTIS';document.body.classList.toggle('reloading',this.state==='playing'&&w.reloadTime>0);
+    const boss=this.enemies.enemies.find(e=>e.boss);el('boss-hud').classList.toggle('hidden',!boss);if(boss)el('boss-fill').style.width=Math.max(0,boss.hp/boss.maxHp*100)+'%';if(this.mode==='campaign'&&this.campaign.active)this.campaign.refreshHUD();else if(this.mode==='multiplayer'){el('mission-id').textContent='MULTIPLAYER · SALA '+this.multiplayer.room;el('chapter-label').textContent=this.multiplayer.roomMode==='coop'?'COOP · OPERAÇÃO':'PVP · TODOS CONTRA TODOS';el('wave').classList.add('hidden');el('mission-progress-label').textContent='JOGADORES';}else{el('mission-id').textContent='MODO SOBREVIVÊNCIA';el('chapter-label').textContent='ONDA';el('wave').classList.remove('hidden');el('mission-progress-label').textContent='ONDA';}}
   dieFxUpdate(dt){for(let i=this.fx.length-1;i>=0;i--){const f=this.fx[i];f.life-=dt;const t=1-f.life/f.max;if(f.type==='ring'){const s=1+t*12;f.mesh.scale.set(s,s,s);f.mesh.material.opacity=Math.max(0,1-t);}if(f.life<=0){this.world.scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();this.fx.splice(i,1);}}}
   updateCombatTimers(dt){
     const p=this.player;
@@ -255,8 +265,8 @@ export class Game {
       const moving=Math.hypot(this.parkour.vx,this.parkour.vz)>1;
       this.weapons.update(dt,moving,this.rightDown);
       if(this.mouseDown&&!this.powers.frozen()&&!this.powers.targeting&&!this.powers.isActive('phase')&&(this.mode!=='multiplayer'||this.multiplayer.alive)&&(this.mobile?.enabled||document.pointerLockElement===this.world.renderer.domElement)){if(this.mode!=='multiplayer'&&this.powers.isActive('invisible'))this.powers.status.invisible=0;if(this.mode!=='multiplayer'&&this.powers.isActive('morph'))this.powers.cancelMorph();this.weapons.fire();}
-      if(this.mode!=='multiplayer'){this.enemies.decoys=this.powers.decoys;this.enemies.hiddenPlayer=this.powers.isActive('invisible');this.enemies.update(dt,this.player,this.wave);this.ordnance.update(dt);}
-      if(this.mode==='campaign')this.campaign.update(dt);
+      if(this.mode!=='multiplayer'){this.enemies.decoys=this.powers.decoys;this.enemies.hiddenPlayer=this.powers.isActive('invisible');this.enemies.allies=this.mode==='campaign'?this.squad.members:[];this.enemies.update(dt,this.player,this.wave);this.ordnance.update(dt);}
+      if(this.mode==='campaign'){this.squad.update(dt);this.campaign.update(dt);}
       if(this.state==='playing'&&this.mode!=='multiplayer'){if(this.pendingSpawns.length){this.spawnTimer-=dt;if(this.spawnTimer<=0&&this.enemies.count()<7){this.enemies.spawnAt(this.pendingSpawns.shift(),this.player,this.wave);this.spawnTimer=rand(.65,1.3);}}else if(this.enemies.count()===0){if(this.mode==='campaign'){if(this.campaign.phase==='clear'||this.campaign.phase==='boss')this.campaign.onCleared();}else this.waveComplete();}
         this.uiTick-=dt;if(this.uiTick<=0){this.updateHud();this.uiTick=.095;}this.radarTick-=dt;if(this.radarTick<=0){this.updateRadar();this.radarTick=.12;}}
       else if(this.state==='playing'){this.uiTick-=dt;if(this.uiTick<=0){this.updateHud();this.uiTick=.15;}this.radarTick-=dt;if(this.radarTick<=0){this.updateRadar();this.radarTick=.2;}}

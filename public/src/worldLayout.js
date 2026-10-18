@@ -1,4 +1,5 @@
-import {protectedRoute} from './mobaLayout.js';
+// Legacy housing data retained for compatibility with offline asset tools. Not loaded into Squad Operations.
+const protectedRoute=()=>false;
 /** Deterministic extension shared by the browser renderer and authoritative Node server.
  * Coordinates are in meters; no Three.js dependency. */
 export const WORLD_HALF = 219;

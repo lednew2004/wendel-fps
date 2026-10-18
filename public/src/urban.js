@@ -1,5 +1,5 @@
-import {createMobaWorld} from './mobaWorld.js';
-import {protectedRoute,preferredEnemySpawns} from './mobaLayout.js';
+import {createSquadWorld} from './squadWorld.js';
+import {SQUAD_ENEMY_SPAWNS} from './squadLayout.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {solidBlocksCapsule,standHeight,intersectLanding} from './parkourPhysics.js';
@@ -26,10 +26,9 @@ export class UrbanCity {
       road:color(0x59636b),white:color(0xfff3e4),green:color(0x67c973)
     };
     this.build();
-    this.expansion=new UrbanExpansion(this);
+    this.expansion={update(){},reset(){},nearby(){return null;},setState(){return false;}};
     this.makeFuelDrums();
-    this.moba=createMobaWorld(this);
-    this.spawnPoints=preferredEnemySpawns();
+    this.spawnPoints=SQUAD_ENEMY_SPAWNS.map(p=>[...p]);
   }
   box(x,y,z,w,h,d,mat,shadow=true,parent=null){
     const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
@@ -163,69 +162,8 @@ export class UrbanCity {
     }
   }
   build(){
-    const sky=new THREE.Mesh(new THREE.SphereGeometry(380,24,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,vertexShader:'varying vec3 v;void main(){v=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec3 v;void main(){float h=clamp(v.y/380.*.5+.5,0.,1.);gl_FragColor=vec4(mix(vec3(.89,.94,1.),vec3(.19,.53,.93),pow(h,1.25)),1.);}' }));
-    this.root.add(sky);
-    const floor=new THREE.Mesh(new THREE.PlaneGeometry(298,298),this.materials.asphalt);
-    floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;this.root.add(floor);
-    const edgeMat=this.materials.curb;
-    for(let x=-120;x<=120;x+=30){
-      this.box(x,.085,0,2.0,.17,284,edgeMat,false);
-      const stripe=this.box(x,.12,0,.18,.01,280,this.materials.white,false);
-    }
-    for(let z=-120;z<=120;z+=30){
-      this.box(0,.085,z,284,.17,2.0,edgeMat,false);
-      this.box(0,.12,z,280,.01,.16,this.materials.white,false);
-    }
-    // Routes with reachable 3–5m roof gaps and step-ups of at most 1.5m.
-    const a=[[-100,-72,5.2],[-86,-72,6.25],[-72,-72,7.32],[-58,-72,8.35]].map(([x,z,h])=>this.addBuilding(x,z,10.2,10.2,h,0xb0c5e2));
-    const b=[[-27,36,6.4],[-13,36,7.7],[1,36,8.95],[15,36,10.0]].map(([x,z,h])=>this.addBuilding(x,z,10.2,10.2,h,0xe8b87e));
-    const c=[[54,-25,9],[68,-25,10.55],[82,-25,12.05],[96,-25,13.45]].map(([x,z,h])=>this.addBuilding(x,z,10.2,10.2,h,0x8fc8ac));
-    this.addFireEscape(a[0]);this.addFireEscape(b[0]);this.addFireEscape(c[0]);
-    this.makeCourse('TELHADOS DO DISTRITO',1,a,[-100,-85]);
-    this.makeCourse('TRAVESSIA INDUSTRIAL',2,b,[-27,21]);
-    this.makeCourse('LINHA DO HORIZONTE',3,c,[54,-40]);
-    // Regular blocks, purposely keep authored parkour lanes unobstructed.
-    for(let gx=-116;gx<=116;gx+=29){for(let gz=-112;gz<=116;gz+=29){
-      if(Math.abs(gz+72)<20 && gx>-116 && gx<-43)continue;
-      if(Math.abs(gz-36)<20 && gx>-44 && gx<31)continue;
-      if(Math.abs(gz+25)<20 && gx>40 && gx<111)continue;
-      if(Math.abs(gx)<15 && gz>78)continue;
-      if(Math.abs(gx)<17 && gz>-20&&gz<18)continue;
-      if(protectedRoute(gx,gz))continue;
-      const seed=(gx*13+gz*17)|0;
-      const h=6+Math.abs(seed%5)*2.0;
-      const w=12+(Math.abs(gx+gz)%4),d=12+(Math.abs(gx-gz)%5);
-      this.addBuilding(gx,gz,w,d,h,[0xedaa86,0x8cbfd3,0xd4b28a,0x91caa8,0xc8a4d2,0xe4b692][Math.abs(seed)%6],Math.abs(seed)%4===0);
-    }}
-    if(!protectedRoute(0,102))this.addInterior(0,102,21,18,9);
-    // Accessible ramp / stair platform adjacent to the city park.
-    if(!protectedRoute(-8,0)){this.rayTargets.push(this.box(-8,4.1,0,10,.28,10,this.materials.roof));this.addSurface(-8,0,10,10,4.24);this.makeStaircase({x:-8,z:-9,from:0,to:4.24,length:13,width:3.2});}
-    for(const [x,z] of [[-108,-100],[-50,7],[23,-45],[42,72],[109,44]])this.addLowWall(x,z,5.0,.8,1.15);
-    // Instanced facade windows, a lot fewer draw calls than per-window meshes.
-    const winGeometry=new THREE.PlaneGeometry(1.25,1.65);
-    const inst=new THREE.InstancedMesh(winGeometry,this.materials.glass,Math.min(6500,this.solids.length*100));
-    const dummy=new THREE.Object3D();let n=0;
-    for(const s of this.solids){
-      if(s.maxY<5.0||s.minY>0.1||s.hx<4||s.hz<4)continue;
-      const floors=Math.floor((s.maxY-.6)/3.2);
-      for(let fy=0;fy<floors;fy++){
-        const y=fy*3.2+2.2;
-        for(const side of [-1,1]){
-          for(let k=-s.hx+2.1;k<s.hx-1;k+=3.05){
-            dummy.position.set(s.x+k,y,s.z+side*(s.hz+.025));dummy.rotation.set(0,side===1?0:Math.PI,0);dummy.updateMatrix();inst.setMatrixAt(n++,dummy.matrix);
-          }
-          for(let k=-s.hz+2.1;k<s.hz-1;k+=3.05){
-            dummy.position.set(s.x+side*(s.hx+.025),y,s.z+k);dummy.rotation.set(0,side*Math.PI/2,0);dummy.updateMatrix();inst.setMatrixAt(n++,dummy.matrix);
-          }
-        }
-      }
-    }
-    inst.count=n;inst.instanceMatrix.needsUpdate=true;inst.castShadow=false;this.root.add(inst);
-    // Street fixtures instanced
-    const postGeo=new THREE.CylinderGeometry(.11,.13,7.5,7),postMat=this.materials.steel;
-    const post=new THREE.InstancedMesh(postGeo,postMat,64);let count=0;
-    for(let x=-120;x<=120;x+=30)for(let z=-120;z<=120;z+=30){if(count>=64)break;dummy.position.set(x+5,3.75,z+4);dummy.rotation.set(0,0,0);dummy.updateMatrix();post.setMatrixAt(count++,dummy.matrix);}
-    post.count=count;this.root.add(post);
+    this.squad=createSquadWorld(this);
+    // Modest procedural props keep the map alive without hundreds of urban chunks.
     this.loadProps();
   }
   makeFuelDrums(){

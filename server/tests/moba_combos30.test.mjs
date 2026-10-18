@@ -1,24 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
-import {MOBA_BASES,MOBA_LANES,JUNGLE_CAMPS,protectedRoute,distanceToLane} from '../../public/src/mobaLayout.js';
+import {SQUAD_START,SQUAD_POINTS,SQUAD_BLOCKS,SQUAD_ROLES,ROLE_INFO,FFA_SPAWNS} from '../../public/src/squadLayout.js';
 import {HEROES,heroLoadout,heroAllows} from '../../public/src/heroRoster.js';
 import {COMBO_IDS,dashVector,orbitLocation} from '../../public/src/heroCombos.js';
 import {POWER_RULES} from '../powers.mjs';
 import {readFileSync} from 'node:fs';
 
-test('MOBA has 3 continuous paths, jungle camps, separate bases, and safe collision routes',()=>{
- assert.deepEqual(Object.keys(MOBA_LANES).sort(),['adc','mid','top']);
- assert.equal(JUNGLE_CAMPS.length,6);
- for(const [name,pts] of Object.entries(MOBA_LANES)){
-  assert.ok(pts.length>=4,name);
-  assert.ok(Math.hypot(pts[0][0]-MOBA_BASES.blue.x,pts[0][1]-MOBA_BASES.blue.z)<28);
-  assert.ok(Math.hypot(pts.at(-1)[0]-MOBA_BASES.red.x,pts.at(-1)[1]-MOBA_BASES.red.z)<28);
-  assert.equal(distanceToLane(pts[1][0],pts[1][1],name),0);
-  for(const pt of pts)assert.equal(protectedRoute(...pt),true);
- }
+test('Squad FPS map has insertion, defense, reconnaissance, sabotage, boss and extraction with aligned blockers',()=>{
+ assert.equal(SQUAD_ROLES.length,4);
+ assert.deepEqual(SQUAD_ROLES,['front','support','sniper','bomber']);
+ assert.equal(Object.keys(ROLE_INFO).length,4);
+ assert.equal(Object.keys(SQUAD_POINTS).length,6);
+ assert.ok(SQUAD_START.z< SQUAD_POINTS.defense.z);
  const colliders=JSON.parse(readFileSync(new URL('../colliders.json',import.meta.url),'utf8'));
- for(const side of Object.values(MOBA_BASES))assert.ok(!colliders.some(c=>Math.abs(c.x-side.x)<c.hx+1&&Math.abs(c.z-side.z)<c.hz+1&&c.minY<1));
+ assert.equal(colliders.length,SQUAD_BLOCKS.length);
+ for(const zone of Object.values(SQUAD_POINTS))assert.ok(!colliders.some(c=>Math.abs(c.x-zone.x)<c.hx+1&&Math.abs(c.z-zone.z)<c.hz+1&&c.minY<1),zone.label);
+ assert.equal(FFA_SPAWNS.length,8);
+ const src=readFileSync(new URL('../../public/src/urban.js',import.meta.url),'utf8');
+ assert.doesNotMatch(src,/createMobaWorld|MOBA_LANES|JUNGLE_CAMPS/);
 });
 
 test('13 independent characters, 39 powers and all nine real combo definitions',()=>{

@@ -1,4 +1,4 @@
-import {MOBA_LANES,MOBA_BASES,JUNGLE_CAMPS} from './mobaLayout.js';
+import {SQUAD_POINTS} from './squadLayout.js';
 import {heroLoadout} from './heroRoster.js';
 import {WORLD_HALF} from './worldLayout.js';
 /** Seleção de habilidades e teleporte tático, comuns a PC e telas sensíveis ao toque. */
@@ -89,11 +89,11 @@ export class PowerMenu{
   ctx.strokeStyle='#44555a';ctx.lineWidth=9;
   for(let x=-208;x<=208;x+=32){let q=this.convert(x,0).x;ctx.beginPath();ctx.moveTo(q,0);ctx.lineTo(q,h);ctx.stroke();}
   for(let z=-208;z<=208;z+=32){let q=this.convert(0,z).y;ctx.beginPath();ctx.moveTo(0,q);ctx.lineTo(w,q);ctx.stroke();}
-  for(const [name,points] of Object.entries(MOBA_LANES)){
-    ctx.beginPath();points.forEach(([x,z],i)=>{const q=this.convert(x,z);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle={top:'#8bb8ff',mid:'#ffcf8a',adc:'#86ffc0'}[name];ctx.lineWidth=15;ctx.stroke();
+  // Teleport overlay shows operation locations, not MOBA lanes.
+  for(const [key,p] of Object.entries(SQUAD_POINTS)){
+    const q=this.convert(p.x,p.z);ctx.beginPath();ctx.arc(q.x,q.y,key==='boss'?12:7,0,Math.PI*2);
+    ctx.fillStyle=key==='boss'?'#fcb179':key==='extraction'?'#9be0ab':'#8ccdec';ctx.fill();
   }
-  for(const p of JUNGLE_CAMPS){const q=this.convert(p.x,p.z);ctx.beginPath();ctx.arc(q.x,q.y,8,0,Math.PI*2);ctx.fillStyle='#4eb979';ctx.fill();}
-  for(const [team,p] of Object.entries(MOBA_BASES)){const q=this.convert(p.x,p.z);ctx.beginPath();ctx.arc(q.x,q.y,17,0,Math.PI*2);ctx.fillStyle=team==='blue'?'#49d8ff':'#ff698b';ctx.fill();}
   const city=this.game.urban;ctx.fillStyle='rgba(114,133,140,.55)';ctx.strokeStyle='#a2b7ba';ctx.lineWidth=1;
   for(const s of city.surfaces){if(s.ramp)continue;const p=this.convert(s.x,s.z);const sw=s.hx/WORLD_HALF*w,sh=s.hz/WORLD_HALF*h;ctx.fillRect(p.x-sw/2,p.y-sh/2,sw,sh);ctx.strokeRect(p.x-sw/2,p.y-sh/2,sw,sh);}
   ctx.fillStyle='#f2b26b';for(const p of this.game.multiplayer?.players||[]){if(p.id===this.game.multiplayer.id||p.alive===false||p.invisible||p.phased)continue;const q=this.convert(p.x,p.z);ctx.beginPath();ctx.arc(q.x,q.y,4,0,Math.PI*2);ctx.fill();}
