@@ -16,7 +16,7 @@ function glb(rel){
  assert.equal(j.asset.version,'2.0');return {j,bytes:b.length};
 }
 test('3.5: os 13 heróis GLB têm armaduras aprimoradas, rig e 16+ clipes válidos',()=>{
- assert.equal(HEROES.length,15);
+ assert.equal(HEROES.length,25);
  for(const h of HEROES){
   const {j,bytes}=glb(`public/assets/models/operatives/${h.id}.glb`);
   assert.ok(bytes<195_000,`${h.id} passou do orçamento de bytes`);
@@ -75,6 +75,6 @@ test('3.5: classificação FPS preservada e renderizador WebGL mantém opções 
  const game=text('public/src/game.js');
  assert.match(game,/this\.mobile\?\.enabled \? 0\.55 : 0\.63/);
  for(const fragment of ['this.campaign.update(dt)','this.squad.update(dt)','this.multiplayer.update(dt)','this.weapons.update(dt'])assert.ok(game.includes(fragment));
- assert.equal(JSON.parse(text('package.json')).version,'3.7.0');
- assert.match(text('server/server.mjs'),/version:'3\.7\.0'/);
+ assert.equal(JSON.parse(text('package.json')).version,'3.8.0');
+ assert.match(text('server/server.mjs'),/version:'3\.8\.0'/);
 });

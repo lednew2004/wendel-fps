@@ -613,3 +613,13 @@ html.is-touch.touch-playing #hud #hud-config-top,html.is-touch.touch-playing #hu
 .training-hero-choice{background:#143c4a;color:white;border:1px solid var(--hero-accent,#2de1ed);border-radius:10px;padding:13px 8px;text-align:left;min-height:57px}
 .training-hero-choice b{display:block;color:var(--hero-accent)}.training-hero-choice small{display:block;color:#c2d6de}.training-hero-choice.selected{box-shadow:inset 0 0 0 2px var(--hero-accent)}
 @media (max-height:500px){#training-change-hero{top:54px;font-size:10px;padding:4px 8px}.training-dialog{padding:12px}.training-hero-grid{grid-template-columns:repeat(5,1fr)}}
+
+/* Forge 3.8 manual voxel editor: touch-targeted controls outside FPS look overlay. */
+#forge-manual-tools{display:none;position:fixed;z-index:165;bottom:max(126px,19vh);left:50%;transform:translateX(-50%);width:min(665px,92vw);padding:10px;border:1px solid #62e9e4aa;border-radius:12px;background:#091b27e8;box-shadow:0 8px 25px #0008;pointer-events:auto;touch-action:manipulation;color:#eefeff;font:700 12px system-ui;}
+#forge-manual-tools.forge-tools-visible{display:block;}
+.forge-tools-heading{text-align:center;letter-spacing:.12em;color:#8cf9f2;margin-bottom:7px;}
+.forge-materials,.forge-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;}
+#forge-manual-tools button{touch-action:manipulation;min-height:35px;border:1px solid #6698a9;border-radius:7px;background:#142c3c;color:#fff;font:700 11px system-ui;padding:5px 9px;}
+#forge-manual-tools button.selected{border-color:#7ffff4;background:#175b60;color:#fff;}
+.forge-actions{margin-top:8px}.forge-actions button{min-width:100px;}
+@media (pointer:coarse) and (orientation:landscape){#forge-manual-tools{bottom:8px;left:50%;width:min(380px,48vw);padding:5px;}#forge-manual-tools button{min-height:27px;padding:4px 6px;font-size:9px;}.forge-tools-heading{font-size:9px;margin-bottom:4px}.forge-actions{margin-top:4px;} .forge-actions button{min-width:55px;}}

@@ -1,0 +1,46 @@
+/** Abilities in 3.8 reuse the established authoritative effects where their behavior matches.
+ * New effect identifiers are implemented in PowerSystem and server/novelPowers38.mjs. */
+export const NOVEL_SKILLS=Object.freeze({
+ terra_break:{base:'terra_break',label:'ESCAVAR BLOCO',icon:'⛏',cool:12,range:13,help:'Desmonta blocos voxel construídos, abrindo uma passagem.'},
+ terra_ridge:{base:'terra_ridge',label:'DIQUE DE PEDRA',icon:'▤',cool:21,duration:18000,help:'Ergue três blocos de rocha à sua frente.'},
+ terra_fault:{base:'terra_fault',label:'FALHA SÍSMICA',icon:'◈',cool:40,range:14,help:'Destrói coberturas próximas e atordoa alvos no chão.'},
+ puppet_clone:{base:'clones',label:'MARIONETES',icon:'♧',cool:18,duration:11000,count:2,help:'Cria dois clones móveis que distraem inimigos.'},
+ puppet_jump:{base:'clonejump',label:'MUDANÇA DE CORPO',icon:'⇄',cool:22,duration:14000,help:'Cria corpo móvel e permite trocar de posição.'},
+ puppet_army:{base:'clones',label:'BATALHÃO FANTASMA',icon:'♟',cool:46,duration:14000,count:5,help:'Cria cinco clones móveis, com posições independentes.'},
+ thread_hook:{base:'thread_hook',label:'CABO DE IMPULSO',icon:'⤴',cool:15,range:24,help:'Puxa o personagem em arco para o ponto visado.'},
+ thread_net:{base:'freeze',label:'FIO APRISIONADOR',icon:'⌗',cool:21,range:28,duration:1700,help:'Laço de energia prende o adversário sob a mira.'},
+ thread_skyline:{base:'flight',label:'ASA DE CABOS',icon:'↗',cool:39,duration:11000,help:'Propulsão e voo controlado para cruzar telhados.'},
+ mirror_guard:{base:'shield',label:'ESCUDO REFLETOR',icon:'◇',cool:23,duration:5000,help:'Cúpula energética protege por cinco segundos.'},
+ mirror_shot:{base:'chain',label:'RAIO REBATIDO',icon:'⌁',cool:20,range:45,chainRadius:22,targets:3,damage:[85,57,38],help:'Raio salta entre três alvos.'},
+ mirror_palace:{base:'mirror_palace',label:'SALA DE REFLEXOS',icon:'◈',cool:48,duration:11000,help:'Cria imagens refletidas móveis e proteção temporária.'},
+ pixel_small:{base:'pixel_small',label:'MICROFORMA',icon:'▫',cool:19,duration:10000,help:'Encolhe visivelmente e diminui a área atingível.'},
+ pixel_expand:{base:'pixel_expand',label:'EXPANSÃO BRUSCA',icon:'⇧',cool:24,range:12,help:'Amplia o corpo e repele inimigos próximos.'},
+ pixel_titan:{base:'pixel_titan',label:'TITÃ COLOSSAL',icon:'⬛',cool:53,duration:11000,help:'Forma gigante temporária com defesa extra e empurrão.'},
+ cipher_scan:{base:'cipher_scan',label:'VARREDURA DIGITAL',icon:'⌁',cool:18,range:55,help:'Revela jogadores próximos por cinco segundos.'},
+ cipher_override:{base:'cipher_override',label:'CONTROLE REMOTO',icon:'⌘',cool:21,range:14,help:'Opera porta ou janela interativa à distância.'},
+ cipher_network:{base:'cipher_network',label:'APAGÃO DE REDE',icon:'▥',cool:49,range:25,help:'Abre passagens eletrônicas e desarma TNT inimiga na área.'},
+ vector_walk:{base:'flight',label:'CAMINHADA VETORIAL',icon:'↥',cool:17,duration:8500,help:'Sustentação e voo para contornar superfícies.'},
+ vector_field:{base:'gravity',label:'CAMPO VETORIAL',icon:'⇵',cool:23,range:45,radius:16,duration:2300,help:'Suspende adversários em área.'},
+ vector_core:{base:'blackhole',label:'NÚCLEO GRAVITACIONAL',icon:'◎',cool:42,range:38,radius:22,duration:6800,help:'Sucção gravitacional intensa que afeta uma região.'},
+ bloom_seed:{base:'bloom_seed',label:'SEMENTE ESTRUTURAL',icon:'❀',cool:16,duration:28000,help:'Planta uma cobertura orgânica que bloqueia tiros.'},
+ bloom_snare:{base:'freeze',label:'RAÍZES APRISIONADORAS',icon:'❈',cool:23,range:30,duration:2000,help:'Raízes seguram um alvo sob a mira.'},
+ bloom_forest:{base:'bloom_forest',label:'FLORESTA VIVA',icon:'❁',cool:50,duration:30000,help:'Faz crescer um conjunto de coberturas vegetais.'},
+ fusion_extract:{base:'fusion_extract',label:'EXTRAÇÃO',icon:'◫',cool:12,help:'Analisa os blocos e extrai um material para o reator.'},
+ fusion_mix:{base:'fusion_mix',label:'MISTURA ELEMENTAL',icon:'✳',cool:23,help:'Metal gera escudo; rocha gera impacto; planta recupera vida.'},
+ fusion_reactor:{base:'fusion_reactor',label:'REATOR TRIPLO',icon:'✺',cool:52,help:'Combina cura, escudo e onda de choque conforme as amostras.'},
+ echo_record:{base:'echo_record',label:'REGISTRAR TRAJETÓRIA',icon:'◉',cool:12,help:'Guarda a sua rota recente para reproduzi-la.'},
+ echo_playback:{base:'echo_playback',label:'ECO REPRODUZIDO',icon:'↻',cool:21,duration:8000,help:'Replica a rota gravada com um holograma móvel.'},
+ echo_loop:{base:'echo_loop',label:'TRÊS LINHAS TEMPORAIS',icon:'⟁',cool:51,duration:10000,help:'Invoca três hologramas reproduzindo a movimentação.'}
+});
+export const NOVEL_HEROES=Object.freeze([
+ {id:'terra',name:'TERRA',title:'ESCAVADOR TÁTICO',class:'Terreno',color:0xbe8549,role:'tank',weapon:1,skills:['terra_break','terra_ridge','terra_fault'],description:'Abre brechas em construções voxel e ergue coberturas de rocha.'},
+ {id:'puppet',name:'PUPPET',title:'MESTRE DAS MARIONETES',class:'Ilusão',color:0x995dcf,role:'scout',weapon:0,skills:['puppet_clone','puppet_jump','puppet_army'],description:'Controla o posicionamento com clones móveis e trocas de corpo.'},
+ {id:'thread',name:'THREAD',title:'TECELÃO ACROBÁTICO',class:'Mobilidade',color:0x55d6e4,role:'hunter',weapon:0,skills:['thread_hook','thread_net','thread_skyline'],description:'Cabos de impulso, laços e propulsão para combate vertical.'},
+ {id:'mirror',name:'MIRROR',title:'ILUSIONISTA PRISMÁTICO',class:'Reflexos',color:0xc3b4ed,role:'sniper',weapon:2,skills:['mirror_guard','mirror_shot','mirror_palace'],description:'Reflexos móveis, proteção e disparos encadeados.'},
+ {id:'pixel',name:'PIXEL',title:'MUTADOR DE ESCALA',class:'Tamanho',color:0xf4975a,role:'tank',weapon:1,skills:['pixel_small','pixel_expand','pixel_titan'],description:'Muda de tamanho e modifica a área de colisão em combate.'},
+ {id:'cipher',name:'CIPHER',title:'SABOTADOR DIGITAL',class:'Tecnologia',color:0x63ee91,role:'sniper',weapon:2,skills:['cipher_scan','cipher_override','cipher_network'],description:'Revela inimigos e hackeia dispositivos do cenário.'},
+ {id:'vector',name:'VECTOR',title:'ENGENHEIRO DE VETORES',class:'Gravidade',color:0x7a9cfa,role:'tank',weapon:3,skills:['vector_walk','vector_field','vector_core'],description:'Controla o deslocamento com voo e campos gravitacionais.'},
+ {id:'bloom',name:'BLOOM',title:'JARDINEIRO DE GUERRA',class:'Natureza',color:0x75cd6a,role:'gunner',weapon:3,skills:['bloom_seed','bloom_snare','bloom_forest'],description:'Planta coberturas vivas e prende adversários com raízes.'},
+ {id:'fusion',name:'FUSION',title:'ALQUIMISTA DE COMBATE',class:'Mistura',color:0xe6ba5a,role:'gunner',weapon:3,skills:['fusion_extract','fusion_mix','fusion_reactor'],description:'Extrai propriedades de materiais e as converte em poderes.'},
+ {id:'echo2',name:'ECHO',title:'GRAVADOR DE REALIDADE',class:'Temporal',color:0x6bd4ec,role:'scout',weapon:0,skills:['echo_record','echo_playback','echo_loop'],description:'Grava movimentos próprios e os repete com hologramas.'}
+]);

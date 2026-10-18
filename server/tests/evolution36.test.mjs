@@ -8,7 +8,7 @@ import {prepareAdaptation,observeAdaptation,learned,startUltimate} from '../../p
 
 const code=n=>fs.readFileSync(new URL(`../../public/src/${n}`,import.meta.url),'utf8');
 test('3.6.1: 14 heroes, animated VEX and ADAPT, 24 urban barriers',()=>{
- assert.equal(HEROES.length,15);
+ assert.equal(HEROES.length,25);
  assert.deepEqual(heroLoadout('striker'),['vault','wallrun_boost','vex_ultimate']);
  assert.deepEqual(heroLoadout('adaptomega'),['adapt_scan','adapt_counter','adapt_ultimate']);
  assert.equal(SQUAD_OBSTACLES.length,24);

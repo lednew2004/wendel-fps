@@ -332,6 +332,8 @@ export class MultiplayerClient {
       case 'ammo-refill':this.game.pickup('ammo');this.game.audio.play('pickup');break;
       case 'builder-place':this.game.forge.spawn(msg.block);break;
       case 'builder-remove':this.game.forge.remove(msg.id);break;
+      case 'builder-disarm':this.game.forge.disarm(msg.id);break;
+      case 'fusion-sample':this.game.powers.fusionSample=msg.material;this.game.toast('AMOSTRA · '+String(msg.material).toUpperCase());break;
       case 'builder-arm':{this.game.forge.arm(msg.owner);if(msg.owner===this.id){this.game.forge.buildUntil=0;this.game.forge.ultimateUntil=0;this.game.powers.status.forge_build=0;this.game.powers.status.forge_ultimate=0;this.game.toast('REDSTONE ARMADA · ATIRE PARA EXPLODIR');}break;}
       case 'builder-blast':this.game.enemies.spawnParticles(new THREE.Vector3(msg.x,msg.y,msg.z),0xffb65f,20,1.1);break;
       case 'power-state':this.game.powers.onServerState(msg.powers);break;
@@ -353,6 +355,10 @@ export class MultiplayerClient {
         if(msg.player===this.id&&msg.kind==='forge_build'){this.game.forge.enable(12000);this.game.powers.status.forge_build=Date.now()+12000;this.game.toast('MODO CRIATIVO · ATIRAR COLOCA BLOCOS');}
         if(msg.player===this.id&&msg.kind==='forge_ultimate'){this.game.forge.enable(16000,true);this.game.powers.status.forge_ultimate=Date.now()+16000;this.game.toast('DOMÍNIO VOXEL · CONSTRUÇÃO ACELERADA');}
 
+        if(msg.player===this.id&&msg.kind.startsWith('pixel_')){this.game.powers.novelScale=msg.scale||1;this.game.powers.novelScaleUntil=Date.now()+(msg.duration||0);}
+        if(msg.kind==='pixel_reset'&&msg.player===this.id){this.game.powers.novelScale=1;this.game.powers.novelScaleUntil=0;}
+        if(msg.player===this.id&&msg.kind==='cipher_scan')this.game.toast('VARREDURA · '+(msg.targets?.length||0)+' ALVOS');
+        if(msg.kind==='cipher_scan'||msg.kind==='cipher_network')for(const v of msg.targets||[])this.game.powers.flash(0x70ffba,5,v);
         if(msg.kind==='resurrection'&&msg.player===this.id)this.game.toast('RESSURREIÇÃO AUTOMÁTICA · IMORTAL POR 4S');
         if(msg.kind==='heal'&&msg.player===this.id)this.game.toast('CURA · VIDA E ESCUDO RESTAURADOS');
         if(msg.kind==='morph'&&msg.player===this.id)this.game.toast('DISFARCE DE OBJETO ATIVADO');
@@ -472,6 +478,7 @@ export class MultiplayerClient {
     }
     if(Number.isFinite(data.x)&&Number.isFinite(data.y)&&Number.isFinite(data.z))entry.target.set(data.x,data.y,data.z);
     entry.yaw=Number.isFinite(data.yaw)?data.yaw:0;
+    entry.group.scale.setScalar(Number.isFinite(data.size)?data.size:1);
     entry.group.visible=data.alive!==false&&data.invisible!==true&&data.phased!==true;
     setDisguise(entry.group,data.prop);
     entry.group.userData.ice.visible=data.frozen===true&&!data.prop;entry.group.userData.shieldBubble.visible=data.shielded===true;

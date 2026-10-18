@@ -19,6 +19,9 @@ HEROES={
 'echo':('scout',0x75c2ff,7),'storm':('gunner',0xffe065,8),'gravity':('tank',0xbc86ff,9),
 'guardian':('gunner',0x83efa5,10),'shiro':('hunter',0xff526b,11),'leo':('boss',0xf5c35a,12),
 'butterfly':('scout',0xae94ff,13),'adaptomega':('tank',0xa17aff,14),'forge':('gunner',0x48f0e1,15),
+'terra':('tank',0xbe8549,16),'puppet':('scout',0x995dcf,17),'thread':('hunter',0x55d6e4,18),
+'mirror':('sniper',0xc3b4ed,19),'pixel':('tank',0xf4975a,20),'cipher':('sniper',0x63ee91,21),
+'vector':('tank',0x7a9cfa,22),'bloom':('gunner',0x75cd6a,23),'fusion':('gunner',0xe6ba5a,24),'echo2':('scout',0x6bd4ec,25),
 'scout':('scout',0xff614d,0),'gunner':('gunner',0xf0b756,0),'sniper':('sniper',0x79ccf4,0),
 'hunter':('hunter',0x9bd66a,0),'tank':('tank',0xffa65c,0),'boss':('boss',0xed68fe,0),'player':('scout',0x59dce8,0)
 }
@@ -279,6 +282,80 @@ def manufacture(hero,role,accent,variant):
         panel(1,8,(0,1.48,.49),(.53,.49,.32))
         panel(2,2,(0,2.68,.06),(.67,.12,.46))
         panel(1,6,(0,1.59,-.39),(.35,.11,.06))
+    elif hero=='terra':
+        # Square miner helmet, drilling gauntlets and deep utility satchel.
+        panel(2,2,(0,2.66,-.07),(.58,.16,.50))
+        panel(2,8,(0,2.65,-.35),(.19,.15,.09))
+        for side in (-1,1):
+            panel(4 if side<0 else 6,2,(side*.56,1.04,-.26),(.29,.22,.32))
+            panel(1,7,(side*.42,1.26,.36),(.22,.32,.24))
+            panel(1,6,(side*.46,1.82,.1),(.30,.16,.31))
+    elif hero=='puppet':
+        # Tall silhouette and hinged forearm projectors for clone controller.
+        for side in (-1,1):
+            panel(2,2,(side*.20,2.77,.07),(.07,.39,.10),side*.17)
+            panel(3 if side<0 else 5,5,(side*.58,1.65,-.2),(.16,.43,.12))
+            panel(4 if side<0 else 6,2,(side*.53,.99,-.31),(.18,.18,.25))
+        panel(1,5,(0,1.58,.46),(.36,.58,.22))
+    elif hero=='thread':
+        # Rope-reel backpack, hook bracers and slim grappling antennae.
+        for side in (-1,1):
+            panel(1,6,(side*.27,1.58,.45),(.21,.46,.15))
+            panel(4 if side<0 else 6,2,(side*.54,.96,-.31),(.19,.25,.19))
+            panel(2,5,(side*.24,2.58,.10),(.06,.27,.09),side*.4)
+        panel(1,2,(0,1.69,.61),(.31,.23,.10))
+    elif hero=='mirror':
+        # Broad reflective square prism fins, visor crown and angular knees.
+        for side in (-1,1):
+            panel(1,5,(side*.52,1.85,.02),(.23,.34,.32),side*.30)
+            panel(1,5,(side*.45,1.45,.41),(.14,.55,.08),side*.25)
+            panel(8 if side<0 else 10,2,(side*.20,.43,-.23),(.17,.33,.075))
+        panel(2,5,(0,2.50,-.31),(.51,.13,.13))
+    elif hero=='pixel':
+        # Mismatched scale blocks glued to armor, segmented oversized belt.
+        for side in (-1,1):
+            panel(1,2,(side*.52,1.74,-.10),(.39,.35,.39))
+            panel(3 if side<0 else 5,6,(side*.64,1.42,-.12),(.22,.29,.25))
+            panel(7 if side<0 else 9,2,(side*.20,.70,-.28),(.26,.31,.12))
+        panel(1,8,(0,1.54,-.38),(.24,.24,.07))
+    elif hero=='cipher':
+        # Hacker headset antennae and a portable signal lattice.
+        for side in (-1,1):
+            panel(2,2,(side*.27,2.57,.06),(.13,.32,.12))
+            panel(1,5,(side*.26,1.70,.43),(.14,.45,.14))
+            panel(1,6,(side*.33,1.22,.31),(.11,.19,.08))
+        panel(2,8,(0,2.37,-.33),(.35,.055,.032))
+        panel(1,8,(0,1.57,.55),(.25,.13,.09))
+    elif hero=='vector':
+        # Floating-axis effect represented by rigid gyroscope struts.
+        for side in (-1,1):
+            panel(1,2,(side*.56,1.67,.42),(.17,.70,.15),side*.35)
+            panel(1,5,(side*.42,1.89,.35),(.21,.13,.23))
+            panel(4 if side<0 else 6,2,(side*.58,.96,-.20),(.19,.21,.20))
+        panel(1,8,(0,1.63,-.38),(.18,.29,.09))
+    elif hero=='bloom':
+        # Mechanical foliage crown and protective leaf-shaped plating.
+        for side in (-1,1):
+            panel(2,2,(side*.19,2.70,.07),(.14,.29,.12),side*.50)
+            panel(1,2,(side*.53,1.82,.02),(.16,.46,.33),side*.30)
+            panel(1,6,(side*.29,1.49,.44),(.15,.61,.09),side*.25)
+        panel(1,8,(0,1.46,-.35),(.25,.28,.09))
+    elif hero=='fusion':
+        # Sample bottles, triple-reactor chest and alchemy gauntlets.
+        for side in (-1,1):
+            panel(1,8,(side*.29,1.49,.43),(.13,.37,.15))
+            panel(1,5,(side*.29,1.75,.46),(.16,.15,.16))
+            panel(4 if side<0 else 6,2,(side*.55,1.01,-.23),(.19,.25,.25))
+        panel(1,2,(0,1.61,-.40),(.22,.23,.12))
+        panel(1,8,(0,1.61,-.48),(.11,.13,.08))
+    elif hero=='echo2':
+        # Angular temporal backpack, extra projection emitters and visor.
+        for side in (-1,1):
+            panel(1,2,(side*.34,1.65,.41),(.19,.67,.16),side*.21)
+            panel(1,8,(side*.38,1.85,.54),(.15,.19,.14))
+            panel(4 if side<0 else 6,6,(side*.54,1.00,-.22),(.15,.25,.14))
+        panel(1,5,(0,1.53,-.38),(.32,.14,.09))
+        panel(2,2,(0,2.62,.08),(.36,.08,.40))
     elif hero in ('striker',):
         for side in (-1,1):
             panel(1,2,(side*.42,1.77,-.12),(.25,.13,.30),side*.19)

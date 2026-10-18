@@ -80,6 +80,7 @@ export class Game {
     window.addEventListener('keydown',e=>{if(isTypingIntoField(e.target)||isTypingIntoField(document.activeElement))return;if(handlePowerWheelTab(e,this.state,this.powers?.menu?.mode,document.activeElement,()=>this.powers.menu.openWheel()))return;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace'].includes(e.code))e.preventDefault();this.keys[e.code]=true;if(e.repeat)return;if(e.code==='Escape'&&this.powers?.menu?.mode){this.powers.menu.close();return;}if(e.code==='Escape'){if(this.state==='playing')this.pause();else if(this.state==='paused')this.resume();return;}if(this.state!=='playing')return;
       if(e.code==='Space')this.parkour.jump();
       if(e.code==='KeyE')this.parkour.interact();
+      if(e.code==='KeyB'&&this.forge?.active){this.forge.breakAimed();return;}
       if(e.code==='KeyP'&&this.mode==='survival'){this.openTrainingSwitcher();return;}
       if(e.code==='KeyT'){const active=this.parkour.toggleTrial();document.body.classList.toggle('trial-active',active);this.toast(active?'PERCURSO OPCIONAL ATIVADO':'PERCURSO DESATIVADO');}
       if(e.code==='ControlLeft'||e.code==='ControlRight'||e.code==='KeyC')this.parkour.crouch();
@@ -237,7 +238,7 @@ export class Game {
   }
   hitmarker(kill){const h=el('hitmarker');h.classList.add('active');h.classList.toggle('kill',kill);this.hitmarkTimer=.13;}
   toast(text){el('toast').textContent=text;el('toast').classList.add('active');this.toastTimer=2.1;}
-  positionCamera(){const p=this.player;this.world.setFPSCamera(p.x,p.eyeY,p.z,this.yaw,this.pitch);}
+  positionCamera(){const p=this.player;this.world.setFPSCamera(p.x,p.eyeY+(this.powers?.novelScale===.48?-.8:this.powers?.novelScale>2?.65:0),p.z,this.yaw,this.pitch);}
   updatePlayer(dt){const p=this.player;p.dashCd=Math.max(0,p.dashCd-dt);this.grenadeCd=Math.max(0,this.grenadeCd-dt);p.pulseCd=Math.max(0,p.pulseCd-dt);p.invulnerable=Math.max(0,p.invulnerable-dt);p.dashDuration=Math.max(0,p.dashDuration-dt);p.slideDuration=Math.max(0,p.slideDuration-dt);
     if(this.animTime-p.lastDamage>4&&p.shield<p.maxShield)p.shield=Math.min(p.maxShield,p.shield+dt*13);
     let f=Number(!!(this.keys.KeyW||this.keys.ArrowUp))-Number(!!(this.keys.KeyS||this.keys.ArrowDown)),r=Number(!!(this.keys.KeyD||this.keys.ArrowRight))-Number(!!(this.keys.KeyA||this.keys.ArrowLeft));const mag=Math.hypot(f,r);if(mag>0){f/=mag;r/=mag;}const nx=-Math.sin(this.yaw)*f+Math.cos(this.yaw)*r,nz=-Math.cos(this.yaw)*f-Math.sin(this.yaw)*r;const sprint=this.keys.ShiftLeft||this.keys.ShiftRight;const speed=(p.dashDuration>0?33:p.slideDuration>0?15:sprint?11.1:7.1)*p.speedBonus;

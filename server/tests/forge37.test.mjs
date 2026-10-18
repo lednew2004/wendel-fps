@@ -9,14 +9,14 @@ import {isGroundedDestination} from '../powers.mjs';
 import {planSkyLeap,vaultPosition} from '../../public/src/vaultTraversal.js';
 const src=name=>fs.readFileSync(new URL(`../../public/src/${name}`,import.meta.url),'utf8');
 test('3.7: FORGE, voxel placement and survival selection are wired',()=>{
- assert.equal(HEROES.length,15);
+ assert.equal(HEROES.length,25);
  assert.deepEqual(heroLoadout('forge'),['forge_build','forge_redstone','forge_ultimate']);
  assert.ok(POWER_RULES.forge_redstone.cooldown>=12000&&FORGE_LIMIT<50);
  assert.match(src('game.js'),/openTrainingSwitcher\(\)/);
  assert.match(src('game.js'),/spawnMapAmmo\(\)/);
  assert.match(src('game.js'),/this\.forge\.place\(\)/);
  assert.match(src('powers.js'),/g\.forge\.arm\('local'\)/);
- const h=fs.readFileSync(new URL('../../public/index.html',import.meta.url),'utf8');assert.match(h,/BUILD 3\.7\.0/);
+ const h=fs.readFileSync(new URL('../../public/index.html',import.meta.url),'utf8');assert.match(h,/BUILD 3\.8\.0/);
 });
 test('3.7: grid cannot place blocks through objects, inside players, or at arbitrary distances',()=>{
  const p={x:0,y:0,z:0};

@@ -40,7 +40,7 @@ export function sanitizeLoadout(input){
  if(a.length>=3){let third=VALID_POWERS.includes(a[2])?a[2]:'heal';if(third===first||third===second)third=VALID_POWERS.find(x=>x!==first&&x!==second);return [first,second,third];}
  return [first,second];
 }
-export function freshPowerState(){return {combo:{},empoweredUntil:0,loadout:['push','freeze'],cooldowns:{},activeUntil:{},cloneJumpUsed:false,copyMark:null,copiedUntil:0,originalLoadout:null,frozenUntil:0,flightUntil:0,invisibleUntil:0,phaseUntil:0,shieldUntil:0,gravityUntil:0,resurrectionUntil:0,propUntil:0,propType:null,teleportReturn:null,safe:null,history:[],adaptations:[],adaptScanUntil:0,adaptUltimateUntil:0,adaptLast:null,adaptFatalBlock:false};}
+export function freshPowerState(){return {combo:{},empoweredUntil:0,loadout:['push','freeze'],cooldowns:{},activeUntil:{},cloneJumpUsed:false,copyMark:null,copiedUntil:0,originalLoadout:null,frozenUntil:0,flightUntil:0,invisibleUntil:0,phaseUntil:0,shieldUntil:0,gravityUntil:0,resurrectionUntil:0,propUntil:0,propType:null,teleportReturn:null,safe:null,history:[],adaptations:[],adaptScanUntil:0,adaptUltimateUntil:0,adaptLast:null,adaptFatalBlock:false,sizeScale:1,sizeUntil:0,fusionSample:null,recordedRoute:[]};}
 export function powerSnapshot(p,now=Date.now()){
  const s=p.powers;
  return {loadout:s.loadout,cooldowns:s.cooldowns,activeUntil:s.activeUntil,combo:s.combo||{},empoweredUntil:s.empoweredUntil||0,cloneJumpUsed:s.cloneJumpUsed,copiedUntil:s.copiedUntil,copyMarkUntil:s.copyMark?.until||0,frozenUntil:s.frozenUntil,flightUntil:s.flightUntil,
@@ -48,6 +48,7 @@ export function powerSnapshot(p,now=Date.now()){
  returnUntil:s.teleportReturn?.until||0,resurrectionUntil:s.resurrectionUntil||0,propUntil:s.propUntil||0,propType:s.propUntil>now?s.propType:null,invulnerable:s.resurrectionUntil>now,
  adaptations:(s.adaptations||[]).filter(a=>a.until>now),adaptScanUntil:s.adaptScanUntil||0,adaptUltimateUntil:s.adaptUltimateUntil||0,adaptLast:s.adaptLast||null,
  frozen:s.frozenUntil>now||s.gravityUntil>now,
+ sizeScale:s.sizeUntil>now?s.sizeScale:1,sizeUntil:s.sizeUntil||0,fusionSample:s.fusionSample||null,
  flying:s.flightUntil>now,invisible:s.invisibleUntil>now,phased:s.phaseUntil>now,shielded:s.shieldUntil>now};
 }
 export function within(x,z,p,range){return Math.hypot(x-p.x,z-p.z)<=range;}

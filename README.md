@@ -1,3 +1,11 @@
+## NOVO — TITAN PROTOCOL 3.8.0 | Construção manual e 10 operadores
+
+**FORGE agora constrói manualmente bloco a bloco** com materiais pedra, madeira, metal, vidro, TNT e folhas; use a paleta **COLOCAR / REMOVER / SAIR** (PC: **B** para remover). Modo treinamento possui limite técnico de 160 blocos locais; online mantém limite de segurança e validação do servidor.
+
+O elenco passou de 15 para **25 personagens**, com novos kits para **TERRA, PUPPET, THREAD, MIRROR, PIXEL, CIPHER, VECTOR, BLOOM, FUSION e ECHO**. As habilidades reaproveitam de forma consciente os motores de física, clones, voo e projéteis existentes. Os dez novos personagens têm modelos voxel GLB próprios. Detalhes, controles e limites em **`ATUALIZACAO_3_8.md`**.
+
+---
+
 ## Atualização 3.7.0 — VEX extremo, FORGE e Treino
 
 - **VEX** com salto físico até telhados elevados (planejamento e animação contínua), propulsão e Ultimate de parkour extremo.

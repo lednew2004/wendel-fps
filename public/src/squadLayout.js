@@ -43,7 +43,7 @@ export const SQUAD_ENEMY_SPAWNS=Object.freeze([
  [47,77],[71,96],[-72,116],[0,158],[51,156],[-46,152],[-105,111],[104,117]
 ]);
 export const FFA_SPAWNS=Object.freeze([[-140,-140],[139,139],[-139,139],[139,-140],[-110,0],[111,1],[0,72],[5,-125]]);
-export function roleForHero(id){return ({striker:'front',cryomancer:'support',riftwalker:'sniper',aeronaut:'sniper',phantom:'sniper',chronos:'bomber',echo:'support',storm:'bomber',gravity:'front',guardian:'support',shiro:'front',leo:'bomber',butterfly:'bomber',adaptomega:'front',forge:'bomber'})[id]||'front';}
+export function roleForHero(id){return ({striker:'front',cryomancer:'support',riftwalker:'sniper',aeronaut:'sniper',phantom:'sniper',chronos:'bomber',echo:'support',storm:'bomber',gravity:'front',guardian:'support',shiro:'front',leo:'bomber',butterfly:'bomber',adaptomega:'front',forge:'bomber',terra:'front',puppet:'support',thread:'front',mirror:'sniper',pixel:'front',cipher:'sniper',vector:'front',bloom:'support',fusion:'bomber',echo2:'support'})[id]||'front';}
 export function safeSpawnNear(world,x,z,r=1.1){
  if(world.canMove(x,z,r))return {x,z};
  for(let dist=2;dist<=24;dist+=2)for(let n=0;n<16;n++){

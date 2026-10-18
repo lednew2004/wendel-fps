@@ -54,7 +54,7 @@ const cleanName=n=>String(n||'Operador').replace(/[^\p{L}\p{N} _-]/gu,'').trim()
 const cleanRoom=n=>String(n||'').replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6);
 function createRoom(preferredCode='',mode='ffa'){let code=preferredCode;if(!code){do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));}const room={code,mode,coop:mode==='coop'?newCoop():null,nextTeam:0,players:new Map(),born:Date.now(),hazards:[],clones:[],blocks:[],blockSequence:0,ammoCrates:[],ammoSerial:0,nextSupply:Date.now()+9000,openInteractions:new Set()};rooms.set(code,room);for(const [x,z] of AMMO_LOCATIONS.slice(0,6))if(locationValid(x,0,z,colliders))room.ammoCrates.push({id:'ammo-'+(++room.ammoSerial),x,z});return room;}
 function spawn(i){const [x,z]=SPAWNS[i%SPAWNS.length];return {x,y:0,z};}
-function publicPlayer(p){const powers=powerSnapshot(p);return {id:p.id,name:p.name,hero:p.hero||null,team:p.team??0,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,weapon:p.weapon,hp:p.hp,shield:p.shield,kills:p.kills,deaths:p.deaths,alive:p.alive,shielded:powers.shielded,invisible:powers.invisible,phased:powers.phased,flying:powers.flying,frozen:powers.frozen,prop:powers.propType,immortal:powers.invulnerable};}
+function publicPlayer(p){const powers=powerSnapshot(p);return {id:p.id,name:p.name,hero:p.hero||null,size:p.powers?.sizeUntil>Date.now()?p.powers.sizeScale:1,team:p.team??0,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,weapon:p.weapon,hp:p.hp,shield:p.shield,kills:p.kills,deaths:p.deaths,alive:p.alive,shielded:powers.shielded,invisible:powers.invisible,phased:powers.phased,flying:powers.flying,frozen:powers.frozen,prop:powers.propType,immortal:powers.invulnerable};}
 const livePlayers=room=>[...room.players.values()].filter(p=>p.socket);
 const cleanSession=s=>typeof s==='string'&&/^[a-zA-Z0-9-]{20,100}$/.test(s)?s:null;
 function join(ws,data){
@@ -178,7 +178,7 @@ function placeForgeBlock(p,pos){
  const mine=room.blocks.filter(b=>b.owner===p.id);
  if(mine.length>=capacity)dropForgeBlock(room,mine[0]);
  if(room.blocks.length>=180)dropForgeBlock(room,room.blocks[0]);
- const b={id:p.id+'-'+(++room.blockSequence),owner:p.id,...candidate,armed:false,hp:3,until:t+FORGE_LIFETIME};room.blocks.push(b);p.lastBuild=t;
+ const b={id:p.id+'-'+(++room.blockSequence),owner:p.id,...candidate,material:['stone','wood','metal','glass','tnt','plant'].includes(pos.material)?pos.material:'stone',armed:false,hp:({stone:3,metal:7,wood:2,glass:1,tnt:1,plant:2})[pos.material]||3,until:t+FORGE_LIFETIME};room.blocks.push(b);p.lastBuild=t;
  broadcast(room,{type:'builder-place',block:b});
 }
 function move(p,data){
@@ -207,7 +207,8 @@ function fire(p,data){
   p.lastFire=now;
   // Aim is based on server's last received yaw/pitch, not on client-provided hit IDs.
   const cp=Math.cos(p.pitch),dir=[-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp];
-  const origin=[p.x,p.y+1.65,p.z];
+  const shooterScale=p.powers.sizeUntil>now?p.powers.sizeScale||1:1;
+  const origin=[p.x,p.y+1.65+(shooterScale<.6?-.8:shooterScale>2?.65:0),p.z];
   let voxel=null,hitDistance=w.range;for(const b of p.room.blocks){const distance=rayBoxDistance(origin,dir,b,w.range);if(distance<hitDistance){hitDistance=distance;voxel=b;}}
   let staticDepth=w.range;
   if(voxel){for(const box of colliders){staticDepth=Math.min(staticDepth,rayBoxDistance(origin,dir,box,w.range));if(staticDepth<hitDistance-.01)break;}
@@ -223,11 +224,12 @@ function fire(p,data){
   for(const target of p.room.players.values()){
     if(target.id===p.id||target.team===p.team||!target.alive||now<target.spawnUntil||target.powers.phaseUntil>now)continue;
     // sphere approximation at torso. Aiming at head counts via the same hit body volume.
-    const to=[target.x-origin[0],target.y+1.08-origin[1],target.z-origin[2]];
+    const to=[target.x-origin[0],target.y+1.08*(target.powers.sizeUntil>now?target.powers.sizeScale||1:1)-origin[1],target.z-origin[2]];
     const projection=to[0]*dir[0]+to[1]*dir[1]+to[2]*dir[2];
     if(projection<0||projection>nearest)continue;
     const side=(to[0]**2+to[1]**2+to[2]**2)-projection**2;
-    if(side>.82**2||obscured(origin,dir,projection,p.room))continue;
+    const hitScale=target.powers.sizeUntil>now?(target.powers.sizeScale||1):1;
+    if(side>(.82*hitScale)**2||obscured(origin,dir,projection,p.room))continue;
     nearest=projection;victim=target;
   }
   // A decoy intercepts hits before an actual player if it is closer to the shooter.
@@ -416,14 +418,126 @@ function castHeroCombo(p,data,now=Date.now()){
  broadcast(p.room,{type:'power-vfx',kind,id,phase:next?.step||0,player:p.id,x:p.x,y:p.y,z:p.z,point});
  notifyPower(p,id);return true;
 }
+const NOVA_SPECIAL=new Set(['terra_break','terra_ridge','terra_fault','thread_hook','mirror_palace','pixel_small','pixel_expand','pixel_titan','cipher_scan','cipher_override','cipher_network','bloom_seed','bloom_forest','fusion_extract','fusion_mix','fusion_reactor','echo_record','echo_playback','echo_loop']);
+function placeNatureBlock(p,x,z,material,until){
+ const room=p.room,position={x:snapVoxel(x),y:snapVoxel(.9),z:snapVoxel(z)};
+ if(!validVoxelPlacement(position,p,[],roomColliders(room))||room.blocks.length>=180)return false;
+ if([...room.players.values()].some(q=>q.alive&&Math.hypot(q.x-position.x,q.z-position.z)<1.7))return false;
+ const b={...position,id:p.id+'-nature-'+(++room.blockSequence),owner:p.id,material,armed:false,hp:material==='plant'?2:4,until};
+ room.blocks.push(b);broadcast(room,{type:'builder-place',block:b});return true;
+}
+function spawnNovelClones(p,now,count,recorded=null){
+ const clones=[],room=p.room;
+ for(let i=0;i<count;i++){
+  const sideways=i-(count-1)/2,offsetX=Math.cos(p.yaw)*sideways*2.1,offsetZ=-Math.sin(p.yaw)*sideways*2.1;
+  const base=recorded?.[0]||p;const x=base.x+offsetX,z=base.z+offsetZ,y=base.y;
+  if(!locationValid(x,y,z,roomColliders(room)))continue;
+  const c={id:crypto.randomBytes(5).toString('hex'),owner:p.id,power:'echo_playback',slot:i,x,y,z,angle:p.yaw+Math.PI,speed:5.4,turn:1,until:now+10000};
+  if(recorded?.length>1){c.route=recorded.map(frame=>({x:frame.x+offsetX,y:frame.y,z:frame.z+offsetZ}));c.routeStarted=now;c.routeDuration=7000;}
+  room.clones.push(c);clones.push(c);
+ }
+ if(clones.length)broadcast(room,{type:'power-vfx',kind:'clones',player:p.id,clones});return clones.length;
+}
+function castNovelPower(p,id,now){
+ if(!NOVA_SPECIAL.has(id))return false;
+ const error=canCast(p,id,now);if(error){send(p.socket,{type:'power-error',message:error});return true;}
+ const room=p.room,rule=POWER_RULES[id],s=p.powers;
+ const enemies=()=>[...room.players.values()].filter(q=>q!==p&&q.team!==p.team&&q.alive);
+ const nearby=(radius)=>enemies().filter(q=>Math.hypot(q.x-p.x,q.z-p.z)<=radius);
+ const effect={type:'power-vfx',kind:id,player:p.id,x:p.x,y:p.y,z:p.z};
+ let worked=true;
+ switch(id){
+  case 'terra_break':{
+   const cp=Math.cos(p.pitch),dir=[-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp],eye=[p.x,p.y+1.65,p.z];let closest=null,depth=rule.range;
+   for(const b of room.blocks){const d=rayBoxDistance(eye,dir,b,rule.range);if(d<depth){depth=d;closest=b;}}
+   if(closest)dropForgeBlock(room,closest);else worked=false;break;
+  }
+  case 'terra_ridge':{
+   const fx=-Math.sin(p.yaw),fz=-Math.cos(p.yaw),sx=-fz,sz=fx;
+   let placed=0;for(let i=-1;i<=1;i++)placed+=placeNatureBlock(p,p.x+fx*5+sx*i*1.8,p.z+fz*5+sz*i*1.8,'stone',now+18000)?1:0;
+   worked=placed>0;break;
+  }
+  case 'terra_fault':{
+   for(const b of [...room.blocks])if(Math.hypot(b.x-p.x,b.z-p.z)<rule.range)dropForgeBlock(room,b);
+   for(const q of nearby(rule.range)){q.powers.frozenUntil=Math.max(q.powers.frozenUntil,now+850);send(q.socket,{type:'power-effect',kind:'freeze',player:q.id,until:now+850});}break;
+  }
+  case 'thread_hook':{
+   const plan=vaultEndpoint(p);if(!plan||p.vaultTrack){worked=false;break;}
+   p.vaultTrack={...plan,started:now};broadcast(room,{type:'power-effect',...plan,kind:'vault',player:p.id});break;
+  }
+  case 'mirror_palace':{
+   spawnNovelClones(p,now,3);s.shieldUntil=now+5500;break;
+  }
+  case 'pixel_small':case 'pixel_expand':case 'pixel_titan':{
+   s.sizeScale=id==='pixel_small'?.48:id==='pixel_expand'?1.5:2.2;
+   s.sizeUntil=now+(rule.duration||4500);
+   if(id==='pixel_titan'){p.shield=Math.min(100,p.shield+35);broadcast(room,{type:'health',id:p.id,hp:p.hp,shield:p.shield});}
+   if(id!=='pixel_small')for(const q of nearby(id==='pixel_expand'?7:11)){
+     const d=Math.hypot(q.x-p.x,q.z-p.z)||1,dx=(q.x-p.x)/d,dz=(q.z-p.z)/d;
+     const candidate={x:q.x+dx*3,z:q.z+dz*3};if(locationValid(candidate.x,q.y,candidate.z,roomColliders(room)))Object.assign(q,candidate,{lastMove:now});
+     applyAbilityDamage(p,q,id==='pixel_titan'?35:18,now);
+     broadcast(room,{type:'power-effect',kind:'push',player:q.id,x:q.x,y:q.y,z:q.z});
+   }
+   effect.scale=s.sizeScale;effect.duration=rule.duration||4500;break;
+  }
+  case 'cipher_scan':{
+   const targets=nearby(rule.range).map(q=>({id:q.id,x:q.x,y:q.y,z:q.z}));
+   s.scanUntil=now+5000;s.nextScanAt=now+850;send(p.socket,{...effect,targets});break;
+  }
+  case 'cipher_override':{
+   const object=interactions.filter(o=>Math.hypot(o.x-p.x,o.z-p.z)<=rule.range).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
+   if(object){const open=!room.openInteractions.has(object.id);if(open)room.openInteractions.add(object.id);else room.openInteractions.delete(object.id);broadcast(room,{type:'world-interaction',id:object.id,kind:object.kind,open});}
+   else{const enemyBlock=room.blocks.find(b=>b.owner!==p.id&&b.armed&&Math.hypot(b.x-p.x,b.z-p.z)<=rule.range);if(enemyBlock){enemyBlock.armed=false;broadcast(room,{type:'builder-disarm',id:enemyBlock.id});}else effect.targets=nearby(rule.range).map(q=>({id:q.id,x:q.x,y:q.y,z:q.z}));}break;
+  }
+  case 'cipher_network':{
+   for(const object of interactions.filter(o=>Math.hypot(o.x-p.x,o.z-p.z)<rule.range)){room.openInteractions.add(object.id);broadcast(room,{type:'world-interaction',id:object.id,kind:object.kind,open:true});}
+   for(const b of room.blocks.filter(b=>b.owner!==p.id&&b.armed&&Math.hypot(b.x-p.x,b.z-p.z)<rule.range)){b.armed=false;broadcast(room,{type:'builder-disarm',id:b.id});}
+   effect.targets=nearby(rule.range).map(q=>({id:q.id,x:q.x,y:q.y,z:q.z}));break;
+  }
+  case 'bloom_seed':{worked=placeNatureBlock(p,p.x-Math.sin(p.yaw)*4,p.z-Math.cos(p.yaw)*4,'plant',now+28000);break;}
+  case 'bloom_forest':{
+   let planted=0;for(let i=0;i<8;i++){const angle=Math.PI*2*i/8;planted+=placeNatureBlock(p,p.x+Math.cos(angle)*7,p.z+Math.sin(angle)*7,'plant',now+30000)?1:0;}
+   worked=planted>0;break;
+  }
+  case 'fusion_extract':{
+   const closest=room.blocks.filter(b=>Math.hypot(b.x-p.x,b.z-p.z)<11).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
+   s.fusionSample=closest?.material||'stone';send(p.socket,{type:'fusion-sample',material:s.fusionSample});break;
+  }
+  case 'fusion_mix':{
+   if(!s.fusionSample){worked=false;break;}const mat=s.fusionSample;
+   if(['metal','glass'].includes(mat)){p.shield=Math.min(80,p.shield+35);broadcast(room,{type:'health',id:p.id,hp:p.hp,shield:p.shield});}
+   else if(['wood','plant'].includes(mat)){p.hp=Math.min(100,p.hp+45);broadcast(room,{type:'health',id:p.id,hp:p.hp,shield:p.shield});}
+   else for(const q of nearby(11))applyAbilityDamage(p,q,45,now);effect.material=mat;break;
+  }
+  case 'fusion_reactor':{
+   if(!s.fusionSample){worked=false;break;}
+   p.hp=Math.min(100,p.hp+30);p.shield=Math.min(80,p.shield+28);broadcast(room,{type:'health',id:p.id,hp:p.hp,shield:p.shield});
+   for(const q of nearby(13))applyAbilityDamage(p,q,60,now);effect.material=s.fusionSample;break;
+  }
+  case 'echo_record':{
+   s.recordedRoute=s.history.filter(h=>h.t>=now-6000).map(h=>({x:h.x,y:h.y,z:h.z})).slice(-65);
+   if(s.recordedRoute.length<3)worked=false;break;
+  }
+  case 'echo_playback':case 'echo_loop':{
+   if(!s.recordedRoute?.length){worked=false;break;}
+   worked=spawnNovelClones(p,now,id==='echo_loop'?3:1,s.recordedRoute)>0;break;
+  }
+ }
+ if(!worked){send(p.socket,{type:'power-error',message:'Sem alvo ou espaço válido para a habilidade.'});return true;}
+ s.cooldowns[id]=now+rule.cooldown;
+ if(rule.duration)s.activeUntil[id]=now+rule.duration;
+ if(id!=='cipher_scan')broadcast(room,effect);
+ notifyPower(p,id);return true;
+}
 function castPower(p,data){
+  if(NOVA_SPECIAL.has(data.id)){castNovelPower(p,data.id,Date.now());return;}
   if(HERO_COMBOS[data.id]){castHeroCombo(p,data);return;}
   const id=data.id,effect=POWER_VARIANTS[id]?.base||id,now=Date.now(),state=p.powers,rule=POWER_RULES[id];
   if(!rule){send(p.socket,{type:'power-error',message:'Habilidade desconhecida.'});return;}
   // Reativação autorizada: escolha apenas clones seus, existentes e ainda ativos.
   if(effect==='morph'&&data.cancel===true){if(state.propUntil>now){state.propUntil=0;state.propType=null;notifyPower(p,id);}return;}
   if(effect==='clonejump'&&data.jump===true){
-    const clone=p.room.clones.find(c=>c.owner===p.id&&c.power==='clonejump'&&c.until>now);
+    const clone=p.room.clones.find(c=>c.owner===p.id&&c.power===id&&c.until>now);
     if(!p.alive||state.frozenUntil>now||state.gravityUntil>now||state.phaseUntil>now||!state.loadout.includes(id)||state.cloneJumpUsed||!clone){send(p.socket,{type:'power-error',message:'Clone móvel indisponível.'});return;}
     if(!locationValid(clone.x,clone.y,clone.z,roomColliders(p.room))){send(p.socket,{type:'power-error',message:'O clone está em uma posição bloqueada.'});return;}
     const origin={x:p.x,y:p.y,z:p.z};
@@ -561,10 +675,10 @@ function castPower(p,data){
     const clones=[];
     if(effect==='clonejump'){
       state.cloneJumpUsed=false;
-      for(const old of p.room.clones.filter(c=>c.owner===p.id&&c.power==='clonejump'))broadcast(p.room,{type:'clone-destroy',id:old.id});
-      p.room.clones=p.room.clones.filter(c=>c.owner!==p.id||c.power!=='clonejump');
+      for(const old of p.room.clones.filter(c=>c.owner===p.id&&c.power===id))broadcast(p.room,{type:'clone-destroy',id:old.id});
+      p.room.clones=p.room.clones.filter(c=>c.owner!==p.id||c.power!==id);
     }
-    const count=effect==='clonejump'?1:3;
+    const count=effect==='clonejump'?1:Math.min(6,rule.count||3);
     for(let i=0;i<count;i++){
       const forwardX=-Math.sin(p.yaw),forwardZ=-Math.cos(p.yaw),sideX=-forwardZ,sideZ=forwardX;
       const distance=effect==='clonejump'?4:2,lateral=effect==='clonejump'?0:(i-1)*3;
@@ -594,7 +708,8 @@ function onMessage(ws,data){
   else if(data.type==='move')move(p,data);
   else if(data.type==='fire')fire(p,data);
   else if(data.type==='world-interact')interactWorld(p,data.id);
-  else if(data.type==='builder-place')placeForgeBlock(p,data.pos);
+  else if(data.type==='builder-place')placeForgeBlock(p,{...data.pos,material:data.material});
+  else if(data.type==='builder-remove'){const b=p.room.blocks.find(b=>b.id===data.id&&b.owner===p.id);if(b&&p.alive&&Math.hypot(p.x-b.x,p.z-b.z)<=FORGE_RANGE+2)dropForgeBlock(p.room,b);}
   else if(data.type==='dash'){const now=Date.now(),cooldown=4800;const left=Math.max(0,cooldown-(now-p.lastDash));if(!p.alive||p.powers.frozenUntil>now||p.powers.gravityUntil>now){send(ws,{type:'dash-state',ok:false,remaining:Math.max(left,500)});}else if(left>0){send(ws,{type:'dash-state',ok:false,remaining:left});}else{p.lastDash=now;send(ws,{type:'dash-state',ok:true,remaining:cooldown});}}
   else if(data.type==='equip'){p.powers.loadout=p.hero?heroLoadout(p.hero):sanitizeLoadout(data.loadout);p.powers.copiedUntil=0;p.powers.originalLoadout=null;p.powers.copyMark=null;send(ws,{type:'power-state',powers:powerSnapshot(p)});}
   else if(data.type==='power'){
@@ -659,7 +774,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.7.0'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.8.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';
@@ -688,6 +803,12 @@ const tick=setInterval(()=>{
     for(const b of [...room.blocks])if(b.until<now)dropForgeBlock(room,b);
     if(room.nextSupply<=now){room.nextSupply=now+10000;if(room.ammoCrates.length<10){const [x,z]=AMMO_LOCATIONS[(room.ammoSerial+3)%AMMO_LOCATIONS.length];if(locationValid(x,0,z,colliders)){const crate={id:'ammo-'+(++room.ammoSerial),x,z};room.ammoCrates.push(crate);broadcast(room,{type:'ammo-spawn',crate});}}}
     for(const p of room.players.values()){
+      if(p.alive&&p.powers.scanUntil>now&&now>=p.powers.nextScanAt){
+        p.powers.nextScanAt=now+850;
+        const targets=[...room.players.values()].filter(q=>q!==p&&q.alive&&q.team!==p.team&&Math.hypot(q.x-p.x,q.z-p.z)<=55).map(q=>({id:q.id,x:q.x,y:q.y,z:q.z}));
+        send(p.socket,{type:'power-vfx',kind:'cipher_scan',player:p.id,x:p.x,y:p.y,z:p.z,targets});
+      }
+      if(p.powers.sizeUntil&&p.powers.sizeUntil<=now){p.powers.sizeScale=1;p.powers.sizeUntil=0;broadcast(room,{type:'power-vfx',kind:'pixel_reset',player:p.id,scale:1});}
       if(p.vaultTrack&&!p.alive)p.vaultTrack=null;
       if(p.vaultTrack){
         const move=p.vaultTrack;const t=Math.min(1,(now-move.started)/move.duration);
