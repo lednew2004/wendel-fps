@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {WEAPONS,rand,lerp} from './constants.js';
 
 function weaponBox(group,size,pos,mat){
@@ -21,7 +20,7 @@ export class Weapons {
     this.world=world; this.audio=audio; this.hooks=hooks;
     this.index=0; this.state=WEAPONS.map(w=>({clip:w.clip,reserve:w.reserve}));
     this.fireCooldown=0; this.reloadTime=0; this.recoil=0; this.ads=0; this.reloadingVisual=0; this.bob=0;
-    this.tracers=[];this.tracerGeometry=new THREE.CylinderGeometry(1,1,1,5); this.muzzleTime=0; this.fireMultiplier=1; this.damageMultiplier=1; this.shooting=false; this.aiming=false;
+    this.tracers=[]; this.muzzleTime=0; this.fireMultiplier=1; this.damageMultiplier=1; this.shooting=false; this.aiming=false;
     this.buildModel(); this.switchTo(0);
   }
   get def(){return WEAPONS[this.index]}
@@ -42,14 +41,14 @@ export class Weapons {
     const gloveMat=new THREE.MeshStandardMaterial({color:0x5f655f,metalness:.12,roughness:.88,depthTest:false});
 
     const buildHands=(group, forePos=[-.12,-.26,-.07], supportPos=[.15,-.16,-.56])=>{
-      const left=new THREE.Group();left.name='TITAN_HAND_LEFT';
+      const left=new THREE.Group();
       weaponBox(left,[.16,.12,.22],[0,0,0],gloveMat);
       weaponBox(left,[.18,.26,.18],[.04,-.16,.03],handMat);
       weaponCyl(left,.065,.072,.32,[.12,-.32,.06],[0,0,.14],gloveMat,10);
       left.position.set(forePos[0],forePos[1],forePos[2]);
       group.add(left);
 
-      const right=new THREE.Group();right.name='TITAN_HAND_RIGHT';
+      const right=new THREE.Group();
       weaponBox(right,[.16,.12,.20],[0,0,0],gloveMat);
       weaponBox(right,[.17,.24,.17],[.02,-.14,.02],handMat);
       weaponCyl(right,.06,.07,.28,[.05,-.28,.03],[0,0,-.22],gloveMat,10);
@@ -139,40 +138,11 @@ export class Weapons {
       this.weaponObjects.push(group);
       this.model.add(group);
     }
-    this.loadWeaponModels();
 
     const flashMat=new THREE.MeshBasicMaterial({color:0xffe8b4,transparent:true,opacity:.95,depthTest:false});
     this.muzzle=new THREE.Mesh(new THREE.ConeGeometry(.16,.62,7),flashMat);
     this.muzzle.rotation.x=-Math.PI/2; this.muzzle.position.set(0,.015,-1.22); this.muzzle.visible=false; this.model.add(this.muzzle);
-    // One 64px sprite replaces multiple transparent particles per discharge.
-    const flashCanvas=document.createElement('canvas');flashCanvas.width=flashCanvas.height=64;
-    const fx=flashCanvas.getContext('2d');const halo=fx.createRadialGradient(32,32,1,32,32,31);
-    halo.addColorStop(0,'rgba(255,252,215,1)');halo.addColorStop(.20,'rgba(255,219,115,.85)');
-    halo.addColorStop(.48,'rgba(255,130,70,.40)');halo.addColorStop(1,'rgba(255,100,40,0)');
-    fx.fillStyle=halo;fx.fillRect(0,0,64,64);
-    this.muzzleGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(flashCanvas),transparent:true,opacity:.0,depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending}));
-    this.muzzleGlow.scale.set(.62,.62,1);this.muzzleGlow.visible=false;this.model.add(this.muzzleGlow);
     this.muzzleLight=new THREE.PointLight(0xffc37b,0,5); this.muzzleLight.position.set(0,.03,-1.06); this.model.add(this.muzzleLight);
-  }
-
-  loadWeaponModels(){
-    // All first-person guns are optional authored GLBs. Procedural guns remain
-    // as a working fallback while models download or on a failed request.
-    const loader=new GLTFLoader();
-    for(const [i,name] of ['rifle','shotgun','sniper','lmg'].entries()){
-      loader.load(`./assets/models/weapons/${name}.glb`,gltf=>{
-        const group=this.weaponObjects[i];if(!group)return;
-        const authored=gltf.scene;authored.name='GLB_WEAPON_'+name.toUpperCase();
-        authored.traverse(obj=>{if(obj.isMesh){obj.castShadow=false;obj.receiveShadow=false;
-          // Viewmodel is rendered without wall occlusion like the existing gun.
-          if(Array.isArray(obj.material))obj.material.forEach(m=>{m.depthTest=false;m.depthWrite=false;});
-          else if(obj.material){obj.material.depthTest=false;obj.material.depthWrite=false;}
-          obj.renderOrder=16;
-        }});
-        for(const part of group.children){if(!part.name.startsWith('TITAN_HAND_')&&part!==this.heroAccents?.[i])part.visible=false;}
-        group.add(authored);
-      },undefined,err=>console.warn('GLB de arma indisponível, fallback mantido',name,err));
-    }
   }
 
   setHeroAccent(hex=0x55e1ea){
@@ -190,10 +160,6 @@ export class Weapons {
     if(i<0||i>=WEAPONS.length)return;
     if(this.index===i && this.weaponObjects.length && this.weaponObjects.every((o,j)=>o.visible===(j===i))) return;
     this.index=i; this.reloadTime=0; this.fireCooldown=Math.min(this.fireCooldown,.2);
-    const z=[-1.40,-1.22,-1.72,-1.49][i];
-    this.muzzle.position.z=z;
-    this.muzzleLight.position.z=z+.18;
-    this.muzzleGlow.position.set(0,.03,z-.06);
     for(let j=0;j<this.weaponObjects.length;j++) this.weaponObjects[j].visible=j===i;
     this.hooks.onWeaponChanged?.(); this.audio.play('click');
   }
@@ -210,10 +176,11 @@ export class Weapons {
     if(s.clip<=0){ this.audio.play('empty'); this.fireCooldown=.26; this.reload(); return false; }
     s.clip--; this.fireCooldown=w.interval/this.fireMultiplier; this.recoil=Math.min(.42,this.recoil+w.recoil); this.muzzleTime=.065;
     this.audio.play(w.id==='rifle'?'rifle':w.id==='shotgun'?'shotgun':'rail');
-    const origin=new THREE.Vector3(); this.world.camera.getWorldPosition(origin);
+    const origin=new THREE.Vector3(); (this.world.cameraMode==='third'?this.world.cameraPitch:this.world.camera).getWorldPosition(origin);
     const spread=this.aiming?w.spread*.38:w.spread;
     const base=new THREE.Vector3();
-    this.world.camera.getWorldDirection(base);
+    if(this.world.cameraMode==='third')base.set(0,0,-1).applyQuaternion(this.world.cameraPitch.getWorldQuaternion(new THREE.Quaternion()));
+    else this.world.camera.getWorldDirection(base);
     let hit=false,killed=false;
     for(let i=0;i<w.pellets;i++){
       const dir=base.clone().add(new THREE.Vector3(rand(-spread,spread),rand(-spread,spread),rand(-spread,spread))).normalize();
@@ -221,8 +188,9 @@ export class Weapons {
       if(result?.hit){ hit=true; if(result.killed) killed=true; }
       const end=result?.point || origin.clone().addScaledVector(dir,Math.min(w.range,70));
       const start=new THREE.Vector3();
-      this.muzzle.getWorldPosition(start);
-      if(this.world.quality!=='low'||i<2)this.addTracer(start,end,w.id==='shotgun'?0xffd38a:0xffefe0,w.id==='rail'?.06:.014,w.id==='rail'?.20:.11);
+      if(this.world.cameraMode==='third'&&this.world.thirdPersonAvatar){this.world.thirdPersonAvatar.userData.rig.rifle.getWorldPosition(start);start.addScaledVector(dir,.48);}
+      else this.muzzle.getWorldPosition(start);
+      this.addTracer(start,end,w.id==='shotgun'?0xffd38a:0xffefe0,w.id==='rail'?.06:.014,w.id==='rail'?.20:.11);
     }
     if(hit){ this.audio.play('hit'); this.hooks.onHitmarker(killed); }
     this.hooks.onFire();
@@ -231,11 +199,10 @@ export class Weapons {
 
   addTracer(start,end,color,width,life){
     const dir=end.clone().sub(start); const len=dir.length(); if(len<.01)return;
-    if(this.tracers.length>=76)return;
-    const geom=this.tracerGeometry;
+    const geom=new THREE.CylinderGeometry(width,width,len,5);
     const mat=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.92,depthWrite:false});
     const mesh=new THREE.Mesh(geom,mat);
-    mesh.position.copy(start).addScaledVector(dir,.5);mesh.scale.set(width,len,width);
+    mesh.position.copy(start).addScaledVector(dir,.5);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.normalize());
     this.world.scene.add(mesh); this.tracers.push({mesh,life,maxLife:life});
   }
@@ -253,11 +220,7 @@ export class Weapons {
       }
     }
     this.reloadingVisual=lerp(this.reloadingVisual,this.reloadTime>0?1:0,Math.min(1,dt*10));
-    this.muzzleTime-=dt;this.muzzle.visible=this.muzzleTime>0;
-    this.muzzleGlow.visible=this.muzzleTime>0&&this.world.quality!=='low';
-    this.muzzleGlow.material.opacity=Math.min(.9,Math.max(0,this.muzzleTime/.065*.8));
-    this.muzzleGlow.scale.setScalar(.62+Math.max(0,this.muzzleTime)*5);
-    this.muzzleLight.intensity=this.muzzleTime>0&&this.world.quality!=='low'?6:0;
+    this.muzzleTime-=dt; this.muzzle.visible=this.muzzleTime>0; this.muzzleLight.intensity=this.muzzleTime>0?8:0;
     this.recoil=Math.max(0,this.recoil-dt*1.7);
     this.bob+=dt*(moving?12:2.1);
     const sway=moving?.0075:0;
@@ -273,12 +236,12 @@ export class Weapons {
 
     for(let i=this.tracers.length-1;i>=0;i--){
       const t=this.tracers[i]; t.life-=dt; t.mesh.material.opacity=Math.max(0,t.life/t.maxLife);
-      if(t.life<=0){ this.world.scene.remove(t.mesh); t.mesh.material.dispose(); this.tracers.splice(i,1); }
+      if(t.life<=0){ this.world.scene.remove(t.mesh); t.mesh.geometry.dispose(); t.mesh.material.dispose(); this.tracers.splice(i,1); }
     }
   }
 
   clearTracers(){
-    for(const t of this.tracers){ this.world.scene.remove(t.mesh); t.mesh.material.dispose(); }
+    for(const t of this.tracers){ this.world.scene.remove(t.mesh); t.mesh.geometry.dispose(); t.mesh.material.dispose(); }
     this.tracers=[];
   }
 }
