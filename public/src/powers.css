@@ -124,3 +124,23 @@ body.titan-resurrected #power-hud::after{content:'✚ IMORTAL TEMPORARIAMENTE';b
  .titan-wheel-navigation button{font-size:9px;padding:5px 6px}
  #titan-wheel-close{padding:6px 11px;font-size:9px}
 }
+
+/* TITAN 2.5 — economy readable on desktop and landscape mobile */
+#titan-economy-hud{position:fixed;top:calc(env(safe-area-inset-top,0px) + 112px);left:14px;z-index:19;padding:7px 10px;border:1px solid #7dc4b68f;border-radius:8px;background:#0b2831e9;color:#aafbd3;font:800 11px/1.2 system-ui;pointer-events:none;text-shadow:0 1px 2px #000}
+#titan-economy-hud.hidden{display:none!important}
+.titan-wheel-credits{padding:6px 10px;border:1px solid #6cb99b87;border-radius:9px;background:#10332f;color:#aaf5c9;font:800 clamp(9px,1.8vh,12px) system-ui;text-align:center}
+#titan-abilities-wheel .titan-power-option.locked{background:#322f38!important;border-color:#ba9064!important;filter:saturate(.8)}
+#titan-abilities-wheel .titan-power-option.locked small{color:#ffcd88!important;font-weight:900;font-size:clamp(7px,1.5vh,10px)}
+#power-hud .power-slot.power-empty{opacity:.62;border-style:dashed}
+@media (pointer:coarse) and (orientation:landscape){#titan-economy-hud{top:calc(env(safe-area-inset-top,0px) + 51px);left:max(9px,env(safe-area-inset-left,0px));font-size:9px;padding:5px 7px}}
+
+#titan-abilities-wheel .titan-power-option small{display:block!important;font-size:clamp(7px,1.55vh,10px);color:#b5f4d1;font-weight:900;line-height:1}
+@media (orientation:landscape) and (max-height:430px){
+ .titan-overlay-inner{max-height:97dvh;padding:6px 9px;gap:3px}
+ .titan-wheel-content{gap:2px!important}
+ .titan-wheel-content h2{font-size:13px}
+ .titan-wheel-content p{font-size:8px;line-height:1.1}
+ .titan-wheel-credits{padding:3px 7px;font-size:8px}
+ .titan-wheel-stage{width:min(43dvh,185px,40vw)!important}
+ .titan-wheel-navigation button,#titan-wheel-close{padding:5px 8px;font-size:9px}
+}

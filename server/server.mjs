@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,isGroundedDestination,within,nearbyMorphObject,canAutoResurrect} from './powers.mjs';
+import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,isGroundedDestination,within,nearbyMorphObject,canAutoResurrect,criticalPowerPenalty} from './powers.mjs';
 
 const root=path.resolve(fileURLToPath(new URL('../public/',import.meta.url)));
 const port=Number(process.env.PORT||3000);
@@ -125,7 +125,7 @@ function move(p,data){
   const distance=Math.hypot(x-p.x,z-p.z);
   const dy=Math.abs(y-p.y);
   const flying=p.powers.flightUntil>now;const phased=p.powers.phaseUntil>now;
-  // Allow the existing unlimited dash, but reject large discontinuities/teleports.
+  // Client dash has a cooldown; authoritative speed checks still reject invalid teleports.
   if(distance>Math.max(3.2,(flying?35:42)*dt+1.0)||dy>Math.max(2.4,(flying?22:17)*dt+1.0))return;
   if(!phased&&!flying&&!locationValid(x,y,z,colliders))return;
   if(!phased&&!flying)p.powers.safe={x,y,z};
@@ -181,7 +181,7 @@ function fire(p,data){
   setTimeout(()=>{
     if(victim.room.players.get(victim.id)!==victim||victim.alive)return;
     const s=spawn(victim.deaths%SPAWNS.length);Object.assign(victim,s,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
-    victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];victim.powers.webUntil=0;victim.powers.copyMark=null;victim.powers.copiedUntil=0;victim.powers.propUntil=0;victim.powers.propType=null;victim.powers.resurrectionUntil=0;if(victim.powers.originalLoadout){victim.powers.loadout=sanitizeLoadout(victim.powers.originalLoadout);victim.powers.originalLoadout=null;}
+    victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];victim.powers.copyMark=null;victim.powers.copiedUntil=0;victim.powers.propUntil=0;victim.powers.propType=null;victim.powers.resurrectionUntil=0;if(victim.powers.originalLoadout){victim.powers.loadout=sanitizeLoadout(victim.powers.originalLoadout);victim.powers.originalLoadout=null;}
     send(victim.socket,{type:'respawn',spawn:s,hp:100,shield:40,powers:powerSnapshot(victim)});
     broadcast(p.room,{type:'revived',player:publicPlayer(victim)},victim.socket);
   },2200);
@@ -239,18 +239,6 @@ function completeMarkedCopy(attacker,victim,now){
  send(attacker.socket,{type:'power-copy',from:victim.name,until:state.copiedUntil,powers:powerSnapshot(attacker)});
  notifyPower(attacker,'copy');
 }
-function isWallAnchor(player,anchor){
- if(!anchor||!finite(anchor.x,-142,142)||!finite(anchor.z,-142,142)||!finite(anchor.y,1,37))return false;
- const dist=Math.hypot(anchor.x-player.x,anchor.z-player.z,anchor.y-(player.y+1.5));
- if(dist>POWER_RULES.web.range||dist<3)return false;
- const nearby=colliders.some(b=>anchor.y>=b.minY-.5&&anchor.y<=b.maxY+.5&&
- (Math.abs(Math.abs(anchor.x-b.x)-b.hx)<1.1&&Math.abs(anchor.z-b.z)<=b.hz+1.0 ||
- Math.abs(Math.abs(anchor.z-b.z)-b.hz)<1.1&&Math.abs(anchor.x-b.x)<=b.hx+1.0));
- if(!nearby)return false;
- const origin=[player.x,player.y+1.65,player.z];
- const dx=anchor.x-origin[0],dy=anchor.y-origin[1],dz=anchor.z-origin[2],len=Math.hypot(dx,dy,dz);
- return len>1&&!obscured(origin,[dx/len,dy/len,dz/len],len-.65);
-}
 function advanceClone(c,dt){
  let nextX=c.x+Math.sin(c.angle)*c.speed*dt;
  let nextZ=c.z+Math.cos(c.angle)*c.speed*dt;
@@ -305,10 +293,14 @@ function castPower(p,data){
     if(!target){send(p.socket,{type:'power-error',message:'Mire em um adversário próximo.'});return;}
   }
   if(id==='swap'&&(!isGroundedDestination(p.x,p.y,p.z,colliders)||!isGroundedDestination(target.x,target.y,target.z,colliders))){send(p.socket,{type:'power-error',message:'Troca indisponível nestas posições.'});return;}
-  if(id==='web'&&!isWallAnchor(p,data.anchor)){send(p.socket,{type:'power-error',message:'A teia precisa atingir uma parede ao alcance.'});return;}
   if(id==='morph'&&!nearbyMorphObject(p.x,p.z,rule.range)){send(p.socket,{type:'power-error',message:'Aproxime-se de um tambor, caminhão ou empilhadeira.'});return;}
   if(id==='rewind'&&(!state.history.length||state.history[0].t>now-rule.history+600)){send(p.socket,{type:'power-error',message:'Aguarde 10 segundos para acumular o histórico.'});return;}
-  state.cooldowns[id]=now+rule.cooldown;
+  const hpRatio=p.hp/100;
+  const blackholeCenter=id==='blackhole'?aimPoint(p,rule.range):null;
+  const nearbyTargets=blackholeCenter?[...p.room.players.values()].filter(v=>v.id!==p.id&&v.alive&&Math.hypot(v.x-blackholeCenter.x,v.z-blackholeCenter.z)<rule.radius).length:0;
+  const pendingRewind=id==='rewind'&&state.history.length?state.history.reduce((best,h)=>Math.abs(h.t-(now-rule.history))<Math.abs(best.t-(now-rule.history))?h:best,state.history[0]):null;
+  const restoredHealth=pendingRewind?Math.max(0,pendingRewind.hp-p.hp):0;
+  state.cooldowns[id]=now+rule.cooldown+criticalPowerPenalty(id,{hpRatio,nearbyTargets,restoredHealth});
   if(rule.duration)state.activeUntil[id]=now+rule.duration;
   if(id==='heal'){
     p.hp=Math.min(100,p.hp+rule.health);p.shield=Math.min(40,p.shield+rule.shield);
@@ -340,9 +332,6 @@ function castPower(p,data){
     state.activeUntil.copy=state.copyMark.until;
     send(p.socket,{type:'power-effect',kind:'copy-mark',player:p.id,target:target.id,until:state.copyMark.until});
     broadcast(p.room,{type:'power-vfx',kind:'copy-mark',player:p.id,x:target.x,y:target.y,z:target.z},p.socket);
-  }else if(id==='web'){
-    state.webUntil=now+rule.duration;state.webAnchor={x:data.anchor.x,y:data.anchor.y,z:data.anchor.z};
-    broadcast(p.room,{type:'power-vfx',kind:'web',player:p.id,anchor:state.webAnchor,x:p.x,y:p.y,z:p.z,until:state.webUntil});
   }else if(id==='blackhole'){
     const center=aimPoint(p,rule.range);const hazard={id:crypto.randomBytes(4).toString('hex'),x:center.x,z:center.z,until:now+rule.duration,radius:rule.radius,owner:p.id};
     p.room.hazards.push(hazard);broadcast(p.room,{type:'power-vfx',kind:'blackhole',player:p.id,...hazard});
@@ -411,6 +400,7 @@ function onMessage(ws,data){
   }
   else if(data.type==='move')move(p,data);
   else if(data.type==='fire')fire(p,data);
+  else if(data.type==='dash'){const now=Date.now(),cooldown=4800;const left=Math.max(0,cooldown-(now-p.lastDash));if(!p.alive||p.powers.frozenUntil>now||p.powers.gravityUntil>now){send(ws,{type:'dash-state',ok:false,remaining:Math.max(left,500)});}else if(left>0){send(ws,{type:'dash-state',ok:false,remaining:left});}else{p.lastDash=now;send(ws,{type:'dash-state',ok:true,remaining:cooldown});}}
   else if(data.type==='equip'){p.powers.loadout=sanitizeLoadout(data.loadout);p.powers.copiedUntil=0;p.powers.originalLoadout=null;p.powers.copyMark=null;send(ws,{type:'power-state',powers:powerSnapshot(p)});}
   else if(data.type==='power')castPower(p,data);
   else if(data.type==='leave'){depart(ws,true);ws.end(Buffer.from([0x88,0x00]));}
@@ -456,7 +446,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.4.1'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.5.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';

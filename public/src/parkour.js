@@ -10,7 +10,7 @@ export class ParkourController {
     this.current=0;this.progress=0;this.elapsed=0;this.running=false;this.combat=false;this.trialActive=false;
     this.x=-100;this.z=-85;this.y=0;this.vx=0;this.vz=0;this.vy=0;
     this.grounded=true;this.coyote=0;this.buffer=0;this.slide=0;this.wallRun=0;this.dashTime=0;this.dashVX=0;this.dashVZ=0;
-    this.ladder=null;this.hanging=null;this.web=null;this.lastGroundedY=0;this.checkpoint=null;this.combo=0;
+    this.ladder=null;this.hanging=null;this.lastGroundedY=0;this.checkpoint=null;this.combo=0;
     this.prompt='APROXIME-SE DA ESCADA AMARELA E PRESSIONE E';
     this.updateHud();
   }
@@ -42,7 +42,7 @@ export class ParkourController {
   }
   spawn(x,y,z){
     this.x=x;this.z=z;this.y=y;this.vx=0;this.vz=0;this.vy=0;this.grounded=true;
-    this.coyote=0;this.buffer=0;this.wallRun=0;this.slide=0;this.dashTime=0;this.ladder=null;this.hanging=null;this.web=null;
+    this.coyote=0;this.buffer=0;this.wallRun=0;this.slide=0;this.dashTime=0;this.ladder=null;this.hanging=null;
     this.game.player.x=x;this.game.player.z=z;this.game.player.eyeY=y+1.75;
     this.game.positionCamera();
   }
@@ -51,7 +51,6 @@ export class ParkourController {
     this.spawn(p.x,p.y,p.z);this.prompt='REINICIADO NO ÚLTIMO CHECKPOINT';
   }
   jump(){
-    if(this.web){this.web=null;this.vy=Math.max(5.5,this.vy+3.2);this.prompt='TEIA SOLTA · SALTO DE IMPULSO';return;}
     if(this.hanging){this.mantle();return;}
     if(this.ladder){this.dismountLadder();return;}
     this.buffer=CFG.jumpBuffer;
@@ -196,18 +195,6 @@ export class ParkourController {
         this.vy-=CFG.gravity*dt*(lift||1);
       }
     }
-    const web=this.web;
-    if(web&&web.until>Date.now()){
-      const ax=web.anchor.x-this.x,ay=web.anchor.y-(this.y+1.25),az=web.anchor.z-this.z;
-      const dist=Math.max(.01,Math.hypot(ax,ay,az));
-      // Elastic rope: pull toward the anchor while preserving lateral momentum.
-      const tension=Math.max(0,dist-web.length);
-      const force=Math.min(145,20+tension*19);
-      this.vx+=ax/dist*force*dt;this.vy+=ay/dist*force*dt;this.vz+=az/dist*force*dt;
-      this.vx+=dir.x*12*dt;this.vz+=dir.z*12*dt;
-      this.vx= Math.max(-36,Math.min(36,this.vx));this.vy=Math.max(-25,Math.min(25,this.vy));this.vz=Math.max(-36,Math.min(36,this.vz));
-      this.grounded=false;this.prompt='BALANÇO DE TEIA · MOVA PARA GANHAR IMPULSO · PULAR SOLTA';
-    }else if(web)this.web=null;
     const prevY=this.y;
     const height=this.slide>0?1.08:CFG.characterHeight;
     const radius=CFG.characterRadius;

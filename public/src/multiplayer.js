@@ -308,6 +308,7 @@ export class MultiplayerClient {
         this.game.toast(msg.resumed?'CONEXÃO RESTABELECIDA · PARTIDA RETOMADA':'PARTIDA ONLINE · TOQUE EM SALA PARA CONVIDAR');
         break;
       }
+      case 'dash-state':if(!msg.ok){this.game.player.dashDuration=0;this.game.parkour.dashTime=0;this.game.player.dashCd=Math.max(this.game.player.dashCd,Number(msg.remaining||0)/1000);this.game.toast('DASH EM RECARGA');}break;
       case 'power-state':this.game.powers.onServerState(msg.powers);break;
       case 'power-error':this.game.toast(msg.message||'PODER NÃO ATIVADO');break;
       case 'power-copy':this.game.powers.onServerState(msg.powers);this.game.toast('PODERES COPIADOS DE '+msg.from+' · 30 SEGUNDOS');break;
@@ -331,9 +332,6 @@ export class MultiplayerClient {
             root.traverse(o=>{if(o.isMesh&&o.material?.clone){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.55;}});
             this.game.world.scene.add(root);this.decoys.set(clone.id,{group:root,until:clone.until,target:new THREE.Vector3(clone.x,clone.y,clone.z)});
           }
-        }else if(msg.kind==='web'){
-          if(msg.player===this.id&&msg.anchor)this.game.powers.activateWeb(msg.anchor);
-          else this.game.powers.flash(0x9feafb,5,msg);
         }else if(msg.kind==='copy-mark'){
           this.game.powers.flash(0xff7dda,6,msg);
         }else if(msg.kind==='chain'){

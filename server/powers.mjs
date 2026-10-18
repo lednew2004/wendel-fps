@@ -1,24 +1,23 @@
 /** Regras de habilidades autoritativas; compartilhadas com os testes do servidor. */
 export const POWER_RULES=Object.freeze({
- push:{name:'Repulsão',cooldown:7500,range:16},
- freeze:{name:'Congelar',cooldown:8000,range:35,duration:1500},
- teleport:{name:'Teleporte estratégico',cooldown:8500,range:410,returnWindow:15000},
- flight:{name:'Voo',cooldown:8500,duration:7000},
- invisible:{name:'Invisibilidade',cooldown:8000,duration:5000},
- phase:{name:'Intangibilidade',cooldown:9500,duration:7000},
- blackhole:{name:'Buraco Negro',cooldown:9500,range:36,duration:5500,radius:18},
- rewind:{name:'Reverter o Tempo',cooldown:9500,history:10000},
- chain:{name:'Corrente Elétrica',cooldown:8500,range:42,chainRadius:18},
- gravity:{name:'Gravidade Invertida',cooldown:9000,range:40,radius:13,duration:2700},
- clones:{name:'Clones Fantasmas',cooldown:7000,duration:10000},
- clonejump:{name:'Salto dos Clones',cooldown:8500,duration:14000},
- shield:{name:'Escudo Absoluto',cooldown:9500,duration:7000},
- swap:{name:'Troca Dimensional',cooldown:8500,range:60},
- web:{name:'Teia Oscilante',cooldown:8500,duration:10000,range:50},
- copy:{name:'Roubo de Habilidades',cooldown:9000,range:60,markDuration:18000,stealDuration:30000},
- resurrection:{name:'Ressurreição',cooldown:10000,duration:4000},
- heal:{name:'Cura',cooldown:7000,health:70,shield:25},
- morph:{name:'Disfarce em Objeto',cooldown:8000,duration:10000,range:6}
+ push:{name:'Repulsão',cooldown:12000,range:16},
+ freeze:{name:'Congelar',cooldown:18000,range:35,duration:1500},
+ teleport:{name:'Teleporte estratégico',cooldown:28000,range:410,returnWindow:15000},
+ flight:{name:'Voo',cooldown:21000,duration:7000},
+ invisible:{name:'Invisibilidade',cooldown:24000,duration:5000},
+ phase:{name:'Intangibilidade',cooldown:30000,duration:7000},
+ blackhole:{name:'Buraco Negro',cooldown:38000,range:36,duration:5500,radius:18},
+ rewind:{name:'Reverter o Tempo',cooldown:42000,history:10000},
+ chain:{name:'Corrente Elétrica',cooldown:20000,range:42,chainRadius:18},
+ gravity:{name:'Gravidade Invertida',cooldown:28000,range:40,radius:13,duration:2700},
+ clones:{name:'Clones Fantasmas',cooldown:19000,duration:10000},
+ clonejump:{name:'Salto dos Clones',cooldown:26000,duration:14000},
+ shield:{name:'Escudo Absoluto',cooldown:31000,duration:7000},
+ swap:{name:'Troca Dimensional',cooldown:28000,range:60},
+ copy:{name:'Roubo de Habilidades',cooldown:36000,range:60,markDuration:18000,stealDuration:30000},
+ resurrection:{name:'Ressurreição',cooldown:65000,duration:4000},
+ heal:{name:'Cura',cooldown:22000,health:70,shield:25},
+ morph:{name:'Disfarce em Objeto',cooldown:24000,duration:10000,range:6}
 });
 export const VALID_POWERS=Object.keys(POWER_RULES);
 export function sanitizeLoadout(input){
@@ -28,10 +27,10 @@ export function sanitizeLoadout(input){
  if(second===first)second=VALID_POWERS.find(x=>x!==first);
  return [first,second];
 }
-export function freshPowerState(){return {loadout:['push','freeze'],cooldowns:{},activeUntil:{},cloneJumpUsed:false,copyMark:null,copiedUntil:0,originalLoadout:null,webUntil:0,webAnchor:null,frozenUntil:0,flightUntil:0,invisibleUntil:0,phaseUntil:0,shieldUntil:0,gravityUntil:0,resurrectionUntil:0,propUntil:0,propType:null,teleportReturn:null,safe:null,history:[]};}
+export function freshPowerState(){return {loadout:['push','freeze'],cooldowns:{},activeUntil:{},cloneJumpUsed:false,copyMark:null,copiedUntil:0,originalLoadout:null,frozenUntil:0,flightUntil:0,invisibleUntil:0,phaseUntil:0,shieldUntil:0,gravityUntil:0,resurrectionUntil:0,propUntil:0,propType:null,teleportReturn:null,safe:null,history:[]};}
 export function powerSnapshot(p,now=Date.now()){
  const s=p.powers;
- return {loadout:s.loadout,cooldowns:s.cooldowns,activeUntil:s.activeUntil,cloneJumpUsed:s.cloneJumpUsed,copiedUntil:s.copiedUntil,copyMarkUntil:s.copyMark?.until||0,webUntil:s.webUntil,frozenUntil:s.frozenUntil,flightUntil:s.flightUntil,
+ return {loadout:s.loadout,cooldowns:s.cooldowns,activeUntil:s.activeUntil,cloneJumpUsed:s.cloneJumpUsed,copiedUntil:s.copiedUntil,copyMarkUntil:s.copyMark?.until||0,frozenUntil:s.frozenUntil,flightUntil:s.flightUntil,
  invisibleUntil:s.invisibleUntil,phaseUntil:s.phaseUntil,shieldUntil:s.shieldUntil,gravityUntil:s.gravityUntil,
  returnUntil:s.teleportReturn?.until||0,resurrectionUntil:s.resurrectionUntil||0,propUntil:s.propUntil||0,propType:s.propUntil>now?s.propType:null,invulnerable:s.resurrectionUntil>now,
  frozen:s.frozenUntil>now||s.gravityUntil>now,
@@ -72,4 +71,12 @@ export const nearbyMorphBarrel=nearbyMorphObject;
 // Automatic passive: never requires a manual cast, and never creates a kill for the opponent.
 export function canAutoResurrect(p,now=Date.now()){
  const s=p.powers;return !!(p.alive&&s.loadout.includes('resurrection')&&(s.cooldowns.resurrection||0)<=now&&s.resurrectionUntil<=now);
+}
+
+/** High-impact activations incur additional recharge time. */
+export function criticalPowerPenalty(id,{hpRatio=1,nearbyTargets=0,restoredHealth=0}={}){
+ if(id==='heal'&&hpRatio<=.3)return 6000;
+ if(id==='blackhole'&&nearbyTargets>=2)return 7000;
+ if(id==='rewind'&&restoredHealth>=35)return 9000;
+ return 0;
 }

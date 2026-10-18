@@ -1,60 +1,22 @@
-# TITAN PROTOCOL 2.4.1 — POWER WHEEL (TAB CORRIGIDO)
+# TITAN PROTOCOL 2.5 — SOBREVIVÊNCIA & ECONOMIA DE PODERES
 
-Jogo FPS 3D para **PC e celular**, com parkour urbano, campanha/sobrevivência, multiplayer em salas, minimapa e **19 habilidades** equipáveis (duas por vez). Implementado em HTML/CSS/JavaScript com Three.js e um servidor HTTP + WebSocket Node.js, sem dependências npm adicionais.
+Jogo FPS 3D em HTML/CSS/JavaScript + Three.js com campanha, sobrevivência e salas online via Node.js + WebSocket, pronto para GitHub e Render.
 
-## Habilidades novas e modificadas
+## Alterações v2.5
 
-| Poder | Recarga | Funcionamento |
-|---|---:|---|
-| **Clone Móvel / Clone Salto** | 9 s | Cria **um** clone que corre e desvia de obstáculos por 12 s. Toque/pressione novamente para **trocar de lugar** com ele, uma vez durante a ativação. O clone continua como distração no ponto antigo. |
-| **Buraco Negro Extremo** | 10 s | Sucção forte em raio de 16 m por 4,8 s; os adversários são puxados radicalmente para o centro, respeitando colisões. |
-| **Reverter Tempo** | 10 s | Volta ao estado de **10 segundos atrás** (posição, vida e escudo). É necessário aguardar a gravação dos primeiros 10 s de histórico. |
-| **Teia Oscilante** | 9 s | Agarra uma **parede** a até 40 m, gera corda visível e permite balançar com física de aceleração/impulso por até **10 segundos**. PULAR solta a teia. |
-| **Copiar** | 10 s | Marca um inimigo por até **14 s**. Após eliminá-lo, copia **duas habilidades** durante 25 s e depois recupera a configuração anterior. No online usa os poderes reais do adversário; no casual, pares definidos para o tipo de inimigo IA. |
-
-## Outras 11 habilidades preservadas
-
-Repulsão (10 s); Congelamento de 1 s (10 s); Teleporte pelo mapa completo, com retorno em até 12 s (10 s); Voo de 5 s (10 s); Invisibilidade de 3 s (10 s); Intangibilidade de 6 s (10 s); Corrente Elétrica (10 s); Gravidade Invertida (10 s); Clones Fantasmas de 8 s, que continuam sendo **três decoys estáticos** (8 s); Escudo Absoluto de 5 s (10 s); Troca Dimensional (10 s). **Clone Móvel é uma habilidade distinta de Clones Fantasmas.**
+- **Teia removida** da roda, dos menus, do servidor e do controle de parkour. Carregamentos antigos que usavam Teia são sanitizados e substituídos por poderes válidos.
+- **Dash com recarga** de 4,8 s (tecla **X** e botão **DASH** no celular), reduzível por melhorias de mobilidade, mas nunca inferior a 2,5 s. O HUD indica o tempo restante. Não é possível ativar o dash enquanto recarrega ou congelado.
+- **Progressão no casual (campanha e sobrevivência)**: o jogador começa cada nova partida com **Repulsão** no primeiro espaço e o segundo espaço vazio. Cada monstro abatido rende **créditos de combate**, separados da pontuação geral e dos créditos permanentes da campanha. Cada poder tem **preço próprio**; a roda exibe preço, saldo e estado de desbloqueio. Clique ou toque no poder bloqueado para **comprar e equipar**. Uma vez comprado, você pode alterná-lo livremente durante a mesma partida. A compra só é realizada se houver saldo e o poder não estiver no outro espaço. Não é possível contornar a compra pelos seletores do menu de pausa. A carteira e os desbloqueios reiniciam quando a partida recomeça.
+- **Recompensas por eliminação**: Scout 55 CR; Gunner 75; Sniper 90; Tank 125; Hunter 115; Boss 450. Valores por habilidade variam de 140 a 850 CR conforme impacto. A Repulsão inicial custa 0 CR.
+- **Recarga por impacto**: poderes comuns 12–22 s, mobilidade/furtividade 21–30 s, habilidades decisivas 28–65 s. Cura com HP a 30% ou menos: +6 s extras. Buraco Negro que alcança pelo menos dois adversários: +7 s. Rewind que recupera 35 HP ou mais: +9 s no online. As durações e tempos continuam visíveis nos botões. Recast de Teleporte/Clone Móvel durante janela ativa continua funcionando.
+- **Multiplayer**: mantém escolha livre de dois poderes e o minimapa; os tempos e as penalidades críticas são validados pelo servidor. Progresso econômico é local à campanha/sobrevivência e **não** concede privilégios no PVP.
 
 ## Controles
 
-- **PC:** `Z` ativa Poder 1; `V`, Poder 2; `Tab` abre e fecha o seletor de habilidades com um toque, sem segurar. Na Teia, mire numa parede e pressione o poder; pressione **ESPAÇO** para soltar a corda e ganhar impulso. No Clone Móvel, pressione o poder novamente para trocar de lugar.
-- **Celular:** dois botões exclusivos de habilidade, posicionados fora da área de mira; habilidades direcionadas usam **segurar → arrastar para mirar → soltar para executar**, com arrasto para cima para cancelar. Para Teia, aponte para a parede e solte; para Clone Móvel, toque novamente para trocar de lugar. **PULAR** solta a teia.
-- **Teleporte:** usa o mapa de toda a cidade, clicando ou tocando no destino válido; reative em até 12 s para voltar à origem.
-- Enquanto uma habilidade está ativa, seu botão mostra os segundos restantes; quando recarrega, mostra o tempo para ficar pronta. Os controles de tamanho/posição dos dois poderes são configuráveis nos menus.
+PC: **WASD** mover, mouse mirar/atirar, **X** dash, **Z / V** poderes, **TAB** abre/fecha a roda sem interferir no navegador durante a partida. Clique no poder para comprar ou equipar. Celular: use o analógico esquerdo, mire e atire com a mão direita, pressione **DASH**, toque em **PODERES** para abrir a roda, selecione o espaço e toque no poder. Habilidades direcionadas usam segurar → arrastar → soltar. Nenhuma compra é realizada sem confirmação pelo clique/toque no poder.
 
-## Multiplayer e casual
+## Publicação
 
-- Multiplayer de até 8 jogadores por sala, códigos personalizados de 6 caracteres, campo de nickname editável, botão para limpar campos, compartilhamento de link/código e reconexão temporária.
-- Minimapa multiplayer sempre visível com localização dos jogadores; barras de vida/escudo dos outros participantes.
-- Servidor valida cargas/recargas, alvos de Copiar, mortes, posicionamento de clones e teleporte dos clones, duração da teia e ponto de fixação em paredes. Simulação e animação do balanço acontecem no cliente com as restrições existentes de movimentação.
-- Modo casual/campanha e sobrevivência mantêm os efeitos adaptados aos inimigos de IA. Copiar habilidades de IA oferece poderes pré-configurados por tipo de inimigo, já que eles não têm equipamentos PvP.
+Requer Node.js 22+. `npm start` para rodar, `npm test` para testar. Faça o upload do conteúdo do ZIP diretamente à raiz do repositório GitHub, incluindo `package.json`, `render.yaml`, `public/` e `server/`. Um único servidor Render entrega HTTP + WebSocket, sem Redis. No plano gratuito, salas armazenadas em memória podem desaparecer quando a instância reinicia.
 
-## Instalação e publicação
-
-Requer **Node.js 22 ou superior**. Execute `npm start` e abra `http://localhost:3000`. Para os testes automatizados, execute `npm test`.
-
-Para usar **GitHub + Render**, o conteúdo do ZIP deve ficar na raiz do repositório: `public/`, `server/`, `render.yaml` e `package.json`. O servidor HTTP entrega o jogo e o WebSocket de `/ws` no mesmo serviço Render. Não precisa Redis. O plano gratuito pode dormir ou reiniciar; salas ficam em memória e não sobrevivem a um reinício do servidor.
-
-**Validação:** testes Node e WebSocket, análise estática de módulos e endpoints. A execução WebGL completa e o conforto do toque/física devem ser verificados em aparelhos reais antes de considerar o balanceamento final concluído.
-
-## Novidades 2.4 — roda de poderes e três habilidades
-
-- **Roda radial de habilidades:** pressione **TAB uma vez para abrir e uma segunda vez para fechar (PC)**; clique na habilidade para equipá-la no espaço selecionado; no celular, toque em **✦ PODERES**, toque ou arraste até o poder. Há oito habilidades por página, com botões anterior/próxima. A roda troca a configuração imediatamente durante a partida, inclusive online.
-- **Ressurreição automática:** equipe **RESSURREIÇÃO** em qualquer slot. Ao receber dano fatal, renasce no mesmo ponto com vida/escudo completos e ganha **4 segundos de invulnerabilidade**. Recarga **10 segundos**. Não funciona se não estiver equipada.
-- **Cura:** restaura até **70 HP e 25 de escudo**, sem exceder o máximo. Recarga 7 s.
-- **Virar Objeto:** aproxime-se de um **objeto compatível da cidade** (tambor, caminhão ou empilhadeira) (até 6 metros) e use o poder. Seu personagem assume o formato do objeto próximo aos outros jogadores por até 10 s. Atirar revela sua identidade; usar de novo encerra o disfarce. Recarga 8 s. O servidor confirma a existência de um tambor próximo. Outros tipos de objetos poderão ser incluídos depois.
-- **Rework:** aumento de alcance, duração e potência das habilidades anteriores. Todas continuam com recarga máxima de 10 s; detalhes em `server/powers.mjs` e `public/src/powers.js`.
-- Os dois slots continuam disponíveis durante campanha, sobrevivência e multiplayer, e os botões móveis permanecem separados de ATIRAR/PULAR.
-
-### Notas técnicas
-- No multiplayer, cura, imortalidade e disfarce têm validação no servidor e replicação para todos os clientes.
-- O modo casual usa os barris reais do cenário para a transformação; o modo online reconhece posições pré-definidas dos objetos disponíveis da cidade.
-- O seletor pausa o controle local enquanto está aberto. No multiplayer, o restante da sala continua em tempo real.
-
-## Correção 2.4.1 — TAB sem conflito com o navegador
-
-- Durante a partida, **um toque em TAB abre** e **outro toque fecha** a roda. Soltar a tecla não equipa poderes nem fecha a roda.
-- O comportamento de foco do navegador é bloqueado **somente durante a partida e enquanto a roda está visível**.
-- Campos de nome/código e formulários mantêm o TAB normal para navegar entre campos; atalhos Ctrl+Tab, Alt+Tab e Meta+Tab não são interceptados.
-- Use o mouse para clicar em um poder, ou os comandos de toque no celular. ESC continua fechando a roda.
+**Verificações:** testes automatizados Node/WebSocket. A sensação de jogo, os controles de toque e a execução WebGL completa devem ser testados em aparelhos reais.

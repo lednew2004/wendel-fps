@@ -22,6 +22,7 @@ export class PowerMenu{
     this.setHovered(index);
   });
   this.wheel.addEventListener('pointerup',e=>{if(this.mode==='wheel'&&e.pointerType==='touch'&&this.hoverIndex>=0){e.preventDefault();this.releaseWheel();}});
+  this.shopInfo=document.createElement('div');this.shopInfo.id='titan-wheel-credits';this.shopInfo.setAttribute('role','status');this.shopInfo.className='titan-wheel-credits';const wheelStage=this.wheel.closest('.titan-wheel-stage');wheelStage.parentNode.insertBefore(this.shopInfo,wheelStage);
   for(const b of document.querySelectorAll('[data-power-target-slot]'))b.addEventListener('click',()=>{this.slot=Number(b.dataset.powerTargetSlot);this.renderWheel();});
  }
  open(mode){
@@ -34,8 +35,8 @@ export class PowerMenu{
  }
  openWheel(){if(this.mode==='wheel'){this.close();return;}if(!this.mode)this.open('wheel');}
  setPage(next){const max=Math.ceil(Object.keys(this.abilities).length/this.pageSize);this.page=(next+max)%max;this.renderWheel();}
- setHovered(index){this.hoverIndex=index;for(const b of this.wheel.querySelectorAll('.titan-power-option'))b.classList.toggle('hovered',Number(b.dataset.index)===index);const item=Object.entries(this.abilities)[this.page*this.pageSize+index];$('titan-wheel-center').textContent=item?item[1].label:'ESCOLHA O PODER';}
- releaseWheel(){if(this.mode!=='wheel')return;const entry=Object.entries(this.abilities)[this.page*this.pageSize+this.hoverIndex];if(entry){this.system.equip(this.slot,entry[0]);this.game.toast(entry[1].label+' EQUIPADO EM PODER '+(this.slot+1));}this.close();}
+ setHovered(index){this.hoverIndex=index;for(const b of this.wheel.querySelectorAll('.titan-power-option'))b.classList.toggle('hovered',Number(b.dataset.index)===index);const item=Object.entries(this.abilities)[this.page*this.pageSize+index];$('titan-wheel-center').textContent=item?(this.system.isUnlocked(item[0])?item[1].label:item[1].label+' · '+this.system.economy.price(item[0])+' CR'):'ESCOLHA O PODER';}
+ releaseWheel(){if(this.mode!=='wheel')return;const entry=Object.entries(this.abilities)[this.page*this.pageSize+this.hoverIndex];if(entry&&this.system.acquire(this.slot,entry[0])){this.game.toast(entry[1].label+' EQUIPADO EM PODER '+(this.slot+1));this.close();}else this.renderWheel();}
  openTeleport(){this.open('teleport');}
  close(){
   if(!this.mode)return;
@@ -53,15 +54,19 @@ export class PowerMenu{
    const button=document.createElement('button');button.type='button';button.className='titan-power-option';button.dataset.index=String(i);
    button.style.setProperty('--sector',String(i));
    if(this.system.loadout.includes(id))button.classList.add('equipped');
+   const unlocked=this.system.isUnlocked(id);if(!unlocked)button.classList.add('locked');
    const icon=document.createElement('span');icon.textContent=p.icon;
    const name=document.createElement('strong');name.textContent=p.label;
    button.append(icon,name);button.title=p.help;
+   if(this.system.isCasualRun()){const cost=document.createElement('small');cost.textContent=unlocked?'✓ LIBERADO':this.system.economy.price(id)+' CR';button.append(cost);}
    button.addEventListener('pointerenter',()=>this.setHovered(i));
-   button.addEventListener('click',()=>{if(this.mode!=='wheel')return;this.system.equip(this.slot,id);this.close();this.game.toast(p.label+' EQUIPADO EM PODER '+(this.slot+1));});
+   button.addEventListener('click',()=>{if(this.mode!=='wheel')return;if(this.system.acquire(this.slot,id)){this.close();this.game.toast(p.label+' EQUIPADO EM PODER '+(this.slot+1));}else this.renderWheel();});
    frag.appendChild(button);
   }
   this.wheel.replaceChildren(frag);
   $('titan-wheel-page').textContent=`${this.page+1} / ${max}`;
+  this.shopInfo.textContent=this.system.isCasualRun()?`◈ ${this.system.economy.credits.toLocaleString('pt-BR')} CR DISPONÍVEIS · ${this.system.economy.owned.size} HABILIDADES COMPRADAS · ELIMINE MONSTROS PARA GANHAR MAIS`:'MULTIPLAYER · TODAS AS HABILIDADES LIBERADAS';
+  this.shopInfo=document.createElement('div');this.shopInfo.id='titan-wheel-credits';this.shopInfo.setAttribute('role','status');this.shopInfo.className='titan-wheel-credits';const wheelStage=this.wheel.closest('.titan-wheel-stage');wheelStage.parentNode.insertBefore(this.shopInfo,wheelStage);
   for(const b of document.querySelectorAll('[data-power-target-slot]'))b.classList.toggle('selected',Number(b.dataset.powerTargetSlot)===this.slot);
  }
 
