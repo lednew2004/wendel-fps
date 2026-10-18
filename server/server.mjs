@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {WORLD_HALF} from '../public/src/worldLayout.js';
 import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,isGroundedDestination,within,nearbyMorphObject,canAutoResurrect,criticalPowerPenalty} from './powers.mjs';
 
 const root=path.resolve(fileURLToPath(new URL('../public/',import.meta.url)));
@@ -17,9 +18,13 @@ const WS_HEARTBEAT_MS=15000;
 const WS_DEAD_MS=75000;
 const rooms=new Map();
 const players=new Map();
-const SPAWNS=[[-38,18],[38,18],[-38,-18],[38,-18],[-60,6],[60,6],[0,66],[0,-66]];
+const SPAWNS=[[-38,18],[38,18],[-38,-18],[38,-18],[-60,6],[60,6],[0,66],[0,-66],[-176,144],[176,-144]];
 const WEAPONS=[{id:0,damage:21,interval:.12,range:140},{id:1,damage:55,interval:.85,range:34},{id:2,damage:80,interval:1.24,range:180},{id:3,damage:17,interval:.095,range:130}];
 const colliders=JSON.parse(fs.readFileSync(new URL('colliders.json',import.meta.url),'utf8'));
+const interactions=JSON.parse(fs.readFileSync(new URL('interactables.json',import.meta.url),'utf8'));
+const interactionIndex=new Map(interactions.map(x=>[x.id,x]));
+function roomColliders(room){return room?[...colliders,...interactions.filter(o=>!room.openInteractions.has(o.id))]:colliders;}
+function openList(room){return [...room.openInteractions];}
 const limit=(v,a,b)=>Math.max(a,Math.min(b,v));
 const finite=(n,a,b)=>Number.isFinite(n)&&n>=a&&n<=b;
 const encode=data=>{
@@ -39,7 +44,7 @@ function send(ws,data){
 function broadcast(room,msg,except=null){for(const p of room.players.values())if(p.socket&&p.socket!==except)send(p.socket,msg);}
 const cleanName=n=>String(n||'Operador').replace(/[^\p{L}\p{N} _-]/gu,'').trim().slice(0,18)||'Operador';
 const cleanRoom=n=>String(n||'').replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6);
-function createRoom(preferredCode=''){let code=preferredCode;if(!code){do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));}const room={code,players:new Map(),born:Date.now(),hazards:[],clones:[]};rooms.set(code,room);return room;}
+function createRoom(preferredCode=''){let code=preferredCode;if(!code){do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));}const room={code,players:new Map(),born:Date.now(),hazards:[],clones:[],openInteractions:new Set()};rooms.set(code,room);return room;}
 function spawn(i){const [x,z]=SPAWNS[i%SPAWNS.length];return {x,y:0,z};}
 function publicPlayer(p){const powers=powerSnapshot(p);return {id:p.id,name:p.name,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,weapon:p.weapon,hp:p.hp,shield:p.shield,kills:p.kills,deaths:p.deaths,alive:p.alive,shielded:powers.shielded,invisible:powers.invisible,phased:powers.phased,flying:powers.flying,frozen:powers.frozen,prop:powers.propType,immortal:powers.invulnerable};}
 const livePlayers=room=>[...room.players.values()].filter(p=>p.socket);
@@ -73,7 +78,7 @@ function join(ws,data){
     players.set(ws,existing);
     send(ws,{type:'welcome',id:existing.id,room:room.code,
       spawn:{x:existing.x,y:existing.y,z:existing.z},resumed:true,
-      players:livePlayers(room).map(publicPlayer),powers:powerSnapshot(existing)});
+      players:livePlayers(room).map(publicPlayer),powers:powerSnapshot(existing),openInteractions:openList(room)});
     broadcast(room,{type:'joined',player:publicPlayer(existing)},ws);
     return;
   }
@@ -87,8 +92,20 @@ function join(ws,data){
   p.powers.loadout=sanitizeLoadout(data.loadout);
   room.players.set(id,p);players.set(ws,p);
   send(ws,{type:'welcome',id,room:room.code,spawn:s,
-    players:livePlayers(room).map(publicPlayer),powers:powerSnapshot(p)});
+    players:livePlayers(room).map(publicPlayer),powers:powerSnapshot(p),openInteractions:openList(room)});
   broadcast(room,{type:'joined',player:publicPlayer(p)},ws);
+}
+function interactWorld(p,id){
+  const item=interactionIndex.get(id);
+  if(!item||!p.alive||!p.socket){send(p.socket,{type:'world-error',message:'Objeto indisponível.'});return;}
+  if(Math.hypot(item.x-p.x,item.z-p.z)>3.2||p.y>item.maxY+1.1){send(p.socket,{type:'world-error',message:'Chegue mais perto para interagir.'});return;}
+  const room=p.room,closing=room.openInteractions.has(id);
+  if(closing){
+    const blocked=[...room.players.values()].some(other=>other.alive&&!locationValid(other.x,other.y,other.z,[item]));
+    if(blocked){send(p.socket,{type:'world-error',message:'Há alguém na passagem.'});return;}
+    room.openInteractions.delete(id);
+  }else room.openInteractions.add(id);
+  broadcast(room,{type:'world-interaction',id,kind:item.kind,open:!closing});
 }
 function depart(ws,manual=false){
   const p=players.get(ws);if(!p)return;
@@ -113,21 +130,21 @@ function hitBox(origin,dir,max,box){
   }
   return lo<max&&hi>=0;
 }
-function obscured(origin,dir,dist){
-  for(const box of colliders)if(hitBox(origin,dir,dist-.15,box))return true;
+function obscured(origin,dir,dist,room){
+  for(const box of roomColliders(room))if(hitBox(origin,dir,dist-.15,box))return true;
   return false;
 }
 function move(p,data){
   if(!p.alive||p.powers.frozenUntil>Date.now()||p.powers.gravityUntil>Date.now())return;
   const {x,y,z,yaw,pitch,weapon}=data;
-  if(!finite(x,-143,143)||!finite(z,-143,143)||!finite(y,-1,40)||!finite(yaw,-1e7,1e7)||!finite(pitch,-1.48,1.48)||!Number.isInteger(weapon)||weapon<0||weapon>3)return;
+  if(!finite(x,-WORLD_HALF,WORLD_HALF)||!finite(z,-WORLD_HALF,WORLD_HALF)||!finite(y,-1,40)||!finite(yaw,-1e7,1e7)||!finite(pitch,-1.48,1.48)||!Number.isInteger(weapon)||weapon<0||weapon>3)return;
   const now=Date.now();const dt=limit((now-p.lastMove)/1000,.01,.35);
   const distance=Math.hypot(x-p.x,z-p.z);
   const dy=Math.abs(y-p.y);
   const flying=p.powers.flightUntil>now;const phased=p.powers.phaseUntil>now;
   // Client dash has a cooldown; authoritative speed checks still reject invalid teleports.
   if(distance>Math.max(3.2,(flying?35:42)*dt+1.0)||dy>Math.max(2.4,(flying?22:17)*dt+1.0))return;
-  if(!phased&&!flying&&!locationValid(x,y,z,colliders))return;
+  if(!phased&&!flying&&!locationValid(x,y,z,roomColliders(p.room)))return;
   if(!phased&&!flying)p.powers.safe={x,y,z};
   p.x=x;p.y=y;p.z=z;p.yaw=yaw;p.pitch=pitch;p.weapon=weapon;p.lastMove=now;p.lastSeen=now;
 }
@@ -150,7 +167,7 @@ function fire(p,data){
     const projection=to[0]*dir[0]+to[1]*dir[1]+to[2]*dir[2];
     if(projection<0||projection>nearest)continue;
     const side=(to[0]**2+to[1]**2+to[2]**2)-projection**2;
-    if(side>.82**2||obscured(origin,dir,projection))continue;
+    if(side>.82**2||obscured(origin,dir,projection,p.room))continue;
     nearest=projection;victim=target;
   }
   // A decoy intercepts hits before an actual player if it is closer to the shooter.
@@ -160,7 +177,7 @@ function fire(p,data){
     const diff=[clone.x-origin[0],clone.y+1.08-origin[1],clone.z-origin[2]];
     const proj=diff[0]*dir[0]+diff[1]*dir[1]+diff[2]*dir[2];
     const side=diff[0]**2+diff[1]**2+diff[2]**2-proj**2;
-    if(proj>0&&proj<cloneDistance&&side<.82**2&&!obscured(origin,dir,proj)){cloneDistance=proj;cloneHit=clone;}
+    if(proj>0&&proj<cloneDistance&&side<.82**2&&!obscured(origin,dir,proj,p.room)){cloneDistance=proj;cloneHit=clone;}
   }
   broadcast(p.room,{type:'shot',id:p.id,weapon:p.weapon});
   if(cloneHit){p.room.clones=p.room.clones.filter(c=>c!==cloneHit);broadcast(p.room,{type:'clone-destroy',id:cloneHit.id});return;}
@@ -239,18 +256,18 @@ function completeMarkedCopy(attacker,victim,now){
  send(attacker.socket,{type:'power-copy',from:victim.name,until:state.copiedUntil,powers:powerSnapshot(attacker)});
  notifyPower(attacker,'copy');
 }
-function advanceClone(c,dt){
+function advanceClone(c,dt,room){
  let nextX=c.x+Math.sin(c.angle)*c.speed*dt;
  let nextZ=c.z+Math.cos(c.angle)*c.speed*dt;
- if(!locationValid(nextX,c.y,nextZ,colliders)){
+ if(!locationValid(nextX,c.y,nextZ,roomColliders(room))){
    c.angle+=(c.turn||1)*Math.PI*.55;c.turn=-(c.turn||1);
    nextX=c.x+Math.sin(c.angle)*c.speed*dt;nextZ=c.z+Math.cos(c.angle)*c.speed*dt;
  }
- if(locationValid(nextX,c.y,nextZ,colliders)){c.x=nextX;c.z=nextZ;}
+ if(locationValid(nextX,c.y,nextZ,roomColliders(room))){c.x=nextX;c.z=nextZ;}
 }
 function aimPoint(p,range){
  const cp=Math.cos(p.pitch),distance=Math.min(range,20);
- return {x:limit(p.x-Math.sin(p.yaw)*cp*distance,-139,139),z:limit(p.z-Math.cos(p.yaw)*cp*distance,-139,139)};
+ return {x:limit(p.x-Math.sin(p.yaw)*cp*distance,-WORLD_HALF+4,WORLD_HALF-4),z:limit(p.z-Math.cos(p.yaw)*cp*distance,-WORLD_HALF+4,WORLD_HALF-4)};
 }
 function castPower(p,data){
   const id=data.id,now=Date.now(),state=p.powers,rule=POWER_RULES[id];
@@ -260,7 +277,7 @@ function castPower(p,data){
   if(id==='clonejump'&&data.jump===true){
     const clone=p.room.clones.find(c=>c.owner===p.id&&c.power==='clonejump'&&c.until>now);
     if(!p.alive||state.frozenUntil>now||state.gravityUntil>now||state.phaseUntil>now||!state.loadout.includes(id)||state.cloneJumpUsed||!clone){send(p.socket,{type:'power-error',message:'Clone móvel indisponível.'});return;}
-    if(!locationValid(clone.x,clone.y,clone.z,colliders)){send(p.socket,{type:'power-error',message:'O clone está em uma posição bloqueada.'});return;}
+    if(!locationValid(clone.x,clone.y,clone.z,roomColliders(p.room))){send(p.socket,{type:'power-error',message:'O clone está em uma posição bloqueada.'});return;}
     const origin={x:p.x,y:p.y,z:p.z};
     Object.assign(p,{x:clone.x,y:clone.y,z:clone.z,lastMove:now});
     Object.assign(clone,origin);state.cloneJumpUsed=true;state.activeUntil.clonejump=0;
@@ -272,7 +289,7 @@ function castPower(p,data){
     const ret=state.teleportReturn;
     if(!ret||ret.until<now){send(p.socket,{type:'power-error',message:'Tempo de retorno expirou.'});return;}
     state.teleportReturn=null;
-    if(isGroundedDestination(ret.x,ret.y,ret.z,colliders)){
+    if(isGroundedDestination(ret.x,ret.y,ret.z,roomColliders(p.room))){
       Object.assign(p,{x:ret.x,y:ret.y,z:ret.z,lastMove:now});
       broadcast(p.room,{type:'power-effect',kind:'teleport-back',player:p.id,x:p.x,y:p.y,z:p.z});
     }
@@ -283,7 +300,7 @@ function castPower(p,data){
   let target=null;
   if(id==='teleport'){
     const t=data.target||{};
-    if(!within(Number(t.x),Number(t.z),p,rule.range)||!isGroundedDestination(t.x,t.y,t.z,colliders)){
+    if(!within(Number(t.x),Number(t.z),p,rule.range)||!isGroundedDestination(t.x,t.y,t.z,roomColliders(p.room))){
       send(p.socket,{type:'power-error',message:'Destino inválido ou longe demais.'});return;
     }
     target={x:t.x,y:t.y,z:t.z};
@@ -292,7 +309,7 @@ function castPower(p,data){
     target=projectedVictim(p,rule.range,.77);
     if(!target){send(p.socket,{type:'power-error',message:'Mire em um adversário próximo.'});return;}
   }
-  if(id==='swap'&&(!isGroundedDestination(p.x,p.y,p.z,colliders)||!isGroundedDestination(target.x,target.y,target.z,colliders))){send(p.socket,{type:'power-error',message:'Troca indisponível nestas posições.'});return;}
+  if(id==='swap'&&(!isGroundedDestination(p.x,p.y,p.z,roomColliders(p.room))||!isGroundedDestination(target.x,target.y,target.z,roomColliders(p.room)))){send(p.socket,{type:'power-error',message:'Troca indisponível nestas posições.'});return;}
   if(id==='morph'&&!nearbyMorphObject(p.x,p.z,rule.range)){send(p.socket,{type:'power-error',message:'Aproxime-se de um tambor, caminhão ou empilhadeira.'});return;}
   if(id==='rewind'&&(!state.history.length||state.history[0].t>now-rule.history+600)){send(p.socket,{type:'power-error',message:'Aguarde 10 segundos para acumular o histórico.'});return;}
   const hpRatio=p.hp/100;
@@ -315,7 +332,7 @@ function castPower(p,data){
       const dist=Math.hypot(v.x-p.x,v.z-p.z)||1,dx=(v.x-p.x)/dist,dz=(v.z-p.z)/dist;
       let pos={x:v.x,y:v.y,z:v.z};
       // Move only along collision-free samples: no wall clipping.
-      for(let step=.65;step<=9;step+=.65){const x=v.x+dx*step,z=v.z+dz*step;if(!locationValid(x,v.y,z,colliders))break;pos={x,y:v.y,z};}
+      for(let step=.65;step<=9;step+=.65){const x=v.x+dx*step,z=v.z+dz*step;if(!locationValid(x,v.y,z,roomColliders(p.room)))break;pos={x,y:v.y,z};}
       Object.assign(v,pos,{lastMove:now});
       broadcast(p.room,{type:'power-effect',kind:'push',player:v.id,dx,dz,x:v.x,y:v.y,z:v.z});
     }
@@ -338,7 +355,7 @@ function castPower(p,data){
   }else if(id==='rewind'){
     const targetTime=now-rule.history;
     const point=state.history.reduce((best,h)=>Math.abs(h.t-targetTime)<Math.abs(best.t-targetTime)?h:best,state.history[0]);
-    if(point&&isGroundedDestination(point.x,point.y,point.z,colliders)){
+    if(point&&isGroundedDestination(point.x,point.y,point.z,roomColliders(p.room))){
       Object.assign(p,{x:point.x,y:point.y,z:point.z,hp:Math.min(100,point.hp),shield:Math.min(40,point.shield),lastMove:now});
       send(p.socket,{type:'health',id:p.id,hp:p.hp,shield:p.shield});
       broadcast(p.room,{type:'health',id:p.id,hp:p.hp,shield:p.shield});
@@ -375,9 +392,9 @@ function castPower(p,data){
     for(let i=0;i<count;i++){
       const forwardX=-Math.sin(p.yaw),forwardZ=-Math.cos(p.yaw),sideX=-forwardZ,sideZ=forwardX;
       const distance=id==='clonejump'?4:2,lateral=id==='clonejump'?0:(i-1)*3;
-      const x=limit(p.x+forwardX*distance+sideX*lateral,-140,140);
-      const z=limit(p.z+forwardZ*distance+sideZ*lateral,-140,140);
-      if(locationValid(x,p.y,z,colliders)){
+      const x=limit(p.x+forwardX*distance+sideX*lateral,-WORLD_HALF+4,WORLD_HALF-4);
+      const z=limit(p.z+forwardZ*distance+sideZ*lateral,-WORLD_HALF+4,WORLD_HALF-4);
+      if(locationValid(x,p.y,z,roomColliders(p.room))){
         const clone={id:crypto.randomBytes(4).toString('hex'),owner:p.id,power:id,slot:i,x,z,y:p.y,until:now+rule.duration,angle:p.yaw+Math.PI,speed:id==='clonejump'?7.5:0,turn:1};
         p.room.clones.push(clone);clones.push(clone);
       }
@@ -387,7 +404,7 @@ function castPower(p,data){
   }else if(id==='shield'){state.shieldUntil=now+rule.duration;
   }else if(id==='flight'){state.flightUntil=now+rule.duration;
   }else if(id==='invisible'){state.invisibleUntil=now+rule.duration;
-  }else if(id==='phase'){state.phaseUntil=now+rule.duration;state.safe=locationValid(p.x,p.y,p.z,colliders)?{x:p.x,y:p.y,z:p.z}:state.safe;}
+  }else if(id==='phase'){state.phaseUntil=now+rule.duration;state.safe=locationValid(p.x,p.y,p.z,roomColliders(p.room))?{x:p.x,y:p.y,z:p.z}:state.safe;}
   notifyPower(p,id);
 }
 function onMessage(ws,data){
@@ -400,6 +417,7 @@ function onMessage(ws,data){
   }
   else if(data.type==='move')move(p,data);
   else if(data.type==='fire')fire(p,data);
+  else if(data.type==='world-interact')interactWorld(p,data.id);
   else if(data.type==='dash'){const now=Date.now(),cooldown=4800;const left=Math.max(0,cooldown-(now-p.lastDash));if(!p.alive||p.powers.frozenUntil>now||p.powers.gravityUntil>now){send(ws,{type:'dash-state',ok:false,remaining:Math.max(left,500)});}else if(left>0){send(ws,{type:'dash-state',ok:false,remaining:left});}else{p.lastDash=now;send(ws,{type:'dash-state',ok:true,remaining:cooldown});}}
   else if(data.type==='equip'){p.powers.loadout=sanitizeLoadout(data.loadout);p.powers.copiedUntil=0;p.powers.originalLoadout=null;p.powers.copyMark=null;send(ws,{type:'power-state',powers:powerSnapshot(p)});}
   else if(data.type==='power')castPower(p,data);
@@ -446,7 +464,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.5.0'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.6.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';
@@ -472,7 +490,7 @@ server.on('upgrade',(req,socket)=>{
 const tick=setInterval(()=>{
   for(const room of rooms.values()){
     const now=Date.now();
-    for(const p of room.players.values()){if(p.powers.phaseUntil&&p.powers.phaseUntil<=now){p.powers.phaseUntil=0;const safe=p.powers.safe;if(!locationValid(p.x,p.y,p.z,colliders)&&safe&&locationValid(safe.x,safe.y,safe.z,colliders)){Object.assign(p,safe,{lastMove:now});broadcast(room,{type:'power-effect',kind:'phase-exit',player:p.id,...safe});}}}
+    for(const p of room.players.values()){if(p.powers.phaseUntil&&p.powers.phaseUntil<=now){p.powers.phaseUntil=0;const safe=p.powers.safe;if(!locationValid(p.x,p.y,p.z,roomColliders(p.room))&&safe&&locationValid(safe.x,safe.y,safe.z,roomColliders(room))){Object.assign(p,safe,{lastMove:now});broadcast(room,{type:'power-effect',kind:'phase-exit',player:p.id,...safe});}}}
     for(const p of room.players.values()){
       if(p.powers.gravityUntil&&p.powers.gravityUntil<=now){
         p.powers.gravityUntil=0;
@@ -500,13 +518,13 @@ const tick=setInterval(()=>{
           if(remain<=.65)break;
           const step=Math.min(.30,pull/travelSteps,remain-.65);
           const nx=px+(h.x-px)/remain*step,nz=pz+(h.z-pz)/remain*step;
-          if(!locationValid(nx,q.y,nz,colliders))break;
+          if(!locationValid(nx,q.y,nz,roomColliders(room)))break;
           px=nx;pz=nz;
         }
         if(px!==q.x||pz!==q.z){q.x=px;q.z=pz;q.lastMove=now;broadcast(room,{type:'power-effect',kind:'blackhole-pull',player:q.id,x:q.x,y:q.y,z:q.z});}
       }
     }
-    for(const clone of room.clones){if(clone.power==='clonejump'&&clone.until>now){advanceClone(clone,.1);broadcast(room,{type:'clone-move',id:clone.id,x:clone.x,y:clone.y,z:clone.z,until:clone.until});}}
+    for(const clone of room.clones){if(clone.power==='clonejump'&&clone.until>now){advanceClone(clone,.1,room);broadcast(room,{type:'clone-move',id:clone.id,x:clone.x,y:clone.y,z:clone.z,until:clone.until});}}
     const expired=room.clones.filter(c=>c.until<=now);
     room.clones=room.clones.filter(c=>c.until>now);
     for(const clone of expired)broadcast(room,{type:'clone-destroy',id:clone.id});

@@ -304,10 +304,18 @@ export class MultiplayerClient {
         byId('mp-respawn').classList.toggle('hidden',this.alive);
         byId('mp-room-code-input').value=this.room;
         if(this.panelOpen){byId('mp-hud').classList.add('hidden');byId('mp-room-panel').classList.remove('hidden');}
+        this.game.urban.resetInteractions();
+        for(const id of msg.openInteractions||[])this.game.urban.toggleInteractable(id,true);
         this.receive({type:'snapshot',players:msg.players});
         this.game.toast(msg.resumed?'CONEXÃO RESTABELECIDA · PARTIDA RETOMADA':'PARTIDA ONLINE · TOQUE EM SALA PARA CONVIDAR');
         break;
       }
+      case 'world-interaction':{
+        if(this.game.urban.toggleInteractable(msg.id,!!msg.open)){
+          this.game.parkour.prompt=(msg.open?'ABERTO · ':'FECHADO · ')+(msg.kind==='door'?'PORTA':'JANELA');
+        }break;
+      }
+      case 'world-error':this.game.toast(msg.message||'INTERAÇÃO INDISPONÍVEL');break;
       case 'dash-state':if(!msg.ok){this.game.player.dashDuration=0;this.game.parkour.dashTime=0;this.game.player.dashCd=Math.max(this.game.player.dashCd,Number(msg.remaining||0)/1000);this.game.toast('DASH EM RECARGA');}break;
       case 'power-state':this.game.powers.onServerState(msg.powers);break;
       case 'power-error':this.game.toast(msg.message||'PODER NÃO ATIVADO');break;

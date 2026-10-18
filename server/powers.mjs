@@ -2,7 +2,7 @@
 export const POWER_RULES=Object.freeze({
  push:{name:'Repulsão',cooldown:12000,range:16},
  freeze:{name:'Congelar',cooldown:18000,range:35,duration:1500},
- teleport:{name:'Teleporte estratégico',cooldown:28000,range:410,returnWindow:15000},
+ teleport:{name:'Teleporte estratégico',cooldown:28000,range:700,returnWindow:15000},
  flight:{name:'Voo',cooldown:21000,duration:7000},
  invisible:{name:'Invisibilidade',cooldown:24000,duration:5000},
  phase:{name:'Intangibilidade',cooldown:30000,duration:7000},
@@ -37,7 +37,7 @@ export function powerSnapshot(p,now=Date.now()){
  flying:s.flightUntil>now,invisible:s.invisibleUntil>now,phased:s.phaseUntil>now,shielded:s.shieldUntil>now};
 }
 export function within(x,z,p,range){return Math.hypot(x-p.x,z-p.z)<=range;}
-export function locationValid(x,y,z,colliders,rangeBox=143){
+export function locationValid(x,y,z,colliders,rangeBox=219){
  if(!Number.isFinite(x)||!Number.isFinite(y)||!Number.isFinite(z)||Math.abs(x)>rangeBox-.6||Math.abs(z)>rangeBox-.6||y<0||y>38)return false;
  return !colliders.some(b=>Math.abs(x-b.x)<b.hx+.42&&Math.abs(z-b.z)<b.hz+.42&&y<b.maxY+.04&&y+1.75>b.minY);
 }

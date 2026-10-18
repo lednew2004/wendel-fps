@@ -2,8 +2,9 @@
  * Nenhuma consulta ao servidor: os dados são os snapshots/movimentos WebSocket
  * já recebidos pelo cliente. Desenho em canvas 2D (baixo custo no celular).
  */
+import {WORLD_HALF} from './worldLayout.js';
 const SIZE=240;
-export const MAP_HALF=143;
+export const MAP_HALF=WORLD_HALF;
 const PADDING=15;
 
 export function projectPlayer(x,z,size=SIZE){
@@ -39,9 +40,9 @@ export class MultiplayerMinimap {
   paintCity(){
     const ctx=this.base.getContext('2d');
     ctx.fillStyle='#101d25';ctx.fillRect(0,0,SIZE,SIZE);
-    // Main roads and cross streets of the 286 × 286 city, fixed north-up.
+    // Extended 438 × 438 open city, fixed north-up.
     ctx.fillStyle='#26333c';
-    for(const n of [-105,-63,-21,21,63,105]){
+    for(const n of [-192,-160,-128,-96,-64,-32,0,32,64,96,128,160,192]){
       let x=projectPlayer(n,0).x;
       ctx.fillRect(x-3,7,6,SIZE-14);
       let y=projectPlayer(0,n).y;
@@ -59,7 +60,7 @@ export class MultiplayerMinimap {
       const lo=projectPlayer(s.x-s.hx,s.z-s.hz);
       const hi=projectPlayer(s.x+s.hx,s.z+s.hz);
       const w=hi.x-lo.x,h=hi.y-lo.y;
-      if(w<1.4||h<1.4)continue;
+      if(w<3.4||h<3.4||s.active!==undefined)continue;
       ctx.fillRect(lo.x,lo.y,w,h);
       if(w>5&&h>5)ctx.strokeRect(lo.x+.5,lo.y+.5,w-1,h-1);
     }

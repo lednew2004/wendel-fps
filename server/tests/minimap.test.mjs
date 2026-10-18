@@ -17,12 +17,12 @@ function testDOM(){
 }
 
 test('fixed city map covers the full multiplayer boundary, not just nearby players',()=>{
-  assert.equal(MAP_HALF,143);
+  assert.equal(MAP_HALF,219);
   assert.deepEqual(projectPlayer(0,0),{x:120,y:120});
-  assert.ok(projectPlayer(-143,0).x<=16);
-  assert.ok(projectPlayer(143,0).x>=224);
-  assert.ok(projectPlayer(0,-143).y<=16);
-  assert.ok(projectPlayer(0,143).y>=224);
+  assert.ok(projectPlayer(-219,0).x<=16);
+  assert.ok(projectPlayer(219,0).x>=224);
+  assert.ok(projectPlayer(0,-219).y<=16);
+  assert.ok(projectPlayer(0,219).y>=224);
   assert.ok(projectPlayer(9999,0).x<=225);
 });
 
@@ -34,8 +34,8 @@ test('minimap draws all remote players and the local direction indicator',()=>{
     radar.show();
     radar.draw([
       {id:'me',name:'EU',x:0,z:0,alive:true},
-      {id:'away-left',name:'Joana',x:-140,z:-137,alive:true},
-      {id:'away-right',name:'Carlos',x:139,z:140,alive:true},
+      {id:'away-left',name:'Joana',x:-214,z:-210,alive:true},
+      {id:'away-right',name:'Carlos',x:212,z:213,alive:true},
       {id:'dead',name:'Amigo',x:65,z:44,alive:false}
     ],'me');
     assert.equal(ui.count.textContent,'4');

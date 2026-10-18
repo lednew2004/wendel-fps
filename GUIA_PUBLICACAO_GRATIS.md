@@ -1,10 +1,9 @@
-# Publicar TITAN PROTOCOL 2.5 no GitHub + Render
+# Publicação gratuita — TITAN PROTOCOL 2.6
 
-1. Extraia o ZIP e copie **todos os arquivos da raiz** (`package.json`, `render.yaml`, `public/`, `server/`, documentação) para a raiz do repositório.
-2. Execute `git add .`, `git commit -m "TITAN PROTOCOL 2.5 - Economia casual e cooldowns"` e `git push origin main`.
-3. Aguarde o deploy do Render e abra `https://SEU-SITE.onrender.com/health` para conferir a versão `2.5.0`.
-4. Faça atualização forçada no navegador e teste em campanha, sobrevivência e multiplayer.
-
-No **casual**, pressione TAB ou PODERES e compre novos poderes usando os CR de monstros eliminados. Ao criar uma nova partida, as habilidades compradas na anterior não são mantidas.
-
-O serviço gratuito do Render pode adormecer e não mantém salas após reinícios. Requer Node.js 22 ou superior.
+- Repositório GitHub: extraia **todos** os arquivos diretamente na raiz (não coloque a pasta inteira como subdiretório).
+- Render: mantenha o Web Service Node existente conectado ao repositório. `npm start` inicia HTTP e WebSocket na mesma URL. É possível usar o `render.yaml` como blueprint gratuito.
+- Após atualizar: `git add .` → `git commit -m "Titan Protocol 2.6 - Cidade viva"` → `git push origin main`.
+- Aguarde o deploy e abra `/health`; a versão deve ser `2.6.0`. Faça recarregamento completo no celular para eliminar cache antigo.
+- Teste duas pessoas numa mesma sala: aproxime-se de uma casa, pressione **E** (PC) ou **USAR** (celular) e confirme que portas/janelas abrem para ambos.
+- Se alterar o desenho das casas, gere os colliders com `node server/build_colliders.mjs`.
+- Limites do gratuito: salas e portas em memória desaparecem se o servidor for reiniciado/suspenso. Há dependência de acesso à CDN do Three.js no navegador.

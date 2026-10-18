@@ -56,6 +56,11 @@ export class ParkourController {
     this.buffer=CFG.jumpBuffer;
     if(this.grounded){
       const dir=this.direction();
+      const window=this.city.nearestInteractable(this.x,this.z,this.y,1.65);
+      if(window?.kind==='window'&&window.open&&dir.mag>.2){
+        this.vy=CFG.jumpSpeed*1.07;this.vx=dir.x*CFG.sprintSpeed;this.vz=dir.z*CFG.sprintSpeed;
+        this.grounded=false;this.buffer=0;this.prompt='VAULT · JANELA ABERTA';return;
+      }
       for(const w of this.city.lowWalls){
         const px=this.x+dir.x*1.2,pz=this.z+dir.z*1.2;
         if(Math.abs(px-w.x)<w.hx+.75&&Math.abs(pz-w.z)<w.hz+.75){
@@ -68,6 +73,12 @@ export class ParkourController {
   interact(){
     if(this.ladder){this.dismountLadder();return;}
     if(this.hanging){this.hanging=null;this.vy=-1.3;this.prompt='BORDA SOLTA';return;}
+    const interaction=this.city.nearestInteractable(this.x,this.z,this.y);
+    if(interaction){
+      if(this.game.mode==='multiplayer'&&this.game.multiplayer?.connected){this.game.multiplayer.send({type:'world-interact',id:interaction.id});this.prompt='AGUARDANDO ABERTURA · '+(interaction.kind==='door'?'PORTA':'JANELA');}
+      else{const opening=!interaction.open;if(!opening&&Math.abs(this.x-interaction.x)<interaction.hx+.42&&Math.abs(this.z-interaction.z)<interaction.hz+.42){this.prompt='A PASSAGEM ESTÁ OCUPADA';return;}if(this.city.toggleInteractable(interaction.id,opening)){this.prompt=(opening?'ABERTO · ':'FECHADO · ')+(interaction.kind==='door'?'PORTA':'JANELA');this.game.audio?.play?.('door');}}
+      return;
+    }
     const l=this.city.nearestLadder(this.x,this.z,this.y);
     if(l){
       this.ladder=l;this.hanging=null;this.vx=0;this.vy=0;this.vz=0;
@@ -261,7 +272,8 @@ export class ParkourController {
     $('pk-best').textContent=route.best?fmtTime(route.best):'—';
     $('pk-height').textContent=Math.max(0,this.y).toFixed(1)+' m';
     $('pk-speed').textContent=(Math.hypot(this.vx,this.vz)*3.6).toFixed(0)+' km/h';
-    $('pk-prompt').textContent=this.prompt;
+    const interaction=this.city.nearestInteractable(this.x,this.z,this.y);
+    $('pk-prompt').textContent=interaction?(interaction.open?'E · FECHAR ':'E · ABRIR ')+(interaction.kind==='door'?'PORTA':'JANELA')+' · MOBILE: USAR':this.prompt;
     const target=route.waypoints[this.progress];
     if(target&&this.trialActive){
       const dx=target.x-this.x,dz=target.z-this.z;

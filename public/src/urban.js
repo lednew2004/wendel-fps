@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {solidBlocksCapsule,standHeight,intersectLanding} from './parkourPhysics.js';
+import {UrbanExpansion} from './urbanExpansion.js';
+import {WORLD_HALF} from './worldLayout.js';
 
 const R=(a,b)=>a+Math.random()*(b-a);
 const color=(n)=>new THREE.MeshStandardMaterial({color:n,roughness:.86,metalness:.08});
@@ -17,13 +19,14 @@ export class UrbanCity {
       asphalt:world.mat(0xffffff,.2,.94,world.textures.asphalt),
       roof:world.mat(0xffffff,.65,.58,world.textures.roof),
       steel:world.mat(0x4a555d,.78,.48,world.textures.metalBlue),
-      brick:color(0x99867c),glass:new THREE.MeshStandardMaterial({color:0x718b9a,metalness:.52,roughness:.24,transparent:true,opacity:.64}),
+      brick:color(0xcba38e),glass:new THREE.MeshStandardMaterial({color:0xa3d8f4,metalness:.52,roughness:.24,transparent:true,opacity:.64}),
       edge:color(0x353d45),curb:color(0xaeb0ab),yellow:color(0xd7b478),dark:color(0x2a333b),
-      road:color(0x575d60),white:color(0xe5e1d8),green:color(0x646e60)
+      road:color(0x59636b),white:color(0xfff3e4),green:color(0x67c973)
     };
     this.build();
+    this.expansion=new UrbanExpansion(this);
     this.makeFuelDrums();
-    this.spawnPoints=[[-38,18],[38,18],[-38,-18],[38,-18],[-60,6],[60,6],[0,66],[0,-66],[95,12],[-95,-12],[25,-92],[-25,92]];
+    this.spawnPoints=[[-38,18],[38,18],[-38,-18],[38,-18],[-60,6],[60,6],[0,66],[0,-66],[95,12],[-95,-12],[25,-92],[-25,92],[-176,144],[176,-144],[144,176],[-144,-176],[0,183]];
   }
   box(x,y,z,w,h,d,mat,shadow=true,parent=null){
     const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
@@ -156,7 +159,7 @@ export class UrbanCity {
     }
   }
   build(){
-    const sky=new THREE.Mesh(new THREE.SphereGeometry(190,20,12),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,vertexShader:'varying vec3 v;void main(){v=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec3 v;void main(){float h=clamp(v.y/190.*.5+.5,0.,1.);gl_FragColor=vec4(mix(vec3(.78,.79,.77),vec3(.48,.62,.72),pow(h,1.65)),1.);}' }));
+    const sky=new THREE.Mesh(new THREE.SphereGeometry(380,24,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,vertexShader:'varying vec3 v;void main(){v=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec3 v;void main(){float h=clamp(v.y/380.*.5+.5,0.,1.);gl_FragColor=vec4(mix(vec3(.89,.94,1.),vec3(.19,.53,.93),pow(h,1.25)),1.);}' }));
     this.root.add(sky);
     const floor=new THREE.Mesh(new THREE.PlaneGeometry(298,298),this.materials.asphalt);
     floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;this.root.add(floor);
@@ -170,9 +173,9 @@ export class UrbanCity {
       this.box(0,.12,z,280,.01,.16,this.materials.white,false);
     }
     // Routes with reachable 3–5m roof gaps and step-ups of at most 1.5m.
-    const a=[[-100,-72,5.2],[-86,-72,6.25],[-72,-72,7.32],[-58,-72,8.35]].map(([x,z,h])=>this.addBuilding(x,z,10.2,10.2,h,0x7e8d95));
-    const b=[[-27,36,6.4],[-13,36,7.7],[1,36,8.95],[15,36,10.0]].map(([x,z,h])=>this.addBuilding(x,z,10.2,10.2,h,0x978b82));
-    const c=[[54,-25,9],[68,-25,10.55],[82,-25,12.05],[96,-25,13.45]].map(([x,z,h])=>this.addBuilding(x,z,10.2,10.2,h,0x81909a));
+    const a=[[-100,-72,5.2],[-86,-72,6.25],[-72,-72,7.32],[-58,-72,8.35]].map(([x,z,h])=>this.addBuilding(x,z,10.2,10.2,h,0xb0c5e2));
+    const b=[[-27,36,6.4],[-13,36,7.7],[1,36,8.95],[15,36,10.0]].map(([x,z,h])=>this.addBuilding(x,z,10.2,10.2,h,0xe8b87e));
+    const c=[[54,-25,9],[68,-25,10.55],[82,-25,12.05],[96,-25,13.45]].map(([x,z,h])=>this.addBuilding(x,z,10.2,10.2,h,0x8fc8ac));
     this.addFireEscape(a[0]);this.addFireEscape(b[0]);this.addFireEscape(c[0]);
     this.makeCourse('TELHADOS DO DISTRITO',1,a,[-100,-85]);
     this.makeCourse('TRAVESSIA INDUSTRIAL',2,b,[-27,21]);
@@ -187,7 +190,7 @@ export class UrbanCity {
       const seed=(gx*13+gz*17)|0;
       const h=6+Math.abs(seed%5)*2.0;
       const w=12+(Math.abs(gx+gz)%4),d=12+(Math.abs(gx-gz)%5);
-      this.addBuilding(gx,gz,w,d,h,[0x929b9e,0x938c87,0x838e86][Math.abs(seed)%3],Math.abs(seed)%4===0);
+      this.addBuilding(gx,gz,w,d,h,[0xedaa86,0x8cbfd3,0xd4b28a,0x91caa8,0xc8a4d2,0xe4b692][Math.abs(seed)%6],Math.abs(seed)%4===0);
     }}
     this.addInterior(0,102,21,18,9);
     // Accessible ramp / stair platform adjacent to the city park.
@@ -240,8 +243,8 @@ export class UrbanCity {
   }
   setRouteActive(index=-1){for(let i=0;i<this.routeMarkerGroups.length;i++)this.routeMarkerGroups[i].visible=i===index;}
   canOccupy(x,z,y,height=1.77,r=.42){
-    if(Math.abs(x)>143-r||Math.abs(z)>143-r||y<-.3)return false;
-    for(const s of this.solids)if(solidBlocksCapsule(s,x,z,y,height,r))return false;
+    if(Math.abs(x)>WORLD_HALF-r||Math.abs(z)>WORLD_HALF-r||y<-.3)return false;
+    for(const s of this.solids)if(s.active!==false&&solidBlocksCapsule(s,x,z,y,height,r))return false;
     return true;
   }
   floorAt(x,z,feet,step=.46){return standHeight(this.surfaces,x,z,feet,step);}
@@ -261,6 +264,10 @@ export class UrbanCity {
     }
     return closest;
   }
+  nearestInteractable(x,z,y,maxDistance=2.7){return this.expansion?.nearby(x,z,y,maxDistance)||null;}
+  toggleInteractable(id,open){return this.expansion?.setState(id,open)||false;}
+  resetInteractions(){this.expansion?.reset();}
+  animateEnvironment(dt){this.expansion?.update(dt);}
   nearestLadder(x,z,feet){return this.ladders.find(l=>Math.hypot(x-l.x,z-l.z)<2.2&&feet<l.top+.35)||null;}
   toggle(on){this.root.visible=on;}
 }

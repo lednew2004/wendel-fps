@@ -8,16 +8,16 @@ import {PowerMenu} from '../../public/src/powerMenu.js';
 const colliders=JSON.parse(fs.readFileSync(new URL('../colliders.json',import.meta.url)));
 test('16 skills, map distance and collision-checked destinations',()=>{
  assert.equal(Object.keys(POWER_RULES).length,18);
- assert.equal(POWER_RULES.teleport.range,410);
+ assert.equal(POWER_RULES.teleport.range,700);
  assert.equal(POWER_RULES.teleport.returnWindow,15000);
  assert.ok(isGroundedDestination(-135,.09,-135,colliders));
- assert.equal(isGroundedDestination(150,0,0,colliders),false);
+ assert.equal(isGroundedDestination(230,0,0,colliders),false);
  assert.equal(isGroundedDestination(0,22,0,colliders),false);
  const m=Object.create(PowerMenu.prototype);
  m.map={width:560,height:560,getBoundingClientRect(){return {left:0,top:0,width:280,height:280};}};
  assert.deepEqual(m.worldAt({clientX:140,clientY:140}),{x:0,z:0});
- assert.deepEqual(m.worldAt({clientX:0,clientY:0}),{x:-142,z:-142});
- assert.ok(Math.abs(m.convert(143,143).x-560)<.00001);
+ assert.deepEqual(m.worldAt({clientX:0,clientY:0}),{x:-218,z:-218});
+ assert.ok(Math.abs(m.convert(219,219).x-560)<.00001);
 });
 
 process.env.PORT='0';

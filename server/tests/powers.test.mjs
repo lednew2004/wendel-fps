@@ -10,7 +10,7 @@ test('six playable abilities and two-slot loadouts are bounded',()=>{
  const p={alive:true,powers:freshPowerState()};assert.equal(canCast(p,'push'),null);
  assert.match(canCast(p,'flight'),/não equipada/i);
  assert.equal(locationValid(5,0,5,[]),true);
- assert.equal(locationValid(150,0,0,[]),false);
+ assert.equal(locationValid(230,0,0,[]),false);
 });
 
 process.env.PORT='0';

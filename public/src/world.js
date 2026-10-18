@@ -95,9 +95,9 @@ export class World {
   constructor(mount){
     this.mount=mount;
     this.scene=new THREE.Scene();
-    this.scene.background=new THREE.Color(0xc0c9cf);
-    this.scene.fog=new THREE.FogExp2(0xb7c0c7,.0038);
-    this.camera=new THREE.PerspectiveCamera(78,1,.07,320);
+    this.scene.background=new THREE.Color(0x83baf1);
+    this.scene.fog=new THREE.FogExp2(0xa4d4ed,.0026);
+    this.camera=new THREE.PerspectiveCamera(78,1,.07,440);
     this.cameraRig=new THREE.Group();
     this.cameraPitch=new THREE.Group();
     this.scene.add(this.cameraRig);
@@ -107,7 +107,7 @@ export class World {
     this.renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure=1.02;
+    this.renderer.toneMappingExposure=1.13;
     this.renderer.shadowMap.enabled=true;
     this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     mount.appendChild(this.renderer.domElement);
@@ -143,9 +143,9 @@ export class World {
     this.customFar=260;
     this.vegetation=null;
 
-    const hemi=new THREE.HemisphereLight(0xe4ebef,0x5c6465,1.18);
+    const hemi=new THREE.HemisphereLight(0xfff3dd,0x66a279,1.26);
     this.scene.add(hemi);
-    const sun=new THREE.DirectionalLight(0xfff0dc,2.15);
+    const sun=new THREE.DirectionalLight(0xffe9c3,2.32);
     sun.position.set(-48,58,30);
     sun.castShadow=true;
     sun.shadow.mapSize.set(2048,2048);
@@ -624,7 +624,7 @@ export class World {
     this.moon.shadow.camera.updateProjectionMatrix();
     for(const node of this.baseEnvironmentNodes)node.visible=!enabled;
     if(!enabled){this.scene.background.setHex(0xc0c9cf);this.scene.fog.color.setHex(0xb7c0c7);}
-    else{this.scene.background.setHex(0xc1c7cc);this.scene.fog.color.setHex(0xb7bec6);}
+    else{this.scene.background.setHex(0x87c3f2);this.scene.fog.color.setHex(0xb3d8f0);}
   }
   canMove(x,z,r=.5){
     if(this.urbanActive && this.city) return this.city.canOccupy(x,z,0,1.65,r);

@@ -1,9 +1,9 @@
 /** Física cinemática de parkour em passos fixos. Sem dependência de Three.js. */
 export const PARKOUR_TUNING=Object.freeze({
-  fixedStep:1/90,gravity:23.5,jumpSpeed:10.9,walkSpeed:7.6,sprintSpeed:13.1,
+  fixedStep:1/90,gravity:23.5,jumpSpeed:11.5,walkSpeed:7.9,sprintSpeed:13.1,
   accelGround:34,accelAir:11,frictionGround:9.5,frictionAir:.7,
-  coyote:.13,jumpBuffer:.15,characterRadius:.42,characterHeight:1.77,
-  stairStep:.46,wallRunTime:.78,wallRunGravity:5.6,ledgeReach:1.55,
+  coyote:.15,jumpBuffer:.18,characterRadius:.42,characterHeight:1.77,
+  stairStep:.48,wallRunTime:.78,wallRunGravity:5.6,ledgeReach:1.72,
   ladderSpeed:5.4,slideTime:.70,slideSpeed:15.1
 });
 export const approach=(v,target,maxDelta)=>v<target?Math.min(v+maxDelta,target):Math.max(v-maxDelta,target);

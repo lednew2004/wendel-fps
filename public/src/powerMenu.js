@@ -1,3 +1,4 @@
+import {WORLD_HALF} from './worldLayout.js';
 /** Seleção de habilidades e teleporte tático, comuns a PC e telas sensíveis ao toque. */
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -70,13 +71,13 @@ export class PowerMenu{
   for(const b of document.querySelectorAll('[data-power-target-slot]'))b.classList.toggle('selected',Number(b.dataset.powerTargetSlot)===this.slot);
  }
 
- convert(x,z){return {x:(x+143)/286*this.map.width,y:(z+143)/286*this.map.height};}
- worldAt(e){const rect=this.map.getBoundingClientRect();return {x:clamp((e.clientX-rect.left)/rect.width*286-143,-142,142),z:clamp((e.clientY-rect.top)/rect.height*286-143,-142,142)};}
+ convert(x,z){return {x:(x+WORLD_HALF)/(2*WORLD_HALF)*this.map.width,y:(z+WORLD_HALF)/(2*WORLD_HALF)*this.map.height};}
+ worldAt(e){const rect=this.map.getBoundingClientRect();return {x:clamp((e.clientX-rect.left)/rect.width*(2*WORLD_HALF)-WORLD_HALF,-WORLD_HALF+1,WORLD_HALF-1),z:clamp((e.clientY-rect.top)/rect.height*(2*WORLD_HALF)-WORLD_HALF,-WORLD_HALF+1,WORLD_HALF-1)};}
  findLanding(x,z){
   const city=this.game.urban;let y=.09;
   const surfaces=city.surfaces.filter(s=>!s.ramp&&Math.abs(x-s.x)<s.hx-.75&&Math.abs(z-s.z)<s.hz-.75&&Number.isFinite(s.y));
   if(surfaces.length)y=Math.max(...surfaces.map(s=>s.y))+.08;
-  const valid=city.canOccupy(x,z,y,1.77,.48)&&Math.hypot(x-this.game.parkour.x,z-this.game.parkour.z)<=410;
+  const valid=city.canOccupy(x,z,y,1.77,.48)&&Math.hypot(x-this.game.parkour.x,z-this.game.parkour.z)<=700;
   return {x,y,z,valid};
  }
  selectPoint(e){if(this.mode!=='teleport')return;e.preventDefault();const {x,z}=this.worldAt(e);this.target=this.findLanding(x,z);this.updateInfo();this.renderMap();}
@@ -84,10 +85,10 @@ export class PowerMenu{
  renderMap(){
   const ctx=this.ctx,w=this.map.width,h=this.map.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='#18242b';ctx.fillRect(0,0,w,h);
   ctx.strokeStyle='#44555a';ctx.lineWidth=9;
-  for(let x=-120;x<=120;x+=30){let q=this.convert(x,0).x;ctx.beginPath();ctx.moveTo(q,0);ctx.lineTo(q,h);ctx.stroke();}
-  for(let z=-120;z<=120;z+=30){let q=this.convert(0,z).y;ctx.beginPath();ctx.moveTo(0,q);ctx.lineTo(w,q);ctx.stroke();}
+  for(let x=-208;x<=208;x+=32){let q=this.convert(x,0).x;ctx.beginPath();ctx.moveTo(q,0);ctx.lineTo(q,h);ctx.stroke();}
+  for(let z=-208;z<=208;z+=32){let q=this.convert(0,z).y;ctx.beginPath();ctx.moveTo(0,q);ctx.lineTo(w,q);ctx.stroke();}
   const city=this.game.urban;ctx.fillStyle='#72858c';ctx.strokeStyle='#a2b7ba';ctx.lineWidth=1;
-  for(const s of city.surfaces){if(s.ramp)continue;const p=this.convert(s.x,s.z);const sw=s.hx/143*w,sh=s.hz/143*h;ctx.fillRect(p.x-sw/2,p.y-sh/2,sw,sh);ctx.strokeRect(p.x-sw/2,p.y-sh/2,sw,sh);}
+  for(const s of city.surfaces){if(s.ramp)continue;const p=this.convert(s.x,s.z);const sw=s.hx/WORLD_HALF*w,sh=s.hz/WORLD_HALF*h;ctx.fillRect(p.x-sw/2,p.y-sh/2,sw,sh);ctx.strokeRect(p.x-sw/2,p.y-sh/2,sw,sh);}
   ctx.fillStyle='#f2b26b';for(const p of this.game.multiplayer?.players||[]){if(p.id===this.game.multiplayer.id||p.alive===false||p.invisible||p.phased)continue;const q=this.convert(p.x,p.z);ctx.beginPath();ctx.arc(q.x,q.y,4,0,Math.PI*2);ctx.fill();}
   const own=this.game.parkour;const loc=this.convert(own.x,own.z);
   ctx.fillStyle='#8dffd0';ctx.beginPath();ctx.arc(loc.x,loc.y,6,0,Math.PI*2);ctx.fill();

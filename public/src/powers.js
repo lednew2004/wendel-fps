@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {WORLD_HALF} from './worldLayout.js';
 import {PowerMenu} from './powerMenu.js';
 import {CasualEconomy,STARTING_POWER} from './casualEconomy.js';
 export const POWER_DATA={
@@ -223,7 +224,7 @@ export class PowerSystem {
   this.effects.push({mesh,ttl:.45,radius});
  }
  cleanupMarker(){if(this.teleportMarker){this.game.world.scene.remove(this.teleportMarker);this.teleportMarker.geometry.dispose();this.teleportMarker.material.dispose();this.teleportMarker=null;}}
- validPosition(x,y,z){return this.game.urban.canOccupy(x,z,y,1.77,.48)&&y>=0&&y<=38&&Math.hypot(x-this.game.parkour.x,z-this.game.parkour.z)<=410;}
+ validPosition(x,y,z){return this.game.urban.canOccupy(x,z,y,1.77,.48)&&y>=0&&y<=38&&Math.hypot(x-this.game.parkour.x,z-this.game.parkour.z )<=700;}
  findTarget(){
   const g=this.game,pk=g.parkour;
   const origin=new THREE.Vector3(),dir=new THREE.Vector3();g.world.camera.getWorldPosition(origin);g.world.camera.getWorldDirection(dir);
@@ -238,7 +239,7 @@ export class PowerSystem {
   let best=null;
   for(let d=150;d>=4;d-=1){
    const x=pk.x+dir.x*d,z=pk.z+dir.z*d;
-   if(Math.abs(x)>142||Math.abs(z)>142)continue;
+   if(Math.abs(x)>WORLD_HALF-2||Math.abs(z)>WORLD_HALF-2)continue;
    const candidateSurfaces=g.urban.surfaces.filter(s=>!s.ramp&&Math.abs(x-s.x)<s.hx-.6&&Math.abs(z-s.z)<s.hz-.6).map(s=>s.y);
    // Prefer the floor nearest the point along the camera ray.
    const aimY=origin.y+dir.y*d;
@@ -257,7 +258,7 @@ export class PowerSystem {
    if(!this.game.urban.canOccupy(dest.x,dest.z,dest.y,1.77,.48))return;
    this.returnPoint={x:pk.x,y:pk.y,z:pk.z,until:now()+15000};pk.spawn(dest.x,dest.y,dest.z);this.cooldowns.teleport=now()+POWER_DATA.teleport.cool*1000;this.flash(0xbda7ff,8);
  }
- aimLocal(range){const g=this.game,p=g.parkour;return {x:clamp(p.x-Math.sin(g.yaw)*range,-140,140),y:p.y,z:clamp(p.z-Math.cos(g.yaw)*range,-140,140)};}
+ aimLocal(range){const g=this.game,p=g.parkour;return {x:clamp(p.x-Math.sin(g.yaw)*range,-WORLD_HALF+3,WORLD_HALF-3),y:p.y,z:clamp(p.z-Math.cos(g.yaw)*range,-WORLD_HALF+3,WORLD_HALF-3)};}
  spawnLocalClones(jumping=false){
    const g=this.game,p=g.parkour;
    const mat=new THREE.MeshStandardMaterial({color:jumping?0xbca2ff:0x70c8dd,metalness:.2,roughness:.6,transparent:true,opacity:.55});
