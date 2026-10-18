@@ -1,6 +1,6 @@
-# TITAN PROTOCOL 2.7 — IDENTIDADE DOS PERSONAGENS
+# TITAN PROTOCOL 2.8 — IDENTIDADE DOS PERSONAGENS
 
-**Atualização real no código do jogo**, não uma imagem de referência. A versão 2.7 substitui a aparência de personagens quadrados por **modelos humanoides 3D estilizados renderizados com Three.js** no casual e no multiplayer, preservando o mundo expandido da 2.6.
+**Atualização real no código do jogo**, não uma imagem de referência. A versão 2.8 substitui a aparência de personagens quadrados por **modelos humanoides 3D estilizados renderizados com Three.js** no casual e no multiplayer, preservando o mundo expandido da 2.6.
 
 ## Novidades gráficas implementadas
 
@@ -14,7 +14,7 @@
 
 **Compatibilidade:** mantém todas as funcionalidades da 2.6, incluindo mapa com casas e portas, minimapa, 18 habilidades, progressão casual, dash com recarga, códigos de sala personalizados e multiplayer Render gratuito.
 
-**Publicação:** extraia o ZIP na raiz do repositório, execute `git add .`, `git commit -m "Titan Protocol 2.7 - Personagens 3D"`, `git push origin main` e confirme `/health` com `"version":"2.7.0"`.
+**Publicação:** extraia o ZIP na raiz do repositório, execute `git add .`, `git commit -m "Titan Protocol 2.8 - Personagens 3D"`, `git push origin main` e confirme `/health` com `"version":"2.8.0"`.
 
 **Testes:** `npm test` verifica jogo, rede e os personagens criados. Ainda é necessário verificar o resultado gráfico no navegador e no celular real.
 
@@ -42,8 +42,8 @@ PC: WASD movimenta, mouse mira, **E** abre/fecha porta ou janela, **Espaço** pu
 ## Deploy GitHub + Render
 
 1. Extraia o ZIP na **raiz do repositório**: `package.json`, `render.yaml`, `public/`, `server/` e arquivos `.md` devem estar juntos.
-2. Faça `git add .`, `git commit -m "Titan Protocol 2.7 - Personagens 3D"` e `git push origin main`.
-3. Confira o deploy automático e visite `https://SEU-SITE/health`: `"version":"2.7.0"`.
+2. Faça `git add .`, `git commit -m "Titan Protocol 2.8 - Personagens 3D"` e `git push origin main`.
+3. Confira o deploy automático e visite `https://SEU-SITE/health`: `"version":"2.8.0"`.
 4. Se editar a planta da cidade em `public/src/worldLayout.js`, execute `node server/build_colliders.mjs` para reconstruir o arquivo de colisões do servidor antes de publicar.
 
 `npm test` roda os testes automatizados. Não requer pacotes npm externos; os módulos Three.js são importados pela rede CDN no navegador.

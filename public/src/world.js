@@ -95,9 +95,9 @@ export class World {
   constructor(mount){
     this.mount=mount;
     this.scene=new THREE.Scene();
-    this.scene.background=new THREE.Color(0x83baf1);
-    this.scene.fog=new THREE.FogExp2(0xa4d4ed,.0026);
-    this.camera=new THREE.PerspectiveCamera(78,1,.07,440);
+    this.scene.background=new THREE.Color(0x070814);
+    this.scene.fog=new THREE.FogExp2(0x11061d,.0052);
+    this.camera=new THREE.PerspectiveCamera(76,1,.07,520);
     this.cameraRig=new THREE.Group();
     this.cameraPitch=new THREE.Group();
     this.scene.add(this.cameraRig);
@@ -105,9 +105,10 @@ export class World {
     this.cameraPitch.add(this.camera);
 
     this.renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+    this.renderer.physicallyCorrectLights=true;
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure=1.13;
+    this.renderer.toneMappingExposure=1.04;
     this.renderer.shadowMap.enabled=true;
     this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     mount.appendChild(this.renderer.domElement);
@@ -136,17 +137,17 @@ export class World {
     this.pmrem=new THREE.PMREMGenerator(this.renderer);
     const envTarget=this.pmrem.fromScene(new RoomEnvironment());
     this.scene.environment=envTarget.texture;
-    this.scene.environmentIntensity=.31;
+    this.scene.environmentIntensity=.48;
     this.envTarget=envTarget;
     this.baseFOV=78;
     this.renderScale=1;
     this.customFar=260;
     this.vegetation=null;
 
-    const hemi=new THREE.HemisphereLight(0xfff3dd,0x66a279,1.26);
+    const hemi=new THREE.HemisphereLight(0x6aa7ff,0x15051d,.42);
     this.scene.add(hemi);
-    const sun=new THREE.DirectionalLight(0xffe9c3,2.32);
-    sun.position.set(-48,58,30);
+    const sun=new THREE.DirectionalLight(0x8fc8ff,1.55);
+    sun.position.set(-56,74,24);
     sun.castShadow=true;
     sun.shadow.mapSize.set(2048,2048);
     sun.shadow.camera.left=-110;
@@ -167,7 +168,8 @@ export class World {
     this.urbanActive=false;
     this.spawnPoints=[];
     this.makePost();
-    this.setQuality('medium');
+    this.createRain();
+    this.setQuality(matchMedia('(pointer: coarse)').matches?'medium':'high');
     this.resize();
     this.onResize=()=>this.resize();
     window.addEventListener('resize',this.onResize);
@@ -538,7 +540,7 @@ export class World {
     this.ssao.maxDistance=.06;
     this.ssao.enabled=false;
     this.composer.addPass(this.ssao);
-    this.bloom=new UnrealBloomPass(new THREE.Vector2(1,1),.1,.3,.92);
+    this.bloom=new UnrealBloomPass(new THREE.Vector2(1,1),.55,.35,.88);
     this.composer.addPass(this.bloom);
     this.smaa=new SMAAPass();
     this.composer.addPass(this.smaa);
@@ -547,11 +549,11 @@ export class World {
 
   setQuality(q){
     const profiles={
-      low:{ratio:.65,shadow:0,far:150,vegetation:.15,ao:false,smaa:false,bloom:false,env:.14},
-      medium:{ratio:.85,shadow:1024,far:190,vegetation:.5,ao:false,smaa:false,bloom:false,env:.23},
-      high:{ratio:1,shadow:2048,far:250,vegetation:.85,ao:false,smaa:true,bloom:false,env:.32},
-      ultra:{ratio:1.1,shadow:3072,far:290,vegetation:1,ao:true,smaa:true,bloom:true,env:.45},
-      cinematic:{ratio:1.2,shadow:4096,far:320,vegetation:1,ao:true,smaa:true,bloom:true,env:.5}
+      low:{ratio:.65,shadow:0,far:150,vegetation:.15,ao:false,smaa:false,bloom:false,env:.18},
+      medium:{ratio:.85,shadow:1024,far:210,vegetation:.5,ao:false,smaa:true,bloom:true,env:.32},
+      high:{ratio:1,shadow:2048,far:270,vegetation:.85,ao:true,smaa:true,bloom:true,env:.46},
+      ultra:{ratio:1.1,shadow:3072,far:320,vegetation:1,ao:true,smaa:true,bloom:true,env:.58},
+      cinematic:{ratio:1.2,shadow:4096,far:360,vegetation:1,ao:true,smaa:true,bloom:true,env:.68}
     };
     const p=profiles[q]||profiles.high;
     this.quality=q;
@@ -589,6 +591,44 @@ export class World {
     const max=this.renderer.capabilities.getMaxAnisotropy();
     for(const t of this.materialLibrary.textures){t.anisotropy=Math.min(max,Math.max(1,Number(value)||1));t.needsUpdate=true;}
   }
+
+  createRain(){
+    const count=1100;
+    const positions=new Float32Array(count*3);
+    const speeds=new Float32Array(count);
+    const bounds=240;
+    for(let i=0;i<count;i++){
+      positions[i*3]=Math.random()*bounds-bounds/2;
+      positions[i*3+1]=Math.random()*90+10;
+      positions[i*3+2]=Math.random()*bounds-bounds/2;
+      speeds[i]=26+Math.random()*32;
+    }
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
+    const material=new THREE.PointsMaterial({
+      color:0x6fe9ff,size:.11,transparent:true,opacity:.32,depthWrite:false,
+      blending:THREE.AdditiveBlending,sizeAttenuation:true
+    });
+    const rain=new THREE.Points(geometry,material);
+    rain.frustumCulled=false;
+    this.scene.add(rain);
+    this.rain={mesh:rain,positions,speeds,bounds};
+  }
+  updateRain(dt){
+    if(!this.rain)return;
+    const {mesh,positions,speeds,bounds}=this.rain;
+    for(let i=0;i<speeds.length;i++){
+      positions[i*3]-=dt*1.8;
+      positions[i*3+1]-=dt*speeds[i];
+      if(positions[i*3+1]<0){
+        positions[i*3]=Math.random()*bounds-bounds/2;
+        positions[i*3+1]=Math.random()*50+60;
+        positions[i*3+2]=Math.random()*bounds-bounds/2;
+      }
+    }
+    mesh.geometry.attributes.position.needsUpdate=true;
+  }
+
   resize(){
     const w=window.innerWidth,h=window.innerHeight;
     this.camera.aspect=w/h;this.camera.updateProjectionMatrix();
@@ -623,8 +663,8 @@ export class World {
     this.moon.shadow.camera.top=span;this.moon.shadow.camera.bottom=-span;
     this.moon.shadow.camera.updateProjectionMatrix();
     for(const node of this.baseEnvironmentNodes)node.visible=!enabled;
-    if(!enabled){this.scene.background.setHex(0xc0c9cf);this.scene.fog.color.setHex(0xb7c0c7);}
-    else{this.scene.background.setHex(0x87c3f2);this.scene.fog.color.setHex(0xb3d8f0);}
+    if(!enabled){this.scene.background.setHex(0x131821);this.scene.fog.color.setHex(0x293241);this.scene.fog.density=.0034;}
+    else{this.scene.background.setHex(0x070814);this.scene.fog.color.setHex(0x1a0e2a);this.scene.fog.density=.0052;}
   }
   canMove(x,z,r=.5){
     if(this.urbanActive && this.city) return this.city.canOccupy(x,z,0,1.65,r);
@@ -668,7 +708,9 @@ export class World {
 
   update(dt){
     this.time+=dt;
+    this.updateRain(dt);
     if(!this.urbanActive)for(const a of this.animated) a.update(this.time);
+    if(this.bloom)this.bloom.strength=.52+.08*Math.sin(this.time*.7);
   }
 
   render(){

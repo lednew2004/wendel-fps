@@ -15,14 +15,16 @@ export class UrbanCity {
     this.solids=[];this.surfaces=[];this.ladders=[];this.lowWalls=[];this.courses=[];
     this.rayTargets=[];this.chunks=new Map();this.currentParent=null;this.chunkTick=0;this.routeMarkerGroups=[];this.buildingMaterials=new Map();
     this.materials={
-      concrete:world.mat(0xffffff,.1,.93,world.textures.concrete),
-      asphalt:world.mat(0xffffff,.2,.94,world.textures.asphalt),
-      roof:world.mat(0xffffff,.65,.58,world.textures.roof),
-      steel:world.mat(0x4a555d,.78,.48,world.textures.metalBlue),
-      brick:color(0xcba38e),glass:new THREE.MeshStandardMaterial({color:0xa3d8f4,metalness:.52,roughness:.24,transparent:true,opacity:.64}),
-      edge:color(0x353d45),curb:color(0xaeb0ab),yellow:color(0xd7b478),dark:color(0x2a333b),
-      road:color(0x59636b),white:color(0xfff3e4),green:color(0x67c973)
+      concrete:world.mat(0x566072,.18,.74,world.textures.concrete),
+      asphalt:world.mat(0x2a2f3d,.42,.28,world.textures.asphalt),
+      roof:world.mat(0x3b435d,.78,.24,world.textures.roof),
+      steel:world.mat(0x52607a,.88,.25,world.textures.metalBlue),
+      brick:color(0x6f5368),glass:new THREE.MeshStandardMaterial({color:0x69d7ff,emissive:0x1dc6ff,emissiveIntensity:.38,metalness:.64,roughness:.14,transparent:true,opacity:.68}),
+      edge:color(0x212736),curb:color(0x555d70),yellow:color(0xffba5b),dark:color(0x121827),
+      road:color(0x262c38),white:color(0x57ecff),green:color(0x37e6a0)
     };
+    this.neonPalette=[0x4df6ff,0xff4db8,0xcc63ff,0xffb347,0x8fff61];
+    this.neonMaterials=new Map();
     this.build();
     this.expansion=new UrbanExpansion(this);
     this.makeFuelDrums();
@@ -31,6 +33,38 @@ export class UrbanCity {
   box(x,y,z,w,h,d,mat,shadow=true,parent=null){
     const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
     m.position.set(x,y,z);m.castShadow=shadow;m.receiveShadow=true;(parent||this.currentParent||this.root).add(m);return m;
+  }
+  neonMat(hex,intensity=1.25,opacity=1){
+    const key=hex+'-'+intensity+'-'+opacity;
+    if(!this.neonMaterials.has(key))this.neonMaterials.set(key,new THREE.MeshStandardMaterial({color:hex,emissive:hex,emissiveIntensity:intensity,metalness:.22,roughness:.28,transparent:opacity<1,opacity}));
+    return this.neonMaterials.get(key);
+  }
+  makeSignTexture(title,color,bg='#08111d'){
+    const canvas=document.createElement('canvas');canvas.width=512;canvas.height=192;
+    const ctx=canvas.getContext('2d');
+    const glow=ctx.createLinearGradient(0,0,512,192);
+    glow.addColorStop(0,bg);glow.addColorStop(1,'#13071d');
+    ctx.fillStyle=glow;ctx.fillRect(0,0,512,192);
+    ctx.strokeStyle=color;ctx.lineWidth=6;ctx.strokeRect(10,10,492,172);
+    ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(18,18,476,30);
+    ctx.font='900 72px Barlow Condensed, Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=color;
+    ctx.shadowColor=color;ctx.shadowBlur=26;ctx.fillText(title,256,96,468);
+    const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;return tex;
+  }
+  addNeonFacade(x,z,w,d,h){
+    const parent=this.currentParent||this.root;
+    const accent=this.neonPalette[Math.abs(Math.floor((x+z+h)*3))%this.neonPalette.length];
+    const line=this.neonMat(accent,1.55,.96);
+    this.box(x,h+.22,z+d/2+.07,w*.84,.06,.08,line,false,parent);
+    this.box(x,h+.22,z-d/2-.07,w*.84,.06,.08,line,false,parent);
+    this.box(x+w/2+.07,h*.55,z,.08,h*.78,.06,line,false,parent);
+    if(((Math.abs(x)+Math.abs(z))|0)%3===0){
+      const label=['NOVA','BYTE','SYN','ARAS','ZENITH','HEX'][Math.abs((x*7+z*11)|0)%6];
+      const tex=this.makeSignTexture(label,'#'+accent.toString(16).padStart(6,'0'));
+      const sign=new THREE.Mesh(new THREE.PlaneGeometry(Math.min(6,w*.52),1.7),new THREE.MeshBasicMaterial({map:tex,transparent:true,side:THREE.DoubleSide,depthWrite:false}));
+      sign.position.set(x+w/2+.12,Math.max(3,h*.55),z);sign.rotation.y=-Math.PI/2;parent.add(sign);
+      const glow=new THREE.PointLight(accent,.55,18,2);glow.position.set(x+w/2-1.6,Math.max(3,h*.58),z);parent.add(glow);
+    }
   }
   addSolid(x,z,w,d,height,minY=0){this.solids.push({x,z,hx:w/2,hz:d/2,minY,maxY:height});}
   addSurface(x,z,w,d,y){this.surfaces.push({x,z,hx:w/2,hz:d/2,y});}
@@ -68,6 +102,7 @@ export class UrbanCity {
       this.ladders.push(ladder);
       this.buildLadder(ladder);
     }
+    this.addNeonFacade(x,z,w,d,h);
     this.currentParent=last;
     return {x,z,w,d,h};
   }
@@ -159,9 +194,10 @@ export class UrbanCity {
     }
   }
   build(){
-    const sky=new THREE.Mesh(new THREE.SphereGeometry(380,24,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,vertexShader:'varying vec3 v;void main(){v=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec3 v;void main(){float h=clamp(v.y/380.*.5+.5,0.,1.);gl_FragColor=vec4(mix(vec3(.89,.94,1.),vec3(.19,.53,.93),pow(h,1.25)),1.);}' }));
+    const sky=new THREE.Mesh(new THREE.SphereGeometry(380,24,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,vertexShader:'varying vec3 v;void main(){v=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec3 v;void main(){float h=clamp(v.y/380.*.5+.5,0.,1.);vec3 top=vec3(.02,.03,.09);vec3 mid=vec3(.10,.04,.17);vec3 base=vec3(.01,.01,.03);vec3 col=mix(base,mid,smoothstep(.0,.55,h));col=mix(col,top,smoothstep(.48,1.,h));gl_FragColor=vec4(col,1.);}' }));
     this.root.add(sky);
     const floor=new THREE.Mesh(new THREE.PlaneGeometry(298,298),this.materials.asphalt);
+    floor.material.envMapIntensity=1.12;
     floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;this.root.add(floor);
     const edgeMat=this.materials.curb;
     for(let x=-120;x<=120;x+=30){
@@ -170,7 +206,7 @@ export class UrbanCity {
     }
     for(let z=-120;z<=120;z+=30){
       this.box(0,.085,z,284,.17,2.0,edgeMat,false);
-      this.box(0,.12,z,280,.01,.16,this.materials.white,false);
+      this.box(0,.12,z,280,.01,.16,this.neonMat(0xff4db8,1.05,.88),false);
     }
     // Routes with reachable 3–5m roof gaps and step-ups of at most 1.5m.
     const a=[[-100,-72,5.2],[-86,-72,6.25],[-72,-72,7.32],[-58,-72,8.35]].map(([x,z,h])=>this.addBuilding(x,z,10.2,10.2,h,0xb0c5e2));
@@ -201,6 +237,7 @@ export class UrbanCity {
     // Instanced facade windows, a lot fewer draw calls than per-window meshes.
     const winGeometry=new THREE.PlaneGeometry(1.25,1.65);
     const inst=new THREE.InstancedMesh(winGeometry,this.materials.glass,Math.min(6500,this.solids.length*100));
+    this.materials.glass.emissiveIntensity=.62;
     const dummy=new THREE.Object3D();let n=0;
     for(const s of this.solids){
       if(s.maxY<5.0||s.minY>0.1||s.hx<4||s.hz<4)continue;
@@ -223,6 +260,7 @@ export class UrbanCity {
     const post=new THREE.InstancedMesh(postGeo,postMat,64);let count=0;
     for(let x=-120;x<=120;x+=30)for(let z=-120;z<=120;z+=30){if(count>=64)break;dummy.position.set(x+5,3.75,z+4);dummy.rotation.set(0,0,0);dummy.updateMatrix();post.setMatrixAt(count++,dummy.matrix);}
     post.count=count;this.root.add(post);
+    for(const [lx,lz,c] of [[-90,-90,0x4df6ff],[90,-90,0xff4db8],[-90,90,0xcc63ff],[90,90,0x8fff61],[0,120,0xffb347],[120,0,0x4df6ff]]){const pole=this.box(lx,4.5,lz,.18,9,.18,this.materials.steel,false);const orb=new THREE.Mesh(new THREE.SphereGeometry(.48,12,10),this.neonMat(c,1.9));orb.position.set(lx,8.8,lz);this.root.add(orb);const light=new THREE.PointLight(c,.9,26,2);light.position.copy(orb.position);this.root.add(light);}
     this.loadProps();
   }
   makeFuelDrums(){
