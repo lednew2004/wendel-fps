@@ -1,4 +1,20 @@
-# TITAN PROTOCOL 3.0 — MOBA HERO COMBOS (LIGHT EDITION)
+# TITAN PROTOCOL 3.1 — FLUID COMBAT
+
+**Atualização visual e de jogabilidade dos combos**, baseada na versão leve 3.0 com mapa MOBA e 13 heróis.
+
+- **Shiro:** dois avanços físicos animados (não teleporte), recuo animado e ultimate com ondas de impacto e escudo.
+- **Leo:** dois dashs com trajetória visível; o terceiro comando retorna à origem em até **12 segundos**. Proteção e bombardeio com novas ondas visuais.
+- **Butterfly:** permanece um personagem de teleporte, com portais, clarões e partículas na saída e chegada. Orbe e retorno reativáveis por até **12 segundos**.
+- **Tempo de combo ≠ recarga:** a janela de reativação de Shiro, Leo e Butterfly não fecha antes de 12 s. Ao consumir a última etapa, a recarga completa começa; se você abandonar o combo, a recarga segue após a janela.
+- **Multiplayer:** servidor calcula e valida o destino; transmite início/fim/duração dos dashs para animação de todos os jogadores. Entrada de movimentos durante o dash é temporariamente ignorada no servidor.
+- **Efeitos otimizados:** ondas, trilhas e partículas com limites e liberação de geometrias. Os indicadores já existentes de duração/recarga permanecem.
+- Mantidos: mapa MOBA, jungle, Top/Mid/ADC, bases, 13 heróis, 39 habilidades, casual/online, escolha de arma, minimapa, roda, mobile e códigos das salas.
+
+> O sistema usa animação procedural (movimentação da câmera e FX em Three.js), não animações mocap/GLB. Precisa ser validado em um celular real.
+
+---
+
+# TITAN PROTOCOL 3.1 — MOBA HERO COMBOS (LIGHT EDITION)
 
 Baseado no jogo 2.9, com o renderizador leve de 2.7. Não inclui a chuva e a cidade cyberpunk pesada da 2.8. É um FPS 3D em Three.js com exploração, parkour, campanha, sobrevivência e multiplayer WebSocket.
 
@@ -43,13 +59,13 @@ Os três novos kits trazem **9 técnicas de combo** com reativação e estados s
 
 ## Publicação e testes
 
-Requer Node.js >= 22. `npm start` inicia o mesmo serviço HTTP e WebSocket, sem Redis e sem dependências externas de npm. Three.js é carregado por CDN e requer acesso à internet. Para testar, rode `npm test`. O endpoint `/health` deve retornar `3.0.0`.
+Requer Node.js >= 22. `npm start` inicia o mesmo serviço HTTP e WebSocket, sem Redis e sem dependências externas de npm. Three.js é carregado por CDN e requer acesso à internet. Para testar, rode `npm test`. O endpoint `/health` deve retornar `3.1.0`.
 
 Na pasta do repositório GitHub (arquivos descompactados na raiz), execute:
 
 ```bash
 git add .
-git commit -m "TITAN PROTOCOL 3.0 - MOBA e combos"
+git commit -m "TITAN PROTOCOL 3.1 - MOBA e combos"
 git push origin main
 ```
 

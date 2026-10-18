@@ -139,7 +139,7 @@ function obscured(origin,dir,dist,room){
   return false;
 }
 function move(p,data){
-  if(!p.alive||p.powers.frozenUntil>Date.now()||p.powers.gravityUntil>Date.now())return;
+  if(!p.alive||p.powers.frozenUntil>Date.now()||p.powers.gravityUntil>Date.now()||(p.comboDashUntil||0)>Date.now())return;
   const {x,y,z,yaw,pitch,weapon}=data;
   if(!finite(x,-WORLD_HALF,WORLD_HALF)||!finite(z,-WORLD_HALF,WORLD_HALF)||!finite(y,-1,40)||!finite(yaw,-1e7,1e7)||!finite(pitch,-1.48,1.48)||!Number.isInteger(weapon)||weapon<0||weapon>3)return;
   const now=Date.now();const dt=limit((now-p.lastMove)/1000,.01,.35);
@@ -278,7 +278,8 @@ function comboDash(p,metres,now,backward=false){
  const dir=backward?-1:1,from={x:p.x,y:p.y,z:p.z};let to={...from};
  for(let step=.5;step<=metres;step+=.5){const target=dashVector(from.x,from.z,p.yaw,step*dir);if(!locationValid(target.x,p.y,target.z,roomColliders(p.room)))break;to={x:target.x,y:p.y,z:target.z};}
  Object.assign(p,to,{lastMove:now});
- broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...to});
+ p.comboDashUntil=now+340;
+ broadcast(p.room,{type:'power-effect',kind:'combo-dash',player:p.id,id:p._currentCombo||'',from,to,duration:340});
  return {from,to};
 }
 function comboDamageNear(p,x,z,radius,damage,now){
@@ -293,19 +294,19 @@ function castHeroCombo(p,data,now=Date.now()){
  if(!phase&&(s.cooldowns[id]||0)>now){send(p.socket,{type:'power-error',message:'Habilidade recarregando.'});return true;}
  let next=null,kind=id,point=null;
  const start=()=>{s.cooldowns[id]=now+rule.cooldown;s.activeUntil[id]=now+(rule.duration||2000);};
- const move=(n,back=false)=>{const result=comboDash(p,n,now,back);point=result.to;return result;};
+ const move=(n,back=false)=>{p._currentCombo=id;const result=comboDash(p,n,now,back);delete p._currentCombo;point=result.to;return result;};
  if(id==='shiro_step'){
-  if(!phase){move(7);next={step:1,until:now+2500};s.cooldowns[id]=now+rule.cooldown+2500;}
+  if(!phase){move(7);next={step:1,until:now+12000};s.cooldowns[id]=next.until+rule.cooldown;}
   else{move(9);comboDamageNear(p,p.x,p.z,4.8,56,now);next=null;s.cooldowns[id]=now+rule.cooldown;}
  }else if(id==='shiro_retreat'){
   move(8,true);s.empoweredUntil=now+6000;start();s.activeUntil[id]=s.empoweredUntil;
  }else if(id==='shiro_ricochet'){
   const victims=[...p.room.players.values()].filter(t=>t.id!==p.id&&t.alive&&Math.hypot(t.x-p.x,t.z-p.z)<45).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z)).slice(0,5);
   victims.forEach((t,i)=>applyAbilityDamage(p,t,Math.max(18,64-i*9),now));
-  s.shieldUntil=now+4200;s.activeUntil[id]=s.shieldUntil;start();s.activeUntil[id]=s.shieldUntil;
+  s.shieldUntil=now+5000;s.activeUntil[id]=s.shieldUntil;start();s.activeUntil[id]=s.shieldUntil;
   broadcast(p.room,{type:'power-vfx',kind:'chain',player:p.id,targets:victims.map(t=>({x:t.x,y:t.y,z:t.z,id:t.id}))});
  }else if(id==='leo_dash'){
-  if(!phase){next={step:1,until:now+4800,origin:{x:p.x,y:p.y,z:p.z}};move(7);s.cooldowns[id]=now+rule.cooldown+4800;}
+  if(!phase){next={step:1,until:now+12000,origin:{x:p.x,y:p.y,z:p.z}};move(7);s.cooldowns[id]=next.until+rule.cooldown;}
   else if(phase.step===1){move(8);next={...phase,step:2};}
   else{const origin=phase.origin;if(origin&&locationValid(origin.x,origin.y,origin.z,roomColliders(p.room))){Object.assign(p,origin,{lastMove:now});point=origin;broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...origin});}s.cooldowns[id]=now+rule.cooldown;}
  }else if(id==='leo_immunity'){
@@ -319,16 +320,16 @@ function castHeroCombo(p,data,now=Date.now()){
    broadcast(p.room,{type:'power-vfx',kind:'leo-barrage',player:p.id,x:p.x,y:p.y,z:p.z,wave:i+1});
   },i*540);
  }else if(id==='butterfly_dash'){
-  if(!phase){const origin={x:p.x,y:p.y,z:p.z};move(10);next={step:1,until:now+5500,origin};s.cooldowns[id]=now+rule.cooldown+5500;}
+  if(!phase){const origin={x:p.x,y:p.y,z:p.z};let to=origin;for(let k=.5;k<=10;k+=.5){const q=dashVector(origin.x,origin.z,p.yaw,k);if(!locationValid(q.x,p.y,q.z,roomColliders(p.room)))break;to={x:q.x,y:p.y,z:q.z};}Object.assign(p,to,{lastMove:now});broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...to});next={step:1,until:now+12000,origin};s.cooldowns[id]=next.until+rule.cooldown;}
   else{if(phase.origin&&locationValid(phase.origin.x,phase.origin.y,phase.origin.z,roomColliders(p.room))){Object.assign(p,phase.origin,{lastMove:now});point=phase.origin;broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...point});}s.cooldowns[id]=now+rule.cooldown;}
  }else if(id==='butterfly_orbit'){
-  if(!phase){next={step:1,until:now+7200,started:now};s.cooldowns[id]=now+rule.cooldown+7200;s.activeUntil[id]=now+7200;}
+  if(!phase){next={step:1,until:now+12000,started:now};s.cooldowns[id]=next.until+rule.cooldown;s.activeUntil[id]=next.until;}
   else{const dest=orbitLocation(p.x,p.z,phase.started,now,8);if(locationValid(dest.x,p.y,dest.z,roomColliders(p.room))){Object.assign(p,{x:dest.x,z:dest.z,lastMove:now});point={x:p.x,y:p.y,z:p.z};broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...point});}s.cooldowns[id]=now+rule.cooldown;}
  }else if(id==='butterfly_launch'){
   if(!phase){const origin={x:p.x,y:p.y,z:p.z},endpoint=dashVector(p.x,p.z,p.yaw,27);let result=origin;
    for(let k=1;k<=27;k++){const q=dashVector(p.x,p.z,p.yaw,k);if(!locationValid(q.x,p.y,q.z,roomColliders(p.room)))break;result={x:q.x,y:p.y,z:q.z};}
    for(const enemy of p.room.players.values())if(enemy.id!==p.id&&enemy.team!==p.team&&enemy.alive&&segmentDistance2D(enemy.x,enemy.z,p.x,p.z,result.x,result.z)<5){const dx=enemy.x-p.x,dz=enemy.z-p.z,d=Math.hypot(dx,dz)||1;for(let n=1;n<=8;n++){const nx=enemy.x+dx/d*n,nz=enemy.z+dz/d*n;if(!locationValid(nx,enemy.y,nz,roomColliders(p.room)))break;Object.assign(enemy,{x:nx,z:nz,lastMove:now});}applyAbilityDamage(p,enemy,34,now);broadcast(p.room,{type:'power-effect',kind:'push',player:enemy.id,x:enemy.x,y:enemy.y,z:enemy.z});}
-   next={step:1,until:now+5000,orb:result};s.cooldowns[id]=now+rule.cooldown+5000;point=result;
+   next={step:1,until:now+12000,orb:result};s.cooldowns[id]=next.until+rule.cooldown;point=result;
   }else{const orb=phase.orb;if(orb&&locationValid(orb.x,orb.y,orb.z,roomColliders(p.room))){Object.assign(p,orb,{lastMove:now});point=orb;broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...orb});}s.cooldowns[id]=now+rule.cooldown;}
  }
  if(next)s.combo[id]=next;else delete s.combo[id];
@@ -531,7 +532,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.0.0'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.1.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';

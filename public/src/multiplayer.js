@@ -311,8 +311,10 @@ export class MultiplayerClient {
       case 'power-copy':this.game.powers.onServerState(msg.powers);this.game.toast('PODERES COPIADOS DE '+msg.from+' · 30 SEGUNDOS');break;
       case 'power-effect':{
         this.game.powers.onServerEffect(msg);
+        if(msg.kind==='combo-dash'&&msg.player!==this.id){const entry=this.others.get(msg.player);if(entry){entry.motion={from:msg.from,to:msg.to,elapsed:0,duration:Math.max(.08,(msg.duration||340)/1000)};entry.group.position.set(msg.from.x,msg.from.y,msg.from.z);entry.target.set(msg.to.x,msg.to.y,msg.to.z);}break;}
         if(msg.kind==='gravity'&&Array.isArray(msg.affected)&&msg.affected.includes(this.id)){this.game.powers.status.gravity=Date.now()+2700;this.game.parkour.y+=3.5;this.game.parkour.vy=0;}
         if((msg.kind==='gravity-land'||msg.kind==='combo-move')&&msg.player===this.id&&Number.isFinite(msg.y))this.game.parkour.spawn(msg.x,msg.y,msg.z);
+        if(msg.player!==this.id&&['combo-move','teleport','teleport-back','swap','clonejump','rewind'].includes(msg.kind)){const remote=this.others.get(msg.player);if(remote&&Number.isFinite(msg.x)){this.game.powers.motion.teleport({x:remote.group.position.x,y:remote.group.position.y,z:remote.group.position.z},{x:msg.x,y:msg.y,z:msg.z},0xb77dff);}}
         if(msg.kind==='push'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x))entry.target.set(msg.x,msg.y,msg.z);}
         if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='clonejump'||msg.kind==='rewind'||msg.kind==='swap'||msg.kind==='phase-exit'||msg.kind==='gravity-land'||msg.kind==='combo-move'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
         break;
@@ -342,7 +344,10 @@ export class MultiplayerClient {
           this.game.powers.flash(0xff7dda,6,msg);
         }else if(msg.kind==='chain'){
           for(const v of msg.targets||[])this.game.powers.flash(0x76eaff,4,v);
-        }else if(msg.kind==='blackhole')this.game.powers.flash(0x997bff,11,msg);
+        }else if(msg.kind==='leo-barrage'){this.game.powers.motion.ultimate(msg,0xffa561,17);this.game.powers.flash(0xffb35e,18,msg);}
+        else if(msg.kind==='shiro_ricochet'){this.game.powers.motion.ultimate(msg,0xff557a,14);this.game.powers.flash(0xff557a,12,msg);}
+        else if(msg.kind==='butterfly_launch'){this.game.powers.motion.ultimate(msg,0xd36dff,9);this.game.powers.flash(0xd36dff,8,msg);}
+        else if(msg.kind==='blackhole')this.game.powers.flash(0x997bff,11,msg);
         else if(msg.kind==='gravity')this.game.powers.flash(0xdab8ff,10,msg);
         else if(msg.kind==='shield-hit')this.game.powers.flash(0x8af8cd,4,msg);
         else this.game.powers.flash(0x80dbff,9,msg);
@@ -455,6 +460,7 @@ export class MultiplayerClient {
   removeAll(){for(const id of [...this.others.keys()])this.removeRemote(id);for(const id of [...this.decoys.keys()])this.removeDecoy(id);this.players=[];}
   syncState(){
     const pk=this.game.parkour;
+    if(this.game.powers?.motion?.hasDash())return;
     this.send({type:'move',x:pk.x,y:pk.y,z:pk.z,yaw:this.game.yaw,pitch:this.game.pitch,weapon:this.game.weapons.index});
   }
   fire(){if(this.connected&&this.alive&&!this.game.powers.frozen()&&!this.game.powers.isActive('phase')){this.syncState();this.send({type:'fire'});}}
@@ -479,7 +485,8 @@ export class MultiplayerClient {
       const dx=entry.target.x-entry.group.position.x;
       const dz=entry.target.z-entry.group.position.z;
       const movement=Math.min(1,Math.hypot(dx,dz)/Math.max(.02,dt*5));
-      entry.group.position.lerp(entry.target,Math.min(1,dt*12));
+      if(entry.motion){const m=entry.motion;m.elapsed+=dt;const u=Math.min(1,m.elapsed/m.duration),ease=1-Math.pow(1-u,2.6);entry.group.position.set(m.from.x+(m.to.x-m.from.x)*ease,m.from.y+(m.to.y-m.from.y)*ease,m.from.z+(m.to.z-m.from.z)*ease);if(u>=1)entry.motion=null;}
+      else entry.group.position.lerp(entry.target,Math.min(1,dt*12));
       entry.group.rotation.y=entry.yaw;
       animateOperative(entry.group.userData.body,dt,{moving:movement,firing:entry.flash>0,distance:Math.hypot(entry.group.position.x-this.game.player.x,entry.group.position.z-this.game.player.z)});
     }

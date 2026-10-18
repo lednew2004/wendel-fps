@@ -244,7 +244,7 @@ export class Game {
     if(this.state==='playing'){
       this.updateCombatTimers(dt);
       this.powers.update(dt);
-      if((this.mode!=='multiplayer'||this.multiplayer.alive)&&!this.powers.frozen())this.parkour.update(dt);
+      if((this.mode!=='multiplayer'||this.multiplayer.alive)&&!this.powers.frozen()&&!this.powers.motion.hasDash())this.parkour.update(dt);
       else if(this.powers.frozen())this.positionCamera();
       this.multiplayer.update(dt);
       this.cityTick-=dt;
@@ -263,5 +263,6 @@ export class Game {
     if(this.toastTimer>0){this.toastTimer-=dt;if(this.toastTimer<=0)el('toast').classList.remove('active');}
     if(this.hitmarkTimer>0){this.hitmarkTimer-=dt;if(this.hitmarkTimer<=0){el('hitmarker').classList.remove('active','kill');}}
     if(this.damageFlash>0)this.damageFlash=Math.max(0,this.damageFlash-dt*1.7);el('damage-vignette').style.opacity=(this.damageFlash*.75).toFixed(3);
+    if(this.state==='playing'&&this.powers.motion.shake>0){const strength=this.powers.motion.shake*(this.mobile?.enabled ? .012 : .020);this.world.camera.position.set((Math.random()-.5)*strength,(Math.random()-.5)*strength,0);}else this.world.camera.position.set(0,0,0);
     const now=performance.now();if((!this.mobile?.enabled||this.mobile.landscape)&&(!this.fpsLimit||now-this.lastDraw>=1000/this.fpsLimit)){this.world.render();this.fpsCount++;this.lastDraw=now;}}
 }
