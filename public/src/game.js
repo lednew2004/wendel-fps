@@ -1,3 +1,4 @@
+import {MOBA_BASES} from './mobaLayout.js';
 import * as THREE from 'three';
 import {HeroSelection} from './heroSelection.js';
 import {heroLoadout,heroById} from './heroRoster.js';
@@ -76,16 +77,14 @@ export class Game {
       if(e.code==='KeyT'){const active=this.parkour.toggleTrial();document.body.classList.toggle('trial-active',active);this.toast(active?'PERCURSO OPCIONAL ATIVADO':'PERCURSO DESATIVADO');}
       if(e.code==='ControlLeft'||e.code==='ControlRight'||e.code==='KeyC')this.parkour.crouch();
       if(e.code==='KeyR')this.weapons.reload();
-      if(e.code==='Digit1')this.weapons.switchTo(0);
-      if(e.code==='Digit2')this.weapons.switchTo(1);
-      if(e.code==='Digit3')this.weapons.switchTo(2);
-      if(e.code==='Digit4')this.weapons.switchTo(3);
+      if(e.code==='Digit1'){e.preventDefault();this.powers.useSlot(0);}
+      if(e.code==='Digit2'){e.preventDefault();this.powers.useSlot(1);}
+      if(e.code==='Digit3'){e.preventDefault();this.powers.useSlot(2);}
+      if(e.code==='Digit4'||e.code==='KeyF')this.weapons.switchTo((this.weapons.index+1)%this.weapons.state.length);
       if(e.code==='KeyQ')this.pulse();
       if(e.code==='KeyG')this.grenade();
       if(e.code==='KeyX')this.dash();
-      if(e.code==='KeyZ')this.powers.useSlot(0);
-      if(e.code==='KeyV')this.powers.useSlot(1);
-      if(e.code==='KeyB')this.powers.useSlot(2);
+
       if(e.code==='Backspace')this.parkour.resetCheckpoint();
     },true);
     window.addEventListener('keyup',e=>{if(handlePowerWheelTab(e,this.state,this.powers?.menu?.mode,document.activeElement)){this.keys.Tab=false;return;}this.keys[e.code]=false;},true);window.addEventListener('blur',()=>{if(this.state==='playing')this.pause();});
@@ -122,10 +121,10 @@ export class Game {
     this.keys={};this.mouseDown=false;this.rightDown=false;this.look.reset();
     this.grenadeCd=0;this.wave=0;this.score=0;this.kills=0;this.combo=0;this.comboTimer=0;
     this.pendingSpawns=[];this.spawnTimer=0;this.animTime=0;
-    Object.assign(this.player,{x:0,z:18,eyeY:PLAYER_HEIGHT,health:100,maxHealth:100,shield:60,maxShield:60,lastDamage:-100,velY:0,jump:0,moveX:0,moveZ:0,dashCd:0,pulseCd:0,dashDuration:0,slideDuration:0,invulnerable:0,speedBonus:1,killsHeal:0,dashFactor:1});
+    Object.assign(this.player,{x:MOBA_BASES.blue.x,z:MOBA_BASES.blue.z,eyeY:PLAYER_HEIGHT,health:100,maxHealth:100,shield:60,maxShield:60,lastDamage:-100,velY:0,jump:0,moveX:0,moveZ:0,dashCd:0,pulseCd:0,dashDuration:0,slideDuration:0,invulnerable:0,speedBonus:1,killsHeal:0,dashFactor:1});
     this.world.setUrbanMode(true);
     this.world.spawnPoints=this.urban.spawnPoints;
-    this.parkour.startCombat(0,18);
+    this.parkour.startCombat(MOBA_BASES.blue.x,MOBA_BASES.blue.z);
     this.setState('playing');this.powers.updateEconomyHUD();el('power-hud').classList.remove('hidden');
     if(mode==='campaign'){
       this.campaign.applyArmory();this.campaign.configure(index);
@@ -134,7 +133,7 @@ export class Game {
       this.campaign.active=false;document.body.dataset.sector='0';
       this.pendingSpawns=[];this.enemies.clear();el('wave').classList.add('hidden');
       this.player.maxShield=40;this.player.shield=40;
-      el('objective').textContent='ELIMINE OUTROS JOGADORES';
+      el('objective').textContent='DERROTE O TIME ADVERSÁRIO';
     }else{
       this.campaign.active=false;document.body.dataset.sector='0';
       this.beginWave();
@@ -209,7 +208,7 @@ export class Game {
     if(this.mode==='multiplayer')for(const entry of this.multiplayer.others.values()){const dx=entry.group.position.x-this.player.x,dz=entry.group.position.z-this.player.z;const rx=cx+(dx*Math.cos(this.yaw)-dz*Math.sin(this.y))*scale,ry=cy+(dx*Math.sin(this.y)+dz*Math.cos(this.y))*scale;if(Math.hypot(rx-cx,ry-cy)<78){ctx.fillStyle='#ff956a';ctx.beginPath();ctx.arc(rx,ry,4,0,Math.PI*2);ctx.fill();}}
     ctx.fillStyle='#72ffde';ctx.beginPath();ctx.moveTo(cx,cy-7);ctx.lineTo(cx-4,cy+6);ctx.lineTo(cx+4,cy+6);ctx.closePath();ctx.fill();}
   updateHud(){if(!this.weapons)return;const p=this.player,w=this.weapons,s=w.ammo;el('health-number').textContent=Math.ceil(p.health);el('health-bar').style.width=(p.health/p.maxHealth*100)+'%';el('health-number').nextElementSibling.textContent='/'+Math.ceil(p.maxHealth);el('shield-number').textContent=Math.ceil(p.shield);el('shield-bar').style.width=(p.shield/p.maxShield*100)+'%';el('wave').textContent=fmt(this.wave);el('hostiles').textContent=fmt(this.enemies.count()+this.pendingSpawns.length);el('wave-progress').style.width=(this.waveCount?this.waveKilled/this.waveCount*100:0)+'%';el('score').textContent=num(this.score);el('weapon-name').textContent=w.def.name;el('weapon-sub').textContent=w.def.sub;el('weapon-type').textContent=w.def.type;el('ammo').textContent=fmt(s.clip);el('reserve').textContent=s.reserve;el('combo').textContent=this.combo>2?'COMBO ×'+this.combo:'';
-    const dashReady=1-p.dashCd/Math.max(2.5,4.8*p.dashFactor),pulseReady=1-p.pulseCd/12;el('grenade-fill').style.width=(100*Math.max(0,1-this.grenadeCd/7.5))+'%';el('grenade-label').textContent=this.grenadeCd>0?this.grenadeCd.toFixed(1)+' S':'PRONTO';el('grenade-ui').classList.toggle('cooling',this.grenadeCd>0);el('dash-fill').style.width=(Math.max(0,dashReady)*100)+'%';el('pulse-fill').style.width=(Math.max(0,pulseReady)*100)+'%';el('dash-label').textContent=p.dashCd>0?p.dashCd.toFixed(1)+' S':'PRONTO';el('pulse-label').textContent=p.pulseCd>0?p.pulseCd.toFixed(1)+' S':'PRONTO';el('dash-ui').classList.toggle('cooling',p.dashCd>0);el('pulse-ui').classList.toggle('cooling',p.pulseCd>0);if(this.mode==='multiplayer'){el('objective').textContent='ELIMINE OUTROS JOGADORES';el('hostiles').textContent=fmt(Math.max(0,this.multiplayer.players.length-1));}else if(this.mode!=='campaign')el('objective').textContent=this.wave%4===0?'NEUTRALIZE O COLOSSUS':'ELIMINE OS HOSTIS';document.body.classList.toggle('reloading',this.state==='playing'&&w.reloadTime>0);
+    const dashReady=1-p.dashCd/Math.max(2.5,4.8*p.dashFactor),pulseReady=1-p.pulseCd/12;el('grenade-fill').style.width=(100*Math.max(0,1-this.grenadeCd/7.5))+'%';el('grenade-label').textContent=this.grenadeCd>0?this.grenadeCd.toFixed(1)+' S':'PRONTO';el('grenade-ui').classList.toggle('cooling',this.grenadeCd>0);el('dash-fill').style.width=(Math.max(0,dashReady)*100)+'%';el('pulse-fill').style.width=(Math.max(0,pulseReady)*100)+'%';el('dash-label').textContent=p.dashCd>0?p.dashCd.toFixed(1)+' S':'PRONTO';el('pulse-label').textContent=p.pulseCd>0?p.pulseCd.toFixed(1)+' S':'PRONTO';el('dash-ui').classList.toggle('cooling',p.dashCd>0);el('pulse-ui').classList.toggle('cooling',p.pulseCd>0);if(this.mode==='multiplayer'){el('objective').textContent='DERROTE O TIME ADVERSÁRIO';el('hostiles').textContent=fmt(Math.max(0,this.multiplayer.players.length-1));}else if(this.mode!=='campaign')el('objective').textContent=this.wave%4===0?'NEUTRALIZE O COLOSSUS':'ELIMINE OS HOSTIS';document.body.classList.toggle('reloading',this.state==='playing'&&w.reloadTime>0);
     const boss=this.enemies.enemies.find(e=>e.boss);el('boss-hud').classList.toggle('hidden',!boss);if(boss)el('boss-fill').style.width=Math.max(0,boss.hp/boss.maxHp*100)+'%';if(this.mode==='campaign'&&this.campaign.active)this.campaign.refreshHUD();else if(this.mode==='multiplayer'){el('mission-id').textContent='MULTIPLAYER · SALA '+this.multiplayer.room;el('chapter-label').textContent='PVP ONLINE';el('wave').classList.add('hidden');el('mission-progress-label').textContent='JOGADORES';}else{el('mission-id').textContent='MODO SOBREVIVÊNCIA';el('chapter-label').textContent='ONDA';el('wave').classList.remove('hidden');el('mission-progress-label').textContent='ONDA';}}
   dieFxUpdate(dt){for(let i=this.fx.length-1;i>=0;i--){const f=this.fx[i];f.life-=dt;const t=1-f.life/f.max;if(f.type==='ring'){const s=1+t*12;f.mesh.scale.set(s,s,s);f.mesh.material.opacity=Math.max(0,1-t);}if(f.life<=0){this.world.scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();this.fx.splice(i,1);}}}
   updateCombatTimers(dt){

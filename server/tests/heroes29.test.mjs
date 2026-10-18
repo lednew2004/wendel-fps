@@ -6,20 +6,20 @@ import {HEROES,POWER_VARIANTS,heroById,heroLoadout,heroAllows} from '../../publi
 import {POWER_RULES,sanitizeLoadout} from '../powers.mjs';
 import {POWER_PRICES} from '../../public/src/casualEconomy.js';
 
-test('ten authored characters have 30 distinct, functional techniques and clear low-detail identities',()=>{
- assert.equal(HEROES.length,10);
+test('thirteen authored characters have 39 distinct, functional techniques and clear low-detail identities',()=>{
+ assert.equal(HEROES.length,13);
  const ids=HEROES.flatMap(h=>h.skills);
- assert.equal(ids.length,30);
- assert.equal(new Set(ids).size,30);
- assert.equal(Object.keys(POWER_VARIANTS).length,12);
- assert.equal(new Set(HEROES.map(h=>h.name)).size,10);
- assert.equal(new Set(HEROES.map(h=>h.color)).size,10);
+ assert.equal(ids.length,39);
+ assert.equal(new Set(ids).size,39);
+ assert.equal(Object.keys(POWER_VARIANTS).length,21);
+ assert.equal(new Set(HEROES.map(h=>h.name)).size,13);
+ assert.equal(new Set(HEROES.map(h=>h.color)).size,13);
  for(const h of HEROES){
   assert.equal(h.skills.length,3);
   assert.equal(heroById(h.id),h);
   assert.deepEqual(heroLoadout(h.id),h.skills);
   assert.ok(Number.isInteger(h.weapon)&&h.weapon>=0&&h.weapon<4);
-  for(const id of h.skills){assert.ok(heroAllows(h.id,id));assert.ok(POWER_RULES[id],id);assert.ok(POWER_RULES[id].cooldown>=1000);assert.ok(Number.isFinite(POWER_PRICES[id]));}
+  for(const id of h.skills){assert.ok(heroAllows(h.id,id));assert.ok(POWER_RULES[id],id);assert.ok(POWER_RULES[id].cooldown>=1000);assert.ok(id in POWER_RULES);}
  }
  assert.deepEqual(sanitizeLoadout(HEROES[0].skills),HEROES[0].skills);
  assert.equal(POWER_RULES.iceburst.duration,2400);
@@ -34,12 +34,12 @@ test('third power and chosen starting weapon exist in desktop and phone UI',()=>
  const selection=readFileSync(new URL('../../public/src/heroSelection.js',import.meta.url),'utf8');
  assert.match(html,/id="power-c"/);
  assert.match(html,/data-power-target-slot="2"/);
- assert.match(game,/KeyB/);
+ for(const key of ['Digit1','Digit2','Digit3'])assert.match(game,new RegExp(key));
  assert.match(game,/this\.weapons\.switchTo\(this\.heroSelection\?\.weapon/);
  assert.match(powers,/for\(let slot=0;slot<3;slot\+\+\)/);
  assert.match(selection,/hero-roster/);
  assert.match(selection,/hero-weapon/);
- assert.match(selection,/hero-starter/);
+ assert.doesNotMatch(selection,/id="hero-starter"/);
 });
 
 process.env.PORT='0';

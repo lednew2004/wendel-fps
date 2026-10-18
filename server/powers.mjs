@@ -30,10 +30,10 @@ export function sanitizeLoadout(input){
  if(a.length>=3){let third=VALID_POWERS.includes(a[2])?a[2]:'heal';if(third===first||third===second)third=VALID_POWERS.find(x=>x!==first&&x!==second);return [first,second,third];}
  return [first,second];
 }
-export function freshPowerState(){return {loadout:['push','freeze'],cooldowns:{},activeUntil:{},cloneJumpUsed:false,copyMark:null,copiedUntil:0,originalLoadout:null,frozenUntil:0,flightUntil:0,invisibleUntil:0,phaseUntil:0,shieldUntil:0,gravityUntil:0,resurrectionUntil:0,propUntil:0,propType:null,teleportReturn:null,safe:null,history:[]};}
+export function freshPowerState(){return {combo:{},empoweredUntil:0,loadout:['push','freeze'],cooldowns:{},activeUntil:{},cloneJumpUsed:false,copyMark:null,copiedUntil:0,originalLoadout:null,frozenUntil:0,flightUntil:0,invisibleUntil:0,phaseUntil:0,shieldUntil:0,gravityUntil:0,resurrectionUntil:0,propUntil:0,propType:null,teleportReturn:null,safe:null,history:[]};}
 export function powerSnapshot(p,now=Date.now()){
  const s=p.powers;
- return {loadout:s.loadout,cooldowns:s.cooldowns,activeUntil:s.activeUntil,cloneJumpUsed:s.cloneJumpUsed,copiedUntil:s.copiedUntil,copyMarkUntil:s.copyMark?.until||0,frozenUntil:s.frozenUntil,flightUntil:s.flightUntil,
+ return {loadout:s.loadout,cooldowns:s.cooldowns,activeUntil:s.activeUntil,combo:s.combo||{},empoweredUntil:s.empoweredUntil||0,cloneJumpUsed:s.cloneJumpUsed,copiedUntil:s.copiedUntil,copyMarkUntil:s.copyMark?.until||0,frozenUntil:s.frozenUntil,flightUntil:s.flightUntil,
  invisibleUntil:s.invisibleUntil,phaseUntil:s.phaseUntil,shieldUntil:s.shieldUntil,gravityUntil:s.gravityUntil,
  returnUntil:s.teleportReturn?.until||0,resurrectionUntil:s.resurrectionUntil||0,propUntil:s.propUntil||0,propType:s.propUntil>now?s.propType:null,invulnerable:s.resurrectionUntil>now,
  frozen:s.frozenUntil>now||s.gravityUntil>now,

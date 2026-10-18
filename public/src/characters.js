@@ -137,6 +137,13 @@ export function createOperative({role='scout',size=1,player=false,tint=null,hero
   if(hero){
     const ornament=(x,y,z,sx,sy,sz,mat=glowing)=>orb(visual,mat,x,y,z,sx,sy,sz);
     switch(hero){
+      case 'shiro': // twin blades and a sharp red striker silhouette
+        for(const side of [-1,1]){piece(torso,SHAPES.cone,accent,[side*.58,.34,-.04],[.11,.58,.13],[0,0,side*.52]);orb(torso,glowing,side*.42,-.13,.37,.06,.3,.09);}break;
+      case 'leo': // golden temporal crown and dual gyroscopic shoulder rings
+        piece(head,SHAPES.torus,glowing,[0,.49,0],[.43,.43,.10],[Math.PI/2,0,0]);
+        for(const side of [-1,1])piece(torso,SHAPES.torus,accent,[side*.46,.25,.03],[.25,.27,.11],[.3,0,side*.55]);break;
+      case 'butterfly': // curved articulated orbital wings
+        for(const side of [-1,1]){piece(torso,SHAPES.cone,glowing,[side*.51,.01,.42],[.17,.82,.19],[.15,0,side*.47]);orb(torso,accent,side*.55,-.25,.48,.12,.18,.12);}break;
       case 'striker': // diagonal impact shoulder spikes
         for(const s of [-1,1])piece(torso,SHAPES.cone,accent,[s*.53,.37,.02],[.17,.34,.15],[0,0,s*.50]);
         break;

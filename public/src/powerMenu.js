@@ -1,3 +1,4 @@
+import {MOBA_LANES,MOBA_BASES,JUNGLE_CAMPS} from './mobaLayout.js';
 import {heroLoadout} from './heroRoster.js';
 import {WORLD_HALF} from './worldLayout.js';
 /** Seleção de habilidades e teleporte tático, comuns a PC e telas sensíveis ao toque. */
@@ -57,18 +58,18 @@ export class PowerMenu{
    const button=document.createElement('button');button.type='button';button.className='titan-power-option';button.dataset.index=String(i);
    button.style.setProperty('--sector',String(i));
    if(this.system.loadout.includes(id))button.classList.add('equipped');
-   const unlocked=this.system.isUnlocked(id);if(!unlocked)button.classList.add('locked');
+   const unlocked=true;
    const icon=document.createElement('span');icon.textContent=p.icon;
    const name=document.createElement('strong');name.textContent=p.label;
    button.append(icon,name);button.title=p.help;
-   if(this.system.isCasualRun()){const cost=document.createElement('small');cost.textContent=unlocked?'✓ LIBERADO':this.system.economy.price(id)+' CR';button.append(cost);}
+
    button.addEventListener('pointerenter',()=>this.setHovered(i));
    button.addEventListener('click',()=>{if(this.mode!=='wheel')return;if(this.system.acquire(this.slot,id)){this.close();this.game.toast(p.label+' EQUIPADO EM PODER '+(this.slot+1));}else this.renderWheel();});
    frag.appendChild(button);
   }
   this.wheel.replaceChildren(frag);
   $('titan-wheel-page').textContent=`${this.page+1} / ${max}`;
-  this.shopInfo.textContent=this.system.isCasualRun()?`◈ ${this.system.economy.credits.toLocaleString('pt-BR')} CR · LIBERE OS TRÊS PODERES DO SEU PERSONAGEM`:'KIT FIXO DO PERSONAGEM · TODAS AS TRÊS HABILIDADES DISPONÍVEIS';
+  this.shopInfo.textContent='KIT FIXO · TRÊS HABILIDADES SEM CUSTO · TECLAS 1, 2 e 3';
   for(const b of document.querySelectorAll('[data-power-target-slot]'))b.classList.toggle('selected',Number(b.dataset.powerTargetSlot)===this.slot);
  }
 
@@ -88,7 +89,12 @@ export class PowerMenu{
   ctx.strokeStyle='#44555a';ctx.lineWidth=9;
   for(let x=-208;x<=208;x+=32){let q=this.convert(x,0).x;ctx.beginPath();ctx.moveTo(q,0);ctx.lineTo(q,h);ctx.stroke();}
   for(let z=-208;z<=208;z+=32){let q=this.convert(0,z).y;ctx.beginPath();ctx.moveTo(0,q);ctx.lineTo(w,q);ctx.stroke();}
-  const city=this.game.urban;ctx.fillStyle='#72858c';ctx.strokeStyle='#a2b7ba';ctx.lineWidth=1;
+  for(const [name,points] of Object.entries(MOBA_LANES)){
+    ctx.beginPath();points.forEach(([x,z],i)=>{const q=this.convert(x,z);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle={top:'#8bb8ff',mid:'#ffcf8a',adc:'#86ffc0'}[name];ctx.lineWidth=15;ctx.stroke();
+  }
+  for(const p of JUNGLE_CAMPS){const q=this.convert(p.x,p.z);ctx.beginPath();ctx.arc(q.x,q.y,8,0,Math.PI*2);ctx.fillStyle='#4eb979';ctx.fill();}
+  for(const [team,p] of Object.entries(MOBA_BASES)){const q=this.convert(p.x,p.z);ctx.beginPath();ctx.arc(q.x,q.y,17,0,Math.PI*2);ctx.fillStyle=team==='blue'?'#49d8ff':'#ff698b';ctx.fill();}
+  const city=this.game.urban;ctx.fillStyle='rgba(114,133,140,.55)';ctx.strokeStyle='#a2b7ba';ctx.lineWidth=1;
   for(const s of city.surfaces){if(s.ramp)continue;const p=this.convert(s.x,s.z);const sw=s.hx/WORLD_HALF*w,sh=s.hz/WORLD_HALF*h;ctx.fillRect(p.x-sw/2,p.y-sh/2,sw,sh);ctx.strokeRect(p.x-sw/2,p.y-sh/2,sw,sh);}
   ctx.fillStyle='#f2b26b';for(const p of this.game.multiplayer?.players||[]){if(p.id===this.game.multiplayer.id||p.alive===false||p.invisible||p.phased)continue;const q=this.convert(p.x,p.z);ctx.beginPath();ctx.arc(q.x,q.y,4,0,Math.PI*2);ctx.fill();}
   const own=this.game.parkour;const loc=this.convert(own.x,own.z);

@@ -312,9 +312,9 @@ export class MultiplayerClient {
       case 'power-effect':{
         this.game.powers.onServerEffect(msg);
         if(msg.kind==='gravity'&&Array.isArray(msg.affected)&&msg.affected.includes(this.id)){this.game.powers.status.gravity=Date.now()+2700;this.game.parkour.y+=3.5;this.game.parkour.vy=0;}
-        if(msg.kind==='gravity-land'&&msg.player===this.id&&Number.isFinite(msg.y))this.game.parkour.spawn(msg.x,msg.y,msg.z);
+        if((msg.kind==='gravity-land'||msg.kind==='combo-move')&&msg.player===this.id&&Number.isFinite(msg.y))this.game.parkour.spawn(msg.x,msg.y,msg.z);
         if(msg.kind==='push'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x))entry.target.set(msg.x,msg.y,msg.z);}
-        if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='clonejump'||msg.kind==='rewind'||msg.kind==='swap'||msg.kind==='phase-exit'||msg.kind==='gravity-land'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
+        if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='clonejump'||msg.kind==='rewind'||msg.kind==='swap'||msg.kind==='phase-exit'||msg.kind==='gravity-land'||msg.kind==='combo-move'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
         break;
       }
       case 'power-vfx':{

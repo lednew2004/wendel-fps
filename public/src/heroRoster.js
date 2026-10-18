@@ -1,3 +1,4 @@
+import {HERO_COMBOS} from './heroCombos.js';
 /** TITAN PROTOCOL — dez identidades jogáveis e 30 técnicas; dados puros compartilhados com o servidor. */
 export const POWER_VARIANTS=Object.freeze({
  shockwave:{base:'push',label:'PULSO TITÂNICO',icon:'◎',cool:23,range:22,help:'Onda de impacto de grande alcance.'},
@@ -11,7 +12,8 @@ export const POWER_VARIANTS=Object.freeze({
  skyfire:{base:'chain',label:'RAIO CIRÚRGICO',icon:'ϟ',cool:17,range:50,chainRadius:12,targets:2,damage:[80,42],help:'Raio preciso de longo alcance.'},
  thunderstorm:{base:'chain',label:'TEMPESTADE ELETRO',icon:'⚡',cool:34,range:36,chainRadius:20,targets:4,damage:[65,51,39,30],help:'Raio atinge quatro adversários.'},
  voidtrap:{base:'blackhole',label:'ARMADILHA DO VAZIO',icon:'⬡',cool:28,range:28,radius:12,duration:3200,help:'Vórtice compacto com sucção extrema.'},
- lifedrain:{base:'heal',label:'NANOCURA',icon:'✚',cool:19,health:42,shield:38,help:'Repara vida e recarrega o escudo.'}
+ lifedrain:{base:'heal',label:'NANOCURA',icon:'✚',cool:19,health:42,shield:38,help:'Repara vida e recarrega o escudo.'},
+ ...HERO_COMBOS
 });
 export const HEROES=Object.freeze([
  {id:'striker',name:'VEX',title:'IMPACTO CINÉTICO',class:'Assalto',color:0xff735f,role:'scout',weapon:0,skills:['push','shockwave','overclock'],description:'Força brutal, deslocamento e combate próximo.'},
@@ -23,7 +25,10 @@ export const HEROES=Object.freeze([
  {id:'echo',name:'MÍMICO',title:'MESTRE DAS CÓPIAS',class:'Ilusão',color:0x75c2ff,role:'scout',weapon:0,skills:['clones','clonejump','copy'],description:'Hologramas, troca com o clone e roubo de poderes.'},
  {id:'storm',name:'VOLTA',title:'CONDUTOR ELÉTRICO',class:'Dano',color:0xffe065,role:'gunner',weapon:3,skills:['chain','skyfire','thunderstorm'],description:'Descargas em cadeia e tempestades elétricas.'},
  {id:'gravity',name:'NEXUS',title:'ENGENHEIRO GRAVITACIONAL',class:'Controle',color:0xbc86ff,role:'tank',weapon:3,skills:['blackhole','gravity','voidtrap'],description:'Buracos negros e campos de gravidade.'},
- {id:'guardian',name:'ATLAS',title:'PROTETOR BIÔNICO',class:'Suporte',color:0x83efa5,role:'gunner',weapon:3,skills:['heal','shield','lifedrain'],description:'Cura, armadura e sobrevivência em combate.'}
+ {id:'guardian',name:'ATLAS',title:'PROTETOR BIÔNICO',class:'Suporte',color:0x83efa5,role:'gunner',weapon:3,skills:['heal','shield','lifedrain'],description:'Cura, armadura e sobrevivência em combate.'},
+ {id:'shiro',name:'SHIRO',title:'LÂMINA CARMESIM',class:'Assassino',color:0xff526b,role:'hunter',weapon:1,skills:['shiro_step','shiro_retreat','shiro_ricochet'],description:'Dois avanços, recuo com tiro melhorado e ricochetes com escudo.'},
+ {id:'leo',name:'LEO',title:'ARQUITETO DO CAOS',class:'Assassino',color:0xf5c35a,role:'boss',weapon:0,skills:['leo_dash','leo_immunity','leo_barrage'],description:'Dois avanços com retorno, imunidade instantânea e chuva de bombas.'},
+ {id:'butterfly',name:'BUTTERFLY',title:'ORBE ERRANTE',class:'Mobilidade',color:0xae94ff,role:'scout',weapon:2,skills:['butterfly_dash','butterfly_orbit','butterfly_launch'],description:'Dash de retorno, satélite orbital e cometa que repele e teleporta.'}
 ]);
 export const heroById=id=>HEROES.find(h=>h.id===id)||HEROES[0];
 export const heroLoadout=id=>[...heroById(id).skills];

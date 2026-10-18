@@ -11,8 +11,8 @@ const interactive=JSON.parse(fs.readFileSync(new URL('../interactables.json',imp
 test('city expansion shares its new bounds, buildings and interactive openings with server and minimap',()=>{
  assert.equal(WORLD_HALF,219);assert.equal(MAP_HALF,WORLD_HALF);
  assert.ok(expandedBuildings().length>=60,'new neighborhoods with real building footprints');
- assert.equal(HOMES.length,8);assert.equal(INTERACTABLES.length,24);
- assert.equal(interactive.length,24);assert.ok(colliders.length>=300);
+ assert.equal(HOMES.length,6);assert.equal(INTERACTABLES.length,18);
+ assert.equal(interactive.length,18);assert.ok(colliders.length>=230);
  assert.ok(projectPlayer(-215,0).x<20&&projectPlayer(215,0).x>220);
  assert.equal(locationValid(222,0,0,colliders),false);
  assert.equal(isGroundedDestination(-205,0,-175,colliders),true);

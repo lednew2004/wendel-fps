@@ -1,3 +1,5 @@
+import {createMobaWorld} from './mobaWorld.js';
+import {protectedRoute,preferredEnemySpawns} from './mobaLayout.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {solidBlocksCapsule,standHeight,intersectLanding} from './parkourPhysics.js';
@@ -26,7 +28,8 @@ export class UrbanCity {
     this.build();
     this.expansion=new UrbanExpansion(this);
     this.makeFuelDrums();
-    this.spawnPoints=[[-38,18],[38,18],[-38,-18],[38,-18],[-60,6],[60,6],[0,66],[0,-66],[95,12],[-95,-12],[25,-92],[-25,92],[-176,144],[176,-144],[144,176],[-144,-176],[0,183]];
+    this.moba=createMobaWorld(this);
+    this.spawnPoints=preferredEnemySpawns();
   }
   box(x,y,z,w,h,d,mat,shadow=true,parent=null){
     const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
@@ -49,6 +52,7 @@ export class UrbanCity {
     }
   }
   addBuilding(x,z,w,d,h,accent=0x87939b,roofAccess=true){
+    if(protectedRoute(x,z))return {x,z,w,d,h:0,roofAccess:false};
     const last=this.currentParent;this.currentParent=this.chunkFor(x,z);
     if(!this.buildingMaterials.has(accent))this.buildingMaterials.set(accent,color(accent));
     const mat=this.buildingMaterials.get(accent);
@@ -187,16 +191,15 @@ export class UrbanCity {
       if(Math.abs(gz+25)<20 && gx>40 && gx<111)continue;
       if(Math.abs(gx)<15 && gz>78)continue;
       if(Math.abs(gx)<17 && gz>-20&&gz<18)continue;
+      if(protectedRoute(gx,gz))continue;
       const seed=(gx*13+gz*17)|0;
       const h=6+Math.abs(seed%5)*2.0;
       const w=12+(Math.abs(gx+gz)%4),d=12+(Math.abs(gx-gz)%5);
       this.addBuilding(gx,gz,w,d,h,[0xedaa86,0x8cbfd3,0xd4b28a,0x91caa8,0xc8a4d2,0xe4b692][Math.abs(seed)%6],Math.abs(seed)%4===0);
     }}
-    this.addInterior(0,102,21,18,9);
+    if(!protectedRoute(0,102))this.addInterior(0,102,21,18,9);
     // Accessible ramp / stair platform adjacent to the city park.
-    this.rayTargets.push(this.box(-8,4.1,0,10,.28,10,this.materials.roof));
-    this.addSurface(-8,0,10,10,4.24);
-    this.makeStaircase({x:-8,z:-9,from:0,to:4.24,length:13,width:3.2});
+    if(!protectedRoute(-8,0)){this.rayTargets.push(this.box(-8,4.1,0,10,.28,10,this.materials.roof));this.addSurface(-8,0,10,10,4.24);this.makeStaircase({x:-8,z:-9,from:0,to:4.24,length:13,width:3.2});}
     for(const [x,z] of [[-108,-100],[-50,7],[23,-45],[42,72],[109,44]])this.addLowWall(x,z,5.0,.8,1.15);
     // Instanced facade windows, a lot fewer draw calls than per-window meshes.
     const winGeometry=new THREE.PlaneGeometry(1.25,1.65);

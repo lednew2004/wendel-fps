@@ -1,3 +1,4 @@
+import {MOBA_LANES,MOBA_BASES,JUNGLE_CAMPS} from './mobaLayout.js';
 /** Minimapa tático multiplayer: cidade inteira, norte fixo e posições da sala.
  * Nenhuma consulta ao servidor: os dados são os snapshots/movimentos WebSocket
  * já recebidos pelo cliente. Desenho em canvas 2D (baixo custo no celular).
@@ -40,21 +41,19 @@ export class MultiplayerMinimap {
   paintCity(){
     const ctx=this.base.getContext('2d');
     ctx.fillStyle='#101d25';ctx.fillRect(0,0,SIZE,SIZE);
-    // Extended 438 × 438 open city, fixed north-up.
-    ctx.fillStyle='#26333c';
-    for(const n of [-192,-160,-128,-96,-64,-32,0,32,64,96,128,160,192]){
-      let x=projectPlayer(n,0).x;
-      ctx.fillRect(x-3,7,6,SIZE-14);
-      let y=projectPlayer(0,n).y;
-      ctx.fillRect(7,y-3,SIZE-14,6);
+    // Three continuous MOBAs lanes and jungle are always represented even at low graphics quality.
+    ctx.fillStyle='#193225';ctx.fillRect(PADDING,PADDING,SIZE-2*PADDING,SIZE-2*PADDING);
+    for(const [name,points] of Object.entries(MOBA_LANES)){
+      ctx.beginPath();ctx.lineJoin='round';ctx.lineCap='round';
+      points.forEach(([x,z],i)=>{const q=projectPlayer(x,z);if(!i)ctx.moveTo(q.x,q.y);else ctx.lineTo(q.x,q.y);});
+      ctx.lineWidth=12;ctx.strokeStyle='#34484b';ctx.stroke();
+      ctx.lineWidth=3;ctx.strokeStyle={top:'#84bafa',mid:'#f3d88a',adc:'#7de8ad'}[name];ctx.stroke();
     }
-    ctx.fillStyle='#38434c';
-    const cx=SIZE/2,cy=SIZE/2;
-    ctx.fillRect(cx-8,7,16,SIZE-14);
-    ctx.fillRect(7,cy-8,SIZE-14,16);
+    for(const camp of JUNGLE_CAMPS){const q=projectPlayer(camp.x,camp.z);ctx.fillStyle='#477d58';ctx.beginPath();ctx.arc(q.x,q.y,4,0,Math.PI*2);ctx.fill();}
+    for(const [team,p] of Object.entries(MOBA_BASES)){const q=projectPlayer(p.x,p.z);ctx.fillStyle=team==='blue'?'#4fc8ff':'#ff7285';ctx.beginPath();ctx.arc(q.x,q.y,9,0,Math.PI*2);ctx.fill();ctx.font='bold 8px sans-serif';ctx.fillText(team==='blue'?'B':'R',q.x-2,q.y+3);}
     // Building footprints, separated from their collision geometry and GPU assets.
-    ctx.fillStyle='#647077';
-    ctx.strokeStyle='#9aa3a0';ctx.lineWidth=.75;
+    ctx.fillStyle='rgba(112,122,116,.45)';
+    ctx.strokeStyle='rgba(160,163,160,.4)';ctx.lineWidth=.75;
     for(const s of this.game.urban?.solids||[]){
       if(!Number.isFinite(s.x)||!Number.isFinite(s.z)||!Number.isFinite(s.hx)||!Number.isFinite(s.hz))continue;
       const lo=projectPlayer(s.x-s.hx,s.z-s.hz);
@@ -82,7 +81,7 @@ export class MultiplayerMinimap {
       const at=projectPlayer(p.x,p.z);
       const alive=p.alive!==false;
       ctx.beginPath();ctx.arc(at.x,at.y,alive?7.8:5.7,0,Math.PI*2);
-      ctx.fillStyle=alive?'#fb886c':'#677680';ctx.strokeStyle='#111923';ctx.lineWidth=2.7;
+      ctx.fillStyle=!alive?'#677680':(p.team===this.game.multiplayer?.players?.find(v=>v.id===selfId)?.team?'#72eac0':'#fb886c');ctx.strokeStyle='#111923';ctx.lineWidth=2.7;
       ctx.stroke();ctx.fill();
       if(alive){
         ctx.fillStyle='#fff9e9';ctx.textAlign='center';ctx.font='bold 10px sans-serif';

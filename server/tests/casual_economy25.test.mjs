@@ -41,16 +41,14 @@ test('combat and critical cooldowns: higher severity and conditional extensions'
  assert.equal(criticalPowerPenalty('rewind',{restoredHealth:10}),0);
 });
 
-test('game and wheel enforce purchase before equipping, display cost and remaining dash recharge',()=>{
+test('casual equips full hero kit without purchases; dash still has cooldown',()=>{
  const p=source('powers.js'),g=source('game.js'),m=source('powerMenu.js');
  assert.match(g,/this\.powers\.startRun\(mode\)/);
- assert.match(g,/this\.powers\?\.earnKillCredit\(e\)/);
- assert.match(g,/p\.dashCd>0/);
  assert.match(g,/p\.dashCd=Math\.max\(2\.5,4\.8\*p\.dashFactor\)/);
- assert.match(p,/if\(this\.isCasualRun\(\)&&!this\.isUnlocked\(id\)\)/);
- assert.match(p,/this\.economy\.buy\(id\)/);
+ assert.match(p,/this\.loadout=\[\.\.\.kit\]/);
+ assert.match(p,/isUnlocked\(id\)\{return heroAllows/);
  assert.match(m,/this\.system\.acquire\(this\.slot,id\)/);
- assert.match(m,/this\.system\.economy\.price\(id\)/);
+ assert.match(m,/TRÊS HABILIDADES SEM CUSTO/);
  const html=fs.readFileSync(new URL('../../public/index.html',import.meta.url),'utf8');
  assert.match(html,/id="titan-economy-hud"/);
 });

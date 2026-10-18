@@ -7,7 +7,7 @@ import {POWER_RULES} from '../powers.mjs';
 const base=new URL('../../public/src/',import.meta.url);
 const src=n=>fs.readFileSync(new URL(n,base),'utf8');
 test('18 combat powers, removed web, 10 second rewind, copy on marked elimination and hardcore black hole',()=>{
- assert.equal(Object.keys(POWER_RULES).length,30);
+ assert.equal(Object.keys(POWER_RULES).length,39);
  assert.equal(POWER_RULES.rewind.history,10000);
  assert.equal(POWER_RULES.web,undefined);
  assert.equal(POWER_RULES.copy.markDuration,18000);

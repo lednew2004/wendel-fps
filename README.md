@@ -1,39 +1,56 @@
-# TITAN PROTOCOL 2.9 — HERO ROSTER (LIGHT EDITION)
+# TITAN PROTOCOL 3.0 — MOBA HERO COMBOS (LIGHT EDITION)
 
-Esta versão parte do motor gráfico **2.7**, anterior ao cenário cyberpunk pesado da versão 2.8. NÃO inclui chuva, os vários painéis luminosos ou o bloom noturno pesado. O foco é manter a jogabilidade em celular.
+Baseado no jogo 2.9, com o renderizador leve de 2.7. Não inclui a chuva e a cidade cyberpunk pesada da 2.8. É um FPS 3D em Three.js com exploração, parkour, campanha, sobrevivência e multiplayer WebSocket.
 
-## O que foi implementado
+## Mapa MOBA
 
-- **10 personagens jogáveis**, cada um com nome, especialidade, cor exclusiva, silhueta/acessórios próprios e **3 habilidades**.
-- **30 técnicas** no total: 18 existentes e 12 variantes novas com diferentes recargas, distâncias e durações.
-- Tela de escolha do personagem, arma inicial (M4A1, M870, M24, M249) e **primeira habilidade** antes de começar.
-- **Casual (campanha/sobrevivência):** a partida começa com o primeiro poder escolhido; mate monstros para obter créditos e compre os outros **dois** poderes desse mesmo personagem pela roda TAB/PODERES.
-- **Multiplayer:** o personagem entra com o trio completo. O servidor valida a seleção e ignora tentativas de equipar poderes de outro personagem.
-- **3 habilidades no HUD:** PC usa Z, V e B; celular possui três botões com mira por arrasto nas habilidades direcionadas e indicadores de recarga/duração.
-- Avatares dos outros jogadores mantêm cor e silhueta selecionadas mesmo em qualidade baixa; o FPS usa um pequeno detalhe luminoso na arma para indicar a cor do operador.
-- Preservados o mapa expandido, as casas, portas e janelas, minimapa, dano e escudo, controles móveis, código de sala, reconexão, dash com cooldown e modo casual.
+- **Base azul** em (0, -180): início da campanha e sobrevivência; jogadores pares da sala online.
+- **Base vermelha** em (0, 180): adversários online em vagas ímpares.
+- **TOP LANE:** contorna a cidade pelo corredor oeste.
+- **MID LANE:** atravessa o centro.
+- **ADC LANE:** contorna a cidade pelo corredor leste.
+- **JUNGLE:** seis acampamentos/áreas de monstros distribuídos entre as rotas. Na campanha e sobrevivência, inimigos podem surgir nessas regiões.
+- Rotas coloridas, núcleos de base, marcadores da jungle, minimapa e mapa de teleporte atualizados. O servidor compartilha os corredores livres com o cliente usando `mobaLayout.js` e os arquivos de colisão gerados.
+- Multiplayer organizado em lados **azul e vermelho**, sem dano aliado. **Ainda não é um MOBA completo com torres destrutíveis, minions automáticos e condição de vitória pelo Nexus**: o modo online preserva a partida de combate existente e o mapa adota a geografia de um MOBA.
 
-## Os 10 personagens
+## Personagens e habilidades
 
-| Operador | Especialidade | Habilidades |
-| --- | --- | --- |
-| VEX | Impacto cinético | Repulsão, Pulso Titânico, Sobrecarga |
-| NYRA | Gelo | Congelar, Crioprisão, Toque de Estase |
-| KAIROS | Dimensão | Teleporte no mapa, Troca Dimensional, Intangibilidade |
-| ÍCARO | Voo | Voar, Propulsão Vetorial, Onda Antigravidade |
-| SOMBRA | Furtividade | Invisibilidade, Virar Objeto, Camuflagem Óptica |
-| ÉON | Tempo | Rewind 10 segundos, Ressurreição automática, Retrocesso Rápido 5 segundos |
-| MÍMICO | Ilusão | Clones Fantasmas, Clone Móvel, Copiar habilidade após eliminação |
-| VOLTA | Energia | Raio, Raio Cirúrgico, Tempestade Eletro |
-| NEXUS | Gravidade | Buraco Negro, Gravidade, Armadilha do Vazio |
-| ATLAS | Suporte | Cura, Escudo Absoluto, Nanocura |
+**13 heróis, 39 técnicas distintas, todas equipadas desde o início, tanto no casual quanto no online.** A roda TAB/PODERES organiza o kit, sem gastar créditos. Antes de iniciar, escolha o herói e uma das quatro armas iniciais.
 
-## Publicação
+| Personagem | Especialidade | Habilidade 1 | Habilidade 2 | Habilidade 3 |
+|---|---|---|---|---|
+| VEX | Impacto | Repulsão | Pulso Titânico | Sobrecarga |
+| NYRA | Gelo | Congelar | Crioprisão | Estase |
+| KAIROS | Dimensão | Teleporte pelo mapa | Troca | Intangibilidade |
+| ÍCARO | Mobilidade | Voo | Propulsão | Antigravidade |
+| SOMBRA | Furtividade | Invisibilidade | Virar objeto | Camuflagem |
+| ÉON | Tempo | Rewind 10 s | Ressurreição | Rewind 5 s |
+| MÍMICO | Ilusão | Clones | Clone Móvel | Copiar |
+| VOLTA | Eletricidade | Raio | Raio Cirúrgico | Tempestade |
+| NEXUS | Gravidade | Buraco Negro | Gravidade | Armadilha do Vazio |
+| ATLAS | Suporte | Cura | Escudo | Nanocura |
+| **SHIRO** | Assassino | Dois avanços, o segundo causa dano | Recuo com tiro fortalecido | Ricochetes com escudo |
+| **LEO** | Assassino | Dois avanços + retorno à origem | Imunidade por 1 s | Bombas globais + proteção |
+| **BUTTERFLY** | Mobilidade | Dash com retorno | Orbe que orbita e permite teleporte | Cometa que empurra + teleporte |
 
-No diretório raiz do projeto execute `npm test` para verificar os testes automatizados e `npm start` para iniciar Node. Na Render, Node >= 22, com um único servidor HTTP e WebSocket sem banco de dados.
+Os três novos kits trazem **9 técnicas de combo** com reativação e estados sincronizados pelo servidor. O cliente não determina livremente o destino ou o dano dessas técnicas no multiplayer.
 
-O ZIP contém `package.json`, `render.yaml`, `public/` e `server/` na raiz. Publique esses arquivos no seu repositório GitHub e envie com `git add .`, `git commit -m "TITAN 2.9 - 10 herois"`, `git push origin main`.
+## Controles
 
-## Limitações
+- **PC:** `1`, `2`, `3` ativam os três poderes; pressione novamente para a etapa seguinte de um combo. `4` ou `F` alterna a arma, assim como a roda do mouse. `TAB` abre/fecha a roda do personagem. `X` é o Dash (com recarga), `E` interage com portas e janelas.
+- **Celular:** botões PODER 1, PODER 2 e PODER 3; habilidades com mira mantêm o arraste/soltar; dash, pulo, ataque e movimento permanecem separados. Toque PODERES para abrir o menu.
+- Recargas e estados ativos permanecem no HUD. Cooldowns são individuais e validados no servidor online.
 
-Personagens utilizam malhas 3D estilizadas feitas com Three.js, não modelos GLB profissionais de alta densidade. Os 51 testes automatizados verificam regras, rede e integração estática; **a sensação da jogabilidade em dispositivos reais e a execução WebGL completa ainda precisam ser testadas**. O desempenho dependerá do aparelho.
+## Publicação e testes
+
+Requer Node.js >= 22. `npm start` inicia o mesmo serviço HTTP e WebSocket, sem Redis e sem dependências externas de npm. Three.js é carregado por CDN e requer acesso à internet. Para testar, rode `npm test`. O endpoint `/health` deve retornar `3.0.0`.
+
+Na pasta do repositório GitHub (arquivos descompactados na raiz), execute:
+
+```bash
+git add .
+git commit -m "TITAN PROTOCOL 3.0 - MOBA e combos"
+git push origin main
+```
+
+Render gratuito pode suspender/reiniciar o processo, perdendo as salas que ficam em memória. Os testes automatizados não substituem a validação de WebGL e fluidez em aparelhos reais.

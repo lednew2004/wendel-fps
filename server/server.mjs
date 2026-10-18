@@ -1,3 +1,4 @@
+import {HERO_COMBOS,dashVector,orbitLocation,segmentDistance2D} from '../public/src/heroCombos.js';
 import {POWER_VARIANTS,heroById,heroLoadout,heroAllows,HEROES} from '../public/src/heroRoster.js';
 /** TITAN PROTOCOL rooms + PvP. Node 22+, zero npm dependencies.
  * Designed for 2-8 players per room, authoritative health/kills, basic aim, rate and speed checks.
@@ -9,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {WORLD_HALF} from '../public/src/worldLayout.js';
+import {MOBA_BASES} from '../public/src/mobaLayout.js';
 import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,isGroundedDestination,within,nearbyMorphObject,canAutoResurrect,criticalPowerPenalty} from './powers.mjs';
 
 const root=path.resolve(fileURLToPath(new URL('../public/',import.meta.url)));
@@ -19,7 +21,7 @@ const WS_HEARTBEAT_MS=15000;
 const WS_DEAD_MS=75000;
 const rooms=new Map();
 const players=new Map();
-const SPAWNS=[[-38,18],[38,18],[-38,-18],[38,-18],[-60,6],[60,6],[0,66],[0,-66],[-176,144],[176,-144]];
+const SPAWNS=[[MOBA_BASES.blue.x,MOBA_BASES.blue.z],[MOBA_BASES.red.x,MOBA_BASES.red.z]];
 const WEAPONS=[{id:0,damage:21,interval:.12,range:140},{id:1,damage:55,interval:.85,range:34},{id:2,damage:80,interval:1.24,range:180},{id:3,damage:17,interval:.095,range:130}];
 const colliders=JSON.parse(fs.readFileSync(new URL('colliders.json',import.meta.url),'utf8'));
 const interactions=JSON.parse(fs.readFileSync(new URL('interactables.json',import.meta.url),'utf8'));
@@ -46,8 +48,8 @@ function broadcast(room,msg,except=null){for(const p of room.players.values())if
 const cleanName=n=>String(n||'Operador').replace(/[^\p{L}\p{N} _-]/gu,'').trim().slice(0,18)||'Operador';
 const cleanRoom=n=>String(n||'').replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6);
 function createRoom(preferredCode=''){let code=preferredCode;if(!code){do{code=crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase();}while(rooms.has(code));}const room={code,players:new Map(),born:Date.now(),hazards:[],clones:[],openInteractions:new Set()};rooms.set(code,room);return room;}
-function spawn(i){const [x,z]=SPAWNS[i%SPAWNS.length];return {x,y:0,z};}
-function publicPlayer(p){const powers=powerSnapshot(p);return {id:p.id,name:p.name,hero:p.hero||null,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,weapon:p.weapon,hp:p.hp,shield:p.shield,kills:p.kills,deaths:p.deaths,alive:p.alive,shielded:powers.shielded,invisible:powers.invisible,phased:powers.phased,flying:powers.flying,frozen:powers.frozen,prop:powers.propType,immortal:powers.invulnerable};}
+function spawn(i){const base=i%2?MOBA_BASES.red:MOBA_BASES.blue;return {x:base.x+(i%4===3?3:0),y:0,z:base.z};}
+function publicPlayer(p){const powers=powerSnapshot(p);return {id:p.id,name:p.name,hero:p.hero||null,team:p.team??0,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,weapon:p.weapon,hp:p.hp,shield:p.shield,kills:p.kills,deaths:p.deaths,alive:p.alive,shielded:powers.shielded,invisible:powers.invisible,phased:powers.phased,flying:powers.flying,frozen:powers.frozen,prop:powers.propType,immortal:powers.invulnerable};}
 const livePlayers=room=>[...room.players.values()].filter(p=>p.socket);
 const cleanSession=s=>typeof s==='string'&&/^[a-zA-Z0-9-]{20,100}$/.test(s)?s:null;
 function join(ws,data){
@@ -88,7 +90,7 @@ function join(ws,data){
   if(room.players.size>=maxPlayers){send(ws,{type:'error',message:'Esta sala está cheia (8 jogadores).'});return;}
   const id=crypto.randomBytes(5).toString('hex');
   const s=spawn(room.players.size);
-  const p={id,name,session,socket:ws,room,x:s.x,y:s.y,z:s.z,yaw:0,pitch:0,
+  const p={id,name,session,socket:ws,room,team:room.players.size%2,x:s.x,y:s.y,z:s.z,yaw:0,pitch:0,
     hero,weapon:Number.isInteger(data.weapon)&&data.weapon>=0&&data.weapon<4?data.weapon:0,hp:100,shield:40,kills:0,deaths:0,alive:true,spawnUntil:Date.now()+1200,
     lastMove:Date.now(),lastFire:0,lastDash:0,lastSeen:Date.now(),disconnectedAt:0,powers:freshPowerState()};
   p.powers.loadout=hero?heroLoadout(hero):sanitizeLoadout(data.loadout);
@@ -163,7 +165,7 @@ function fire(p,data){
   const origin=[p.x,p.y+1.65,p.z];
   let victim=null,nearest=w.range;
   for(const target of p.room.players.values()){
-    if(target.id===p.id||!target.alive||now<target.spawnUntil||target.powers.phaseUntil>now)continue;
+    if(target.id===p.id||target.team===p.team||!target.alive||now<target.spawnUntil||target.powers.phaseUntil>now)continue;
     // sphere approximation at torso. Aiming at head counts via the same hit body volume.
     const to=[target.x-origin[0],target.y+1.08-origin[1],target.z-origin[2]];
     const projection=to[0]*dir[0]+to[1]*dir[1]+to[2]*dir[2];
@@ -185,6 +187,7 @@ function fire(p,data){
   if(cloneHit){p.room.clones=p.room.clones.filter(c=>c!==cloneHit);broadcast(p.room,{type:'clone-destroy',id:cloneHit.id});return;}
   if(!victim)return;
   let damage=w.damage;
+  if(p.powers.empoweredUntil>Date.now()){damage=Math.round(damage*1.9);p.powers.empoweredUntil=0;notifyPower(p,'shiro_retreat');}
   // Shotgun is strong at close range and weaker at distance.
   if(p.weapon===1)damage=Math.max(12,Math.round(damage*(1-nearest/45)));
   if(victim.powers.resurrectionUntil>now)return;
@@ -199,8 +202,8 @@ function fire(p,data){
   broadcast(p.room,death);
   setTimeout(()=>{
     if(victim.room.players.get(victim.id)!==victim||victim.alive)return;
-    const s=spawn(victim.deaths%SPAWNS.length);Object.assign(victim,s,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
-    victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];victim.powers.copyMark=null;victim.powers.copiedUntil=0;victim.powers.propUntil=0;victim.powers.propType=null;victim.powers.resurrectionUntil=0;if(victim.powers.originalLoadout){victim.powers.loadout=sanitizeLoadout(victim.powers.originalLoadout);victim.powers.originalLoadout=null;}
+    const s=spawn(victim.team);Object.assign(victim,s,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
+    victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];victim.powers.copyMark=null;victim.powers.copiedUntil=0;victim.powers.propUntil=0;victim.powers.propType=null;victim.powers.resurrectionUntil=0;victim.powers.combo={};victim.powers.empoweredUntil=0;if(victim.powers.originalLoadout){victim.powers.loadout=sanitizeLoadout(victim.powers.originalLoadout);victim.powers.originalLoadout=null;}
     send(victim.socket,{type:'respawn',spawn:s,hp:100,shield:40,powers:powerSnapshot(victim)});
     broadcast(p.room,{type:'revived',player:publicPlayer(victim)},victim.socket);
   },2200);
@@ -219,7 +222,7 @@ function projectedVictim(p,range,angle=.55){
   const now=Date.now();const cp=Math.cos(p.pitch),dir=[-Math.sin(p.yaw)*cp,Math.sin(p.pitch),-Math.cos(p.yaw)*cp];
   let nearest=null,minDist=Infinity;
   for(const v of p.room.players.values()){
-    if(v.id===p.id||!v.alive||v.powers.phaseUntil>now)continue;
+    if(v.id===p.id||v.team===p.team||!v.alive||v.powers.phaseUntil>now)continue;
     const dx=v.x-p.x,dz=v.z-p.z,dist=Math.hypot(dx,dz);if(dist>range||dist<.01)continue;
     const dot=(dx*(-Math.sin(p.yaw))+dz*(-Math.cos(p.yaw)))/dist;
     if(dot<angle||obscured([p.x,p.y+1.4,p.z],dir,dist))continue;
@@ -229,7 +232,7 @@ function projectedVictim(p,range,angle=.55){
 }
 function notifyPower(p,id){send(p.socket,{type:'power-state',powers:powerSnapshot(p)});broadcast(p.room,{type:'power-status',player:p.id,powers:powerSnapshot(p)},p.socket);}
 function applyAbilityDamage(attacker,victim,damage,now=Date.now()){
- if(!victim.alive||victim.powers.phaseUntil>now||victim.powers.shieldUntil>now||victim.powers.resurrectionUntil>now)return false;
+ if(attacker.team===victim.team||!victim.alive||victim.powers.phaseUntil>now||victim.powers.shieldUntil>now||victim.powers.resurrectionUntil>now)return false;
  const absorbed=Math.min(victim.shield,damage);victim.shield-=absorbed;victim.hp=Math.max(0,victim.hp-damage+absorbed);
  if(victim.hp===0&&autoResurrect(victim,now))return true;
  broadcast(attacker.room,{type:'health',id:victim.id,hp:victim.hp,shield:victim.shield});
@@ -271,7 +274,69 @@ function aimPoint(p,range){
  const cp=Math.cos(p.pitch),distance=Math.min(range,20);
  return {x:limit(p.x-Math.sin(p.yaw)*cp*distance,-WORLD_HALF+4,WORLD_HALF-4),z:limit(p.z-Math.cos(p.yaw)*cp*distance,-WORLD_HALF+4,WORLD_HALF-4)};
 }
+function comboDash(p,metres,now,backward=false){
+ const dir=backward?-1:1,from={x:p.x,y:p.y,z:p.z};let to={...from};
+ for(let step=.5;step<=metres;step+=.5){const target=dashVector(from.x,from.z,p.yaw,step*dir);if(!locationValid(target.x,p.y,target.z,roomColliders(p.room)))break;to={x:target.x,y:p.y,z:target.z};}
+ Object.assign(p,to,{lastMove:now});
+ broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...to});
+ return {from,to};
+}
+function comboDamageNear(p,x,z,radius,damage,now){
+ for(const other of p.room.players.values())if(other.id!==p.id&&other.team!==p.team&&other.alive&&Math.hypot(other.x-x,other.z-z)<=radius)applyAbilityDamage(p,other,damage,now);
+}
+/** Three-stage ability combos. The client never supplies a destination or a victim ID. */
+function castHeroCombo(p,data,now=Date.now()){
+ const id=data.id,rule=POWER_RULES[id],s=p.powers;
+ if(!HERO_COMBOS[id])return false;
+ if(!p.alive||!s.loadout.includes(id)||s.frozenUntil>now||s.gravityUntil>now||s.phaseUntil>now){send(p.socket,{type:'power-error',message:'Habilidade não equipada ou personagem impedido.'});return true;}
+ s.combo||={};const previous=s.combo[id];const phase=previous?.until>now?previous:null;
+ if(!phase&&(s.cooldowns[id]||0)>now){send(p.socket,{type:'power-error',message:'Habilidade recarregando.'});return true;}
+ let next=null,kind=id,point=null;
+ const start=()=>{s.cooldowns[id]=now+rule.cooldown;s.activeUntil[id]=now+(rule.duration||2000);};
+ const move=(n,back=false)=>{const result=comboDash(p,n,now,back);point=result.to;return result;};
+ if(id==='shiro_step'){
+  if(!phase){move(7);next={step:1,until:now+2500};s.cooldowns[id]=now+rule.cooldown+2500;}
+  else{move(9);comboDamageNear(p,p.x,p.z,4.8,56,now);next=null;s.cooldowns[id]=now+rule.cooldown;}
+ }else if(id==='shiro_retreat'){
+  move(8,true);s.empoweredUntil=now+6000;start();s.activeUntil[id]=s.empoweredUntil;
+ }else if(id==='shiro_ricochet'){
+  const victims=[...p.room.players.values()].filter(t=>t.id!==p.id&&t.alive&&Math.hypot(t.x-p.x,t.z-p.z)<45).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z)).slice(0,5);
+  victims.forEach((t,i)=>applyAbilityDamage(p,t,Math.max(18,64-i*9),now));
+  s.shieldUntil=now+4200;s.activeUntil[id]=s.shieldUntil;start();s.activeUntil[id]=s.shieldUntil;
+  broadcast(p.room,{type:'power-vfx',kind:'chain',player:p.id,targets:victims.map(t=>({x:t.x,y:t.y,z:t.z,id:t.id}))});
+ }else if(id==='leo_dash'){
+  if(!phase){next={step:1,until:now+4800,origin:{x:p.x,y:p.y,z:p.z}};move(7);s.cooldowns[id]=now+rule.cooldown+4800;}
+  else if(phase.step===1){move(8);next={...phase,step:2};}
+  else{const origin=phase.origin;if(origin&&locationValid(origin.x,origin.y,origin.z,roomColliders(p.room))){Object.assign(p,origin,{lastMove:now});point=origin;broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...origin});}s.cooldowns[id]=now+rule.cooldown;}
+ }else if(id==='leo_immunity'){
+  s.shieldUntil=now+1000;s.activeUntil[id]=s.shieldUntil;start();s.activeUntil[id]=s.shieldUntil;
+ }else if(id==='leo_barrage'){
+  start();s.shieldUntil=now+2800;s.activeUntil[id]=s.shieldUntil;
+  // Three global telegraphed strikes; server applies damage even if attackers disconnect.
+  for(let i=0;i<3;i++)setTimeout(()=>{
+   if(!p.room.players.has(p.id))return;
+   const t=Date.now();for(const enemy of p.room.players.values())if(enemy.id!==p.id&&enemy.team!==p.team&&enemy.alive)applyAbilityDamage(p,enemy,26,t);
+   broadcast(p.room,{type:'power-vfx',kind:'leo-barrage',player:p.id,x:p.x,y:p.y,z:p.z,wave:i+1});
+  },i*540);
+ }else if(id==='butterfly_dash'){
+  if(!phase){const origin={x:p.x,y:p.y,z:p.z};move(10);next={step:1,until:now+5500,origin};s.cooldowns[id]=now+rule.cooldown+5500;}
+  else{if(phase.origin&&locationValid(phase.origin.x,phase.origin.y,phase.origin.z,roomColliders(p.room))){Object.assign(p,phase.origin,{lastMove:now});point=phase.origin;broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...point});}s.cooldowns[id]=now+rule.cooldown;}
+ }else if(id==='butterfly_orbit'){
+  if(!phase){next={step:1,until:now+7200,started:now};s.cooldowns[id]=now+rule.cooldown+7200;s.activeUntil[id]=now+7200;}
+  else{const dest=orbitLocation(p.x,p.z,phase.started,now,8);if(locationValid(dest.x,p.y,dest.z,roomColliders(p.room))){Object.assign(p,{x:dest.x,z:dest.z,lastMove:now});point={x:p.x,y:p.y,z:p.z};broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...point});}s.cooldowns[id]=now+rule.cooldown;}
+ }else if(id==='butterfly_launch'){
+  if(!phase){const origin={x:p.x,y:p.y,z:p.z},endpoint=dashVector(p.x,p.z,p.yaw,27);let result=origin;
+   for(let k=1;k<=27;k++){const q=dashVector(p.x,p.z,p.yaw,k);if(!locationValid(q.x,p.y,q.z,roomColliders(p.room)))break;result={x:q.x,y:p.y,z:q.z};}
+   for(const enemy of p.room.players.values())if(enemy.id!==p.id&&enemy.team!==p.team&&enemy.alive&&segmentDistance2D(enemy.x,enemy.z,p.x,p.z,result.x,result.z)<5){const dx=enemy.x-p.x,dz=enemy.z-p.z,d=Math.hypot(dx,dz)||1;for(let n=1;n<=8;n++){const nx=enemy.x+dx/d*n,nz=enemy.z+dz/d*n;if(!locationValid(nx,enemy.y,nz,roomColliders(p.room)))break;Object.assign(enemy,{x:nx,z:nz,lastMove:now});}applyAbilityDamage(p,enemy,34,now);broadcast(p.room,{type:'power-effect',kind:'push',player:enemy.id,x:enemy.x,y:enemy.y,z:enemy.z});}
+   next={step:1,until:now+5000,orb:result};s.cooldowns[id]=now+rule.cooldown+5000;point=result;
+  }else{const orb=phase.orb;if(orb&&locationValid(orb.x,orb.y,orb.z,roomColliders(p.room))){Object.assign(p,orb,{lastMove:now});point=orb;broadcast(p.room,{type:'power-effect',kind:'combo-move',player:p.id,...orb});}s.cooldowns[id]=now+rule.cooldown;}
+ }
+ if(next)s.combo[id]=next;else delete s.combo[id];
+ broadcast(p.room,{type:'power-vfx',kind,id,phase:next?.step||0,player:p.id,x:p.x,y:p.y,z:p.z,point});
+ notifyPower(p,id);return true;
+}
 function castPower(p,data){
+  if(HERO_COMBOS[data.id]){castHeroCombo(p,data);return;}
   const id=data.id,effect=POWER_VARIANTS[id]?.base||id,now=Date.now(),state=p.powers,rule=POWER_RULES[id];
   if(!rule){send(p.socket,{type:'power-error',message:'Habilidade desconhecida.'});return;}
   // Reativação autorizada: escolha apenas clones seus, existentes e ainda ativos.
@@ -330,7 +395,7 @@ function castPower(p,data){
     broadcast(p.room,{type:'power-vfx',kind:'morph',player:p.id,x:p.x,y:p.y,z:p.z});
   }else if(effect==='push'){
     for(const v of p.room.players.values()){
-      if(v.id===p.id||!v.alive||v.powers.phaseUntil>now||!within(v.x,v.z,p,rule.range))continue;
+      if(v.id===p.id||v.team===p.team||!v.alive||v.powers.phaseUntil>now||!within(v.x,v.z,p,rule.range))continue;
       const dist=Math.hypot(v.x-p.x,v.z-p.z)||1,dx=(v.x-p.x)/dist,dz=(v.z-p.z)/dist;
       let pos={x:v.x,y:v.y,z:v.z};
       // Move only along collision-free samples: no wall clipping.
@@ -373,7 +438,7 @@ function castPower(p,data){
     broadcast(p.room,{type:'power-vfx',kind:'chain',player:p.id,targets:victims.map(v=>({x:v.x,y:v.y,z:v.z,id:v.id}))});
   }else if(effect==='gravity'){
     const affected=[];
-    for(const q of p.room.players.values())if(q.id!==p.id&&q.alive&&q.powers.phaseUntil<now&&Math.hypot(q.x-target.x,q.z-target.z)<=rule.radius){
+    for(const q of p.room.players.values())if(q.id!==p.id&&q.team!==p.team&&q.alive&&q.powers.phaseUntil<now&&Math.hypot(q.x-target.x,q.z-target.z)<=rule.radius){
       q.powers.gravityUntil=now+rule.duration;q.powers.gravityOrigin=q.y;q.y=Math.min(37,q.y+3.5);q.lastMove=now;
       affected.push(q.id);
     }
@@ -466,7 +531,7 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'2.9.0'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.0.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';

@@ -1,3 +1,4 @@
+import {HERO_COMBOS,dashVector,orbitLocation,segmentDistance2D} from './heroCombos.js';
 import * as THREE from 'three';
 import {POWER_VARIANTS,heroAllows,heroLoadout} from './heroRoster.js';
 import {WORLD_HALF} from './worldLayout.js';
@@ -29,7 +30,7 @@ const now=()=>Date.now();
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export class PowerSystem {
  constructor(game){
-  this.game=game;this.economy=new CasualEconomy();this.loadout=['push','teleport','heal'];this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;
+  this.game=game;this.comboStages={};this.comboVisual=null;this.economy=new CasualEconomy();this.loadout=['push','teleport','heal'];this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;
   this.lastSafe={x:0,y:0,z:18};this.teleportMarker=null;this.effects=[];this.flightBefore=false;this.uiTick=0;this.history=[];this.localHazards=[];this.decoys=[];this.cloneTargets=[];this.cloneJumpUsed=false;this.aimTouch=null;this.prevGravity=null;this.copyMark=null;this.copyBuff=null;this.propLabel=null;
   try{const val=JSON.parse(localStorage.getItem('titan-power-loadout')||'null');if(Array.isArray(val)&&POWER_DATA[val[0]]&&POWER_DATA[val[1]]&&val[0]!==val[1])this.loadout=val;}catch{}
   this.menuLoadout=[...this.loadout];
@@ -114,15 +115,15 @@ export class PowerSystem {
  }
  reset(){if(this.copyBuff?.original){this.loadout=[...this.copyBuff.original];this.refreshSelects();this.refreshButtons();}this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;this.cleanupMarker();for(const e of this.effects){this.game.world.scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();}this.effects=[];this.lastSafe={x:0,y:0,z:18};this.history=[];this.localHazards=[];this.cloneTargets=[];this.cloneJumpUsed=false;this.copyMark=null;this.copyBuff=null;this.status.resurrection=0;this.status.morph=0;this.aimTouch=null;this.hideAimGuide();this.clearDecoys();this.menu?.close();this.refreshButtons();}
  restoreMenuLoadout(){this.loadout=[...this.menuLoadout];this.refreshSelects();this.refreshButtons();this.updateEconomyHUD();}
- startRun(mode){const hero=this.game.heroSelection,kit=heroLoadout(hero?.selectedHero),starter=kit.includes(hero?.starter)?hero.starter:kit[0];this.economy.reset(starter);this.loadout=mode==='multiplayer'?[...kit]:[starter,null,null];this.refreshButtons();this.refreshSelects();this.updateEconomyHUD();}
+ startRun(mode){const kit=heroLoadout(this.game.heroSelection?.selectedHero);this.economy.reset(kit[0]);this.economy.owned=new Set(kit);this.loadout=[...kit];this.comboStages={};this.refreshButtons();this.refreshSelects();this.updateEconomyHUD();}
  isCasualRun(){return this.game.mode!=='multiplayer'&&this.game.mode!==undefined&&this.game.state!=='menu';}
- earnKillCredit(enemy){if(!this.isCasualRun())return 0;const credits=this.economy.reward(enemy.type,enemy.boss);this.updateEconomyHUD();return credits;}
- updateEconomyHUD(){const hud=$('titan-economy-hud');if(!hud)return;const active=this.isCasualRun();hud.classList.toggle('hidden',!active);if(active)hud.textContent='◈ '+this.economy.credits.toLocaleString('pt-BR')+' CR · '+this.economy.owned.size+' PODERES';}
- isUnlocked(id){return !this.isCasualRun()||this.economy.owns(id);}
- acquire(slot,id){if(!POWER_DATA[id])return false;if(this.loadout[1-slot]===id){this.game.toast('ESSE PODER JÁ ESTÁ NO OUTRO ESPAÇO');return false;}if(!this.isCasualRun())return this.equip(slot,id);const result=this.economy.buy(id);if(!result.ok){this.game.toast(result.reason);return false;}if(!result.already)this.game.toast('DESBLOQUEADO · '+POWER_DATA[id].label+' · -'+result.paid+' CR');this.updateEconomyHUD();return this.equip(slot,id);}
+ earnKillCredit(enemy){return 0;}
+ updateEconomyHUD(){const hud=$('titan-economy-hud');if(!hud)return;const active=this.isCasualRun();hud.classList.toggle('hidden',!active);if(active)hud.textContent='✦ KIT COMPLETO · 3 PODERES LIBERADOS';}
+ isUnlocked(id){return heroAllows(this.game.heroSelection?.selectedHero,id);}
+ acquire(slot,id){return this.equip(slot,id);}
  equip(slot,id){
   if(!POWER_DATA[id]||!heroAllows(this.game.heroSelection?.selectedHero,id))return false;
-  if(this.isCasualRun()&&!this.isUnlocked(id)){this.game.toast('BLOQUEADO · COMPRE NA RODA DE PODERES');this.refreshSelects();return false;}
+
   if(this.loadout.some((power,i)=>i!==slot&&power===id)){this.game.toast('EQUIPE HABILIDADES DIFERENTES');this.refreshSelects();return false;}
   if(this.copyBuff){this.copyBuff=null;this.copyMark=null;}this.loadout[slot]=id;this.cancelTargeting();
   if(!this.isCasualRun()){this.menuLoadout=[...this.loadout];try{localStorage.setItem('titan-power-loadout',JSON.stringify(this.loadout));}catch{}}
@@ -130,14 +131,15 @@ export class PowerSystem {
   this.refreshSelects();this.refreshButtons();return true;
  }
  refreshSelects(){for(const s of document.querySelectorAll('[data-power-slot]'))s.value=this.loadout[Number(s.dataset.powerSlot)]||'';}
- refreshButtons(){for(let i=0;i<3;i++){const id=this.loadout[i],btn=$('power-'+['a','b','c'][i]);btn.querySelector('.power-symbol').textContent=id?POWER_DATA[id]?.icon||'◇':'＋';btn.querySelector('.power-name').textContent=id?POWER_DATA[id]?.label||'PODER':'COMPRE NA RODA';btn.classList.toggle('power-empty',!id);}}
+ refreshButtons(){for(let i=0;i<3;i++){const id=this.loadout[i],btn=$('power-'+['a','b','c'][i]);btn.querySelector('.power-symbol').textContent=id?POWER_DATA[id]?.icon||'◇':'＋';btn.querySelector('.power-name').textContent=id?POWER_DATA[id]?.label||'PODER':'LIVRE';btn.classList.toggle('power-empty',!id);}}
  isActive(id){return (this.status[id]||0)>now();}
  frozen(){return this.isActive('freeze')||this.isActive('gravity');}
  cancelTargeting(){this.targeting=false;this.cleanupMarker();}
  useSlot(i){this.use(this.loadout[i]);}
  use(id){
   const g=this.game;if(g.state!=='playing'||!POWER_DATA[id]||(g.mode==='multiplayer'&&!g.multiplayer.alive))return;
-  if(!this.isUnlocked(id)){g.toast('COMPRE ESSA HABILIDADE NA RODA');return;}
+  if(!this.isUnlocked(id)){g.toast('PODER EXCLUSIVO DO SEU PERSONAGEM');return;}
+  if(HERO_COMBOS[id]){this.useCombo(id);return;}
   if(id==='teleport'&&this.returnPoint?.until>now()){this.returnTeleport();return;}
   if(id==='clonejump'&&this.cloneAvailable()){this.jumpClone();return;}
   if(id==='resurrection'){g.toast('RESSURREIÇÃO É AUTOMÁTICA AO MORRER');return;}
@@ -158,6 +160,56 @@ export class PowerSystem {
   if(id==='teleport'&&!this.targeting&&!this.returnPoint){this.use(id);return;}
   this.use(id);
  }
+
+ clearComboVisual(){if(!this.comboVisual)return;this.game.world.scene.remove(this.comboVisual);this.comboVisual.geometry.dispose();this.comboVisual.material.dispose();this.comboVisual=null;}
+ showComboVisual(color=0xff9fe6){
+  this.clearComboVisual();const orb=new THREE.Mesh(new THREE.SphereGeometry(.45,12,10),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.77,depthWrite:false}));
+  this.game.world.scene.add(orb);this.comboVisual=orb;
+ }
+ useCombo(id){
+  const g=this.game,t=now(),data=POWER_DATA[id],stage=this.comboStages[id];
+  if(this.frozen())return;
+  if(!(stage?.until>t)&&(this.cooldowns[id]||0)>t){g.toast('RECARGA · '+Math.ceil((this.cooldowns[id]-t)/1000)+'s');return;}
+  if(g.mode==='multiplayer'){g.multiplayer.syncState();g.multiplayer.send({type:'power',id});return;}
+  const p=g.parkour,valid=(x,z)=>g.urban.canOccupy(x,z,p.y,1.8,.48);
+  const origin={x:p.x,y:p.y,z:p.z};
+  const dash=(distance,back=false)=>{let last=origin;for(let n=.5;n<=distance;n+=.5){const q=dashVector(origin.x,origin.z,g.yaw,n*(back?-1:1));if(!valid(q.x,q.z))break;last={x:q.x,y:p.y,z:q.z};}p.spawn(last.x,last.y,last.z);this.flash(0x9fdcff,3,last);return last;};
+  const damage=(x,z,r,amount)=>{for(const enemy of [...g.enemies.enemies])if(!enemy.dead&&Math.hypot(enemy.x-x,enemy.z-z)<r)g.enemies.damage(enemy,amount,new THREE.Vector3(enemy.x,1,enemy.z),'pulse');};
+  let next=null;
+  if(id==='shiro_step'){
+   if(!stage?.until||stage.until<=t){dash(7);next={step:1,until:t+2500};this.cooldowns[id]=t+(data.cool+2.5)*1000;}
+   else{const pt=dash(9);damage(pt.x,pt.z,5,75);this.cooldowns[id]=t+data.cool*1000;}
+  }else if(id==='shiro_retreat'){
+   dash(8,true);this.status.shiro_retreat=t+6000;g.weapons.damageMultiplier*=1.35;
+   setTimeout(()=>{g.weapons.damageMultiplier/=1.35;},6000);this.cooldowns[id]=t+data.cool*1000;
+  }else if(id==='shiro_ricochet'){
+   const foes=[...g.enemies.enemies].filter(e=>!e.dead&&Math.hypot(e.x-p.x,e.z-p.z)<45).slice(0,5);
+   foes.forEach((e,i)=>g.enemies.damage(e,Math.max(35,115-i*15),new THREE.Vector3(e.x,1,e.z),'pulse'));
+   this.status.shield=t+4200;this.status[id]=t+4200;this.cooldowns[id]=t+data.cool*1000;this.flash(0xff647c,14);
+  }else if(id==='leo_dash'){
+   if(!stage?.until||stage.until<=t){next={step:1,origin,until:t+4800};dash(7);this.cooldowns[id]=t+(data.cool+4.8)*1000;}
+   else if(stage.step===1){dash(8);next={...stage,step:2};}
+   else{if(valid(stage.origin.x,stage.origin.z))p.spawn(stage.origin.x,stage.origin.y,stage.origin.z);this.cooldowns[id]=t+data.cool*1000;}
+  }else if(id==='leo_immunity'){
+   this.status.shield=t+1000;this.status[id]=t+1000;this.cooldowns[id]=t+data.cool*1000;this.flash(0xf7cf74,4);
+  }else if(id==='leo_barrage'){
+   this.status.shield=t+2800;this.status[id]=t+2800;this.cooldowns[id]=t+data.cool*1000;
+   for(let i=0;i<3;i++)setTimeout(()=>{if(g.state==='playing'){for(const enemy of [...g.enemies.enemies])if(!enemy.dead)g.enemies.damage(enemy,65,new THREE.Vector3(enemy.x,1,enemy.z),'pulse');this.flash(0xffb35e,18);}},i*500);
+  }else if(id==='butterfly_dash'){
+   if(!stage?.until||stage.until<=t){dash(10);next={step:1,origin,until:t+5500};this.cooldowns[id]=t+(data.cool+5.5)*1000;}
+   else{if(valid(stage.origin.x,stage.origin.z))p.spawn(stage.origin.x,stage.origin.y,stage.origin.z);this.cooldowns[id]=t+data.cool*1000;}
+  }else if(id==='butterfly_orbit'){
+   if(!stage?.until||stage.until<=t){next={step:1,started:t,until:t+7200};this.cooldowns[id]=t+(data.cool+7.2)*1000;this.status[id]=next.until;this.showComboVisual(0xae94ff);}
+   else{const q=orbitLocation(p.x,p.z,stage.started,t);if(valid(q.x,q.z))p.spawn(q.x,p.y,q.z);this.cooldowns[id]=t+data.cool*1000;this.clearComboVisual();}
+  }else if(id==='butterfly_launch'){
+   if(!stage?.until||stage.until<=t){const target=dashVector(p.x,p.z,g.yaw,27);let last=origin;for(let k=1;k<=27;k++){const q=dashVector(p.x,p.z,g.yaw,k);if(!valid(q.x,q.z))break;last={x:q.x,y:p.y,z:q.z};}
+    for(const enemy of [...g.enemies.enemies])if(segmentDistance2D(enemy.x,enemy.z,p.x,p.z,last.x,last.z)<5){g.enemies.damage(enemy,55,new THREE.Vector3(enemy.x,1,enemy.z),'pulse');const dx=enemy.x-p.x,dz=enemy.z-p.z,len=Math.hypot(dx,dz)||1;const nx=enemy.x+dx/len*6,nz=enemy.z+dz/len*6;if(g.urban.canOccupy(nx,nz,0,2,enemy.radius)){enemy.x=nx;enemy.z=nz;}}
+    next={step:1,orb:last,until:t+5000};this.cooldowns[id]=t+(data.cool+5)*1000;this.status[id]=next.until;this.showComboVisual(0xff9edc);
+   }else{if(valid(stage.orb.x,stage.orb.z))p.spawn(stage.orb.x,stage.orb.y,stage.orb.z);this.cooldowns[id]=t+data.cool*1000;this.clearComboVisual();}
+  }
+  if(next)this.comboStages[id]=next;else delete this.comboStages[id];g.toast(data.label+' · '+(next?'REATIVÁVEL':'ATIVADA'));
+ }
+
  localArea(id,position,range,duration=1500){
   const g=this.game;for(const enemy of [...g.enemies.enemies]){
    const dist=Math.hypot(enemy.x-position.x,enemy.z-position.z);if(dist>range)continue;
@@ -348,7 +400,7 @@ export class PowerSystem {
   clearDecoys(){for(const d of this.decoys){this.game.world.scene.remove(d.mesh);d.mesh.geometry.dispose();d.mesh.material.dispose();}this.decoys=[];}
 
  returnTeleport(){const pt=this.returnPoint;if(!pt||pt.until<now())return;this.returnPoint=null;if(this.game.mode==='multiplayer'){this.game.multiplayer.send({type:'power',id:'teleport',back:true});return;}this.game.parkour.spawn(pt.x,pt.y,pt.z);this.flash(0xbda7ff,5);}
- onServerState(state){if(!state)return;for(const id of Object.keys(POWER_DATA)){if(state.cooldowns?.[id])this.cooldowns[id]=state.cooldowns[id];}this.status.freeze=state.frozenUntil||0;this.status.flight=state.flightUntil||0;this.status.invisible=state.invisibleUntil||0;this.status.phase=state.phaseUntil||0;this.status.shield=state.shieldUntil||0;this.status.gravity=state.gravityUntil||0;this.status.resurrection=state.resurrectionUntil||0;this.status.morph=state.propUntil||0;for(const [id,until] of Object.entries(state.activeUntil||{}))this.status[id]=until;this.cloneJumpUsed=!!state.cloneJumpUsed;if(Array.isArray(state.loadout)&&state.loadout.every(id=>POWER_DATA[id])){if(state.loadout.some((id,i)=>this.loadout[i]!==id)){this.loadout=[...state.loadout];this.refreshButtons();this.refreshSelects();}}this.copyBuff=state.copiedUntil>now()?{until:state.copiedUntil}:null;this.returnPoint=state.returnUntil>now()?{until:state.returnUntil}:null;}
+ onServerState(state){if(!state)return;this.comboStages={...(state.combo||{})};for(const id of Object.keys(POWER_DATA)){if(state.cooldowns?.[id])this.cooldowns[id]=state.cooldowns[id];}this.status.freeze=state.frozenUntil||0;this.status.flight=state.flightUntil||0;this.status.invisible=state.invisibleUntil||0;this.status.phase=state.phaseUntil||0;this.status.shield=state.shieldUntil||0;this.status.gravity=state.gravityUntil||0;this.status.resurrection=state.resurrectionUntil||0;this.status.morph=state.propUntil||0;for(const [id,until] of Object.entries(state.activeUntil||{}))this.status[id]=until;this.cloneJumpUsed=!!state.cloneJumpUsed;if(Array.isArray(state.loadout)&&state.loadout.every(id=>POWER_DATA[id])){if(state.loadout.some((id,i)=>this.loadout[i]!==id)){this.loadout=[...state.loadout];this.refreshButtons();this.refreshSelects();}}this.copyBuff=state.copiedUntil>now()?{until:state.copiedUntil}:null;this.returnPoint=state.returnUntil>now()?{until:state.returnUntil}:null;}
  onServerClones(msg){
   if(msg.player!==this.game.multiplayer?.id)return;
   const incoming=(msg.clones||[]).filter(c=>c.power==='clonejump');
@@ -365,6 +417,9 @@ export class PowerSystem {
   if(msg.kind==='phase-exit'&&Number.isFinite(msg.x))pk.spawn(msg.x,msg.y,msg.z);
  }
  update(dt){const g=this.game,pk=g.parkour,t=now();
+  if(!this.comboVisual&&this.comboStages.butterfly_orbit?.until>t)this.showComboVisual(0xae94ff);
+  if(!this.comboVisual&&this.comboStages.butterfly_launch?.until>t)this.showComboVisual(0xff9edc);
+  if(this.comboVisual){const orbital=this.comboStages.butterfly_orbit,launch=this.comboStages.butterfly_launch;if(orbital?.until>t){const q=orbitLocation(pk.x,pk.z,orbital.started,t);this.comboVisual.position.set(q.x,pk.y+1.5,q.z);}else if(launch?.until>t){this.comboVisual.position.set(launch.orb.x,launch.orb.y+1.5,launch.orb.z);}else this.clearComboVisual();}
   // O mapa interativo controla a escolha do destino sem travar a mira.
   if(!this.targeting&&this.teleportMarker)this.cleanupMarker();
   if(this.returnPoint&&this.returnPoint.until<t)this.returnPoint=null;
@@ -385,9 +440,9 @@ export class PowerSystem {
   if(!this.isActive('phase')&&g.urban.canOccupy(pk.x,pk.z,pk.y,1.77,.42))this.lastSafe={x:pk.x,y:pk.y,z:pk.z};
   for(let i=this.effects.length-1;i>=0;i--){const e=this.effects[i];e.ttl-=dt;const f=1-e.ttl/.45;e.mesh.scale.setScalar(1+(e.radius-1)*f);e.mesh.material.opacity=Math.max(0,.7*(1-f));if(e.ttl<=0){g.world.scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();this.effects.splice(i,1);}}
   $('power-descend').classList.toggle('visible',this.isActive('flight')&&!!g.mobile?.enabled);
-  this.uiTick-=dt;if(this.uiTick<0){for(let i=0;i<3;i++){const id=this.loadout[i],btn=$('power-'+['a','b','c'][i]);const until=id?(this.cooldowns[id]||0):0;const left=Math.ceil((until-t)/1000);const active=id&&this.isActive(id);const back=id==='teleport'&&this.returnPoint?.until>t;const jump=id==='clonejump'&&this.cloneAvailable();const liveMs=Math.max(0,(id?this.status[id]||0:0)-t);
-    const label=btn.querySelector('.power-time');label.textContent=!id?'BLOQUEADO':id==='resurrection'&&!active&&left<=0?'AUTO':back?'↶ '+Math.ceil((this.returnPoint.until-t)/1000)+'s':jump?'TROCAR '+Math.ceil((Math.max(...this.cloneTargets.map(c=>c.until))-t)/1000)+'s':active?('ATIVO '+(liveMs/1000).toFixed(1)+'s'):left>0?left+'s':'PRONTO';
-    btn.classList.toggle('cooling',left>0&&!back&&!jump&&!active);btn.classList.toggle('active',active||back||jump);
+  this.uiTick-=dt;if(this.uiTick<0){for(let i=0;i<3;i++){const id=this.loadout[i],btn=$('power-'+['a','b','c'][i]);const until=id?(this.cooldowns[id]||0):0;const left=Math.ceil((until-t)/1000);const active=id&&this.isActive(id);const back=id==='teleport'&&this.returnPoint?.until>t;const combo=this.comboStages[id]?.until>t;const jump=id==='clonejump'&&this.cloneAvailable();const liveMs=Math.max(0,(id?this.status[id]||0:0)-t);
+    const label=btn.querySelector('.power-time');label.textContent=!id?'BLOQUEADO':id==='resurrection'&&!active&&left<=0?'AUTO':back?'↶ '+Math.ceil((this.returnPoint.until-t)/1000)+'s':jump?'TROCAR '+Math.ceil((Math.max(...this.cloneTargets.map(c=>c.until))-t)/1000)+'s':combo?'REATIVE '+Math.ceil((this.comboStages[id].until-t)/1000)+'s':active?('ATIVO '+(liveMs/1000).toFixed(1)+'s'):left>0?left+'s':'PRONTO';
+    btn.classList.toggle('cooling',left>0&&!back&&!jump&&!combo&&!active);btn.classList.toggle('active',active||back||jump);
     btn.style.setProperty('--power-progress',active?Math.max(0,Math.min(100,liveMs/(POWER_DATA[id]?.duration||((id==='copy')?18000:3000))*100))+'%':left>0?Math.max(0,100-(until-t)/((POWER_DATA[id]?.cool||1)*10))+'%':'100%');}this.uiTick=.2;}
  }
  resetOnDeath(){this.cancelTargeting();this.returnPoint=null;this.status={};this.copyMark=null;this.copyBuff=null;document.body.classList.remove('titan-morphed','titan-resurrected');}

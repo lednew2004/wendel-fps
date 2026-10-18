@@ -1,3 +1,4 @@
+import {protectedRoute} from './mobaLayout.js';
 /** Deterministic extension shared by the browser renderer and authoritative Node server.
  * Coordinates are in meters; no Three.js dependency. */
 export const WORLD_HALF = 219;
@@ -13,6 +14,7 @@ export function expandedBuildings(){
       if(Math.abs(x)<160&&Math.abs(z)<160)continue;
       if(isSpot(x,z,EXPANSION_SPOTS)||isSpot(x,z,PARK_SPOTS))continue;
       if(Math.abs(x)===192&&Math.abs(z)===192)continue;
+      if(protectedRoute(x,z))continue;
       const n=Math.abs(x*31+z*17),zone=(x>100?'centro':z>140?'residencial':z< -140?'industrial':'bairro');
       const w=11+(n%3),d=11+((n>>2)%3);
       const h=zone==='centro'?12+(n%5)*2.7:zone==='industrial'?7+(n%4)*1.9:5.6+(n%5)*1.75;
@@ -22,7 +24,7 @@ export function expandedBuildings(){
   }
   return result;
 }
-export const HOMES = EXPANSION_SPOTS.map(([x,z],i)=>({id:`home-${i+1}`,x,z,w:14,d:12,h:5.6,color:[0xf5cd87,0xa9cfeb,0xf6b7a8,0xa9d4ad,0xe5b5db,0xf4d6a5,0x9dbbe4,0xffb899][i]}));
+export const HOMES = EXPANSION_SPOTS.filter(([x,z])=>!protectedRoute(x,z)).map(([x,z],i)=>({id:`home-${i+1}`,x,z,w:14,d:12,h:5.6,color:[0xf5cd87,0xa9cfeb,0xf6b7a8,0xa9d4ad,0xe5b5db,0xf4d6a5,0x9dbbe4,0xffb899][i]}));
 export const homeDoor = home=>({id:`${home.id}-door`,kind:'door',x:home.x,z:home.z+home.d/2,minY:0,maxY:2.9,hx:1.05,hz:.16});
 export const homeWindow = (home,side)=>({id:`${home.id}-window-${side<0?'l':'r'}`,kind:'window',x:home.x+side*home.w*.32,z:home.z+home.d/2,minY:1.02,maxY:3.38,hx:1.16,hz:.16});
 export const INTERACTABLES=HOMES.flatMap(h=>[homeDoor(h),homeWindow(h,-1),homeWindow(h,1)]);

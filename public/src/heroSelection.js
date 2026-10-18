@@ -13,12 +13,13 @@ export class HeroSelection {
   const menu=document.getElementById('start-screen');
   const anchor=menu?.querySelector('#start-btn');
   if(!anchor)return;
+  for(const old of document.querySelectorAll('#start-screen .power-loadout, #pause-screen .power-loadout'))old.remove();
   const section=document.createElement('section');section.className='hero-selector';section.id='hero-selector';
-  section.innerHTML=`<div class="hero-select-heading"><strong>SELECIONE SEU OPERADOR</strong><small>10 PERSONAGENS · 3 HABILIDADES POR PERSONAGEM</small></div><div class="hero-roster" id="hero-roster" role="group" aria-label="Personagens jogáveis"></div><div id="hero-profile" class="hero-profile"></div><div class="hero-loadout-config"><label>ARMA INICIAL<select id="hero-weapon"></select></label><label>PODER INICIAL NO CASUAL<select id="hero-starter"></select></label></div><p class="hero-loadout-note">CASUAL: começa com um poder e compra as outras duas habilidades com créditos dos monstros. ONLINE: entra com o kit completo do personagem.</p>`;
+  section.innerHTML=`<div class="hero-select-heading"><strong>SELECIONE SEU OPERADOR</strong><small>13 PERSONAGENS · 3 HABILIDADES POR PERSONAGEM</small></div><div class="hero-roster" id="hero-roster" role="group" aria-label="Personagens jogáveis"></div><div id="hero-profile" class="hero-profile"></div><div class="hero-loadout-config"><label>ARMA INICIAL<select id="hero-weapon"></select></label></div><p class="hero-loadout-note">CASUAL E ONLINE: as três habilidades do personagem ficam liberadas desde o início. Armas podem ser trocadas durante a partida.</p>`;
   anchor.parentNode.insertBefore(section,anchor);
   const select=section.querySelector('#hero-weapon');for(let i=0;i<WEAPONS.length;i++){const option=document.createElement('option');option.value=String(i);option.textContent=`${WEAPONS[i].name} · ${WEAPONS[i].sub}`;select.appendChild(option);}
   select.addEventListener('change',()=>{this.weapon=Number(select.value);this.persist();this.render();});
-  section.querySelector('#hero-starter').addEventListener('change',e=>{this.starter=e.target.value;this.persist();});
+
   const lobby=document.getElementById('multiplayer-lobby');
   const box=document.createElement('div');box.id='hero-lobby-badge';box.className='hero-lobby-badge';
   const first=lobby?.querySelector('.power-loadout');if(first)first.replaceWith(box);else lobby?.appendChild(box);
@@ -36,7 +37,7 @@ export class HeroSelection {
   const h=heroById(this.selectedHero), accent='#'+h.color.toString(16).padStart(6,'0');
   const profile=document.getElementById('hero-profile');profile.style.borderColor=accent+'77';
   profile.innerHTML=`<div><strong style="color:${accent}">${h.name} · ${h.title}</strong><small>${h.description}</small></div><div class="hero-powers">${h.skills.map((id,i)=>{const d=POWER_DATA[id]||POWER_VARIANTS[id];return `<span><b>${i+1} · ${d.icon} ${d.label}</b><small>${d.help}</small></span>`;}).join('')}</div>`;
-  const starter=document.getElementById('hero-starter');starter.replaceChildren(...h.skills.map(id=>{const o=document.createElement('option');o.value=id;o.textContent=(POWER_DATA[id]||POWER_VARIANTS[id]).label;return o;}));starter.value=this.starter;
+
   document.getElementById('hero-weapon').value=String(this.weapon);
   const badge=document.getElementById('hero-lobby-badge');if(badge)badge.innerHTML=`<strong style="color:${accent}">${h.name} — ${h.class.toUpperCase()}</strong><span>Arma inicial: ${WEAPONS[this.weapon].name} · Poderes: ${h.skills.map(id=>(POWER_DATA[id]||POWER_VARIANTS[id]).label).join(' / ')}</span><small>Para alterar personagem ou arma, volte ao menu inicial.</small>`;
  }
