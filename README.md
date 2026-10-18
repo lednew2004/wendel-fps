@@ -1,6 +1,12 @@
-# TITAN PROTOCOL 3.3 — SQUAD OPERATIONS
+# TITAN PROTOCOL 3.3.1 — SQUAD OPERATIONS (CORREÇÃO DE INICIALIZAÇÃO)
 
 FPS 3D com personagens e habilidades, câmera em **primeira ou terceira pessoa**, 13 heróis com três técnicas próprias, modos de combate e missões táticas de esquadrão. Projeto em HTML/CSS/JavaScript + Three.js com servidor HTTP/WebSocket Node.js >=22, sem dependências de npm. A biblioteca Three.js é carregada pela internet via CDN.
+
+## Correção 3.3.1 — Erro ao iniciar o motor 3D
+
+A tela de erro era causada por uma exceção JavaScript no `ParkourController.updateHud`: o novo mapa Squad não tem percursos de parkour cronometrados e a interface tentava acessar `route.name` de uma rota inexistente. Agora o HUD lida com ausência de percursos e as ações `T` / `m-trial` não ativam rotas inexistentes. Os recursos de salto, corrida e parkour livre permanecem disponíveis. O erro na tela também identifica a exceção real para facilitar futuros diagnósticos.
+
+**Validação:** 73 testes automatizados, incluindo 2 regressões específicas de inicialização, aprovados. A renderização WebGL completa ainda deve ser testada em um navegador real.
 
 ## Mudanças da versão 3.3
 
@@ -59,7 +65,7 @@ Escolha `COOP` no lobby multiplayer e compartilhe o código da sala. Entram **qu
 npm start
 ```
 
-O servidor entrega o frontend e as salas WebSocket na mesma origem. Acesse `http://localhost:3000` e `/health` (deve informar `3.3.0`). Para rodar testes:
+O servidor entrega o frontend e as salas WebSocket na mesma origem. Acesse `http://localhost:3000` e `/health` (deve informar `3.3.1`). Para rodar testes:
 
 ```bash
 npm test

@@ -1,4 +1,5 @@
 import {PARKOUR_TUNING as CFG,approach} from './parkourPhysics.js';
+import {SQUAD_START} from './squadLayout.js';
 
 const fmtTime=t=>Number(t).toFixed(2)+' s';
 const $=id=>document.getElementById(id);
@@ -15,6 +16,8 @@ export class ParkourController {
     this.updateHud();
   }
   start(course=0){
+    // A operação Squad não possui os percursos cronometrados da antiga cidade.
+    if(!this.city.courses?.length){this.startCombat(SQUAD_START.x,SQUAD_START.z);return;}
     this.combat=false;this.trialActive=true;this.city.toggle(true);this.selectCourse(course);
   }
   startCombat(x=0,z=18){
@@ -24,6 +27,12 @@ export class ParkourController {
     this.updateHud();
   }
   toggleTrial(){
+    // O mapa tático substituiu os percursos urbanos. Nunca ativar um desafio sem checkpoints.
+    if(!this.city.courses?.length){
+      this.trialActive=false;this.running=false;this.progress=0;
+      this.prompt='PARKOUR LIVRE · SEM DESAFIOS CRONOMETRADOS NESTE MAPA';
+      this.updateHud();return false;
+    }
     this.trialActive=!this.trialActive;this.running=false;this.elapsed=0;this.progress=0;
     if(this.trialActive){
       // Nearest course gets activated without teleporting during combat.
@@ -34,11 +43,12 @@ export class ParkourController {
   }
   stop(){this.city.toggle(false);this.city.setRouteActive?.(-1);this.accumulator=0;this.trialActive=false;}
   selectCourse(index){
+    if(!this.city.courses?.length){this.trialActive=false;this.updateHud();return false;}
     this.current=Math.max(0,Math.min(this.city.courses.length-1,index));this.trialActive=true;this.city.setRouteActive?.(this.current);
     this.progress=0;this.elapsed=0;this.running=false;this.combo=0;this.checkpoint=null;
     this.spawn(this.city.courses[this.current].spawn[0],0,this.city.courses[this.current].spawn[1]);
     this.prompt='SIGA O MARCADOR NO SOLO PARA INICIAR O PERCURSO';
-    this.updateHud();
+    this.updateHud();return true;
   }
   spawn(x,y,z){
     this.x=x;this.z=z;this.y=y;this.vx=0;this.vz=0;this.vy=0;this.grounded=true;
@@ -47,7 +57,9 @@ export class ParkourController {
     this.game.positionCamera();
   }
   resetCheckpoint(){
-    const p=this.checkpoint||(this.combat?{x:0,y:0,z:18}:{x:this.city.courses[this.current].spawn[0],y:0,z:this.city.courses[this.current].spawn[1]});
+    const route=this.city.courses?.[this.current];
+    const safeStart={x:SQUAD_START.x,y:0,z:SQUAD_START.z};
+    const p=this.checkpoint||(this.combat||!route?safeStart:{x:route.spawn[0],y:0,z:route.spawn[1]});
     this.spawn(p.x,p.y,p.z);this.prompt='REINICIADO NO ÚLTIMO CHECKPOINT';
   }
   jump(){
@@ -244,7 +256,8 @@ export class ParkourController {
   }
   checkCourse(){
     if(!this.trialActive)return;
-    const route=this.city.courses[this.current];
+    const route=this.city.courses?.[this.current];
+    if(!route?.waypoints?.length){this.trialActive=false;return;}
     const target=route.waypoints[this.progress];
     if(!target)return;
     if(Math.hypot(this.x-target.x,this.z-target.z)>2.7||Math.abs(this.y-target.y)>1.05)return;
@@ -264,17 +277,19 @@ export class ParkourController {
     }else this.prompt=`CHECKPOINT ${this.progress}/${route.waypoints.length-1} — CONTINUE`;
   }
   updateHud(){
-    const route=this.city.courses[this.current];
-    $('pk-route').textContent=route.name;
-    $('pk-level').textContent='NÍVEL '+route.level;
-    $('pk-progress').textContent=this.progress+'/'+(route.waypoints.length-1);
-    $('pk-time').textContent=fmtTime(this.elapsed);
-    $('pk-best').textContent=route.best?fmtTime(route.best):'—';
+    const route=this.city.courses?.[this.current];
+    // O mapa Squad possui combate e objetivos, mas não rotas de parkour cronometradas.
+    // Este HUD ainda é usado durante a inicialização e nunca pode depender de uma rota.
+    $('pk-route').textContent=route?.name||'OPERAÇÃO SQUAD';
+    $('pk-level').textContent=route?'NÍVEL '+route.level:'COMBATE TÁTICO';
+    $('pk-progress').textContent=route?this.progress+'/'+(route.waypoints.length-1):'—';
+    $('pk-time').textContent=route?fmtTime(this.elapsed):'—';
+    $('pk-best').textContent=route?.best?fmtTime(route.best):'—';
     $('pk-height').textContent=Math.max(0,this.y).toFixed(1)+' m';
     $('pk-speed').textContent=(Math.hypot(this.vx,this.vz)*3.6).toFixed(0)+' km/h';
     const interaction=this.city.nearestInteractable(this.x,this.z,this.y);
     $('pk-prompt').textContent=interaction?(interaction.open?'E · FECHAR ':'E · ABRIR ')+(interaction.kind==='door'?'PORTA':'JANELA')+' · MOBILE: USAR':this.prompt;
-    const target=route.waypoints[this.progress];
+    const target=route?.waypoints?.[this.progress];
     if(target&&this.trialActive){
       const dx=target.x-this.x,dz=target.z-this.z;
       const dist=Math.hypot(dx,dz);
