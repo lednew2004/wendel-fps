@@ -7,13 +7,13 @@ import {POWER_RULES,sanitizeLoadout} from '../powers.mjs';
 import {POWER_PRICES} from '../../public/src/casualEconomy.js';
 
 test('thirteen authored characters have 39 distinct, functional techniques and clear low-detail identities',()=>{
- assert.equal(HEROES.length,13);
+ assert.equal(HEROES.length,14);
  const ids=HEROES.flatMap(h=>h.skills);
- assert.equal(ids.length,39);
- assert.equal(new Set(ids).size,39);
+ assert.equal(ids.length,42);
+ assert.equal(new Set(ids).size,42);
  assert.equal(Object.keys(POWER_VARIANTS).length,21);
- assert.equal(new Set(HEROES.map(h=>h.name)).size,13);
- assert.equal(new Set(HEROES.map(h=>h.color)).size,13);
+ assert.equal(new Set(HEROES.map(h=>h.name)).size,14);
+ assert.equal(new Set(HEROES.map(h=>h.color)).size,14);
  for(const h of HEROES){
   assert.equal(h.skills.length,3);
   assert.equal(heroById(h.id),h);

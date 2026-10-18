@@ -1,4 +1,5 @@
 import {POWER_VARIANTS} from '../public/src/heroRoster.js';
+import {prepareAdaptation} from '../public/src/adaptation.js';
 /** Regras de habilidades autoritativas; compartilhadas com os testes do servidor. */
 const BASE_POWER_RULES=Object.freeze({
  push:{name:'Repulsão',cooldown:12000,range:16},
@@ -18,6 +19,12 @@ const BASE_POWER_RULES=Object.freeze({
  copy:{name:'Roubo de Habilidades',cooldown:27000,range:60,markDuration:18000,stealDuration:30000},
  resurrection:{name:'Ressurreição',cooldown:48000,duration:4000},
  heal:{name:'Cura',cooldown:17000,health:70,shield:25},
+ vault:{name:'Salto de Obstáculo',cooldown:14000,range:7},
+ wallrun_boost:{name:'Corrida Vertical',cooldown:23000,duration:6000},
+ vex_ultimate:{name:'Sem Limites',cooldown:42000,duration:10000},
+ adapt_scan:{name:'Evolução Forçada',cooldown:22000,duration:8000},
+ adapt_counter:{name:'Contraevolução',cooldown:28000,range:15},
+ adapt_ultimate:{name:'Adaptação Absoluta',cooldown:60000,duration:15000},
  morph:{name:'Disfarce em Objeto',cooldown:18000,duration:10000,range:6}
 });
 export const POWER_RULES=Object.freeze({...BASE_POWER_RULES,...Object.fromEntries(Object.entries(POWER_VARIANTS).map(([id,v])=>[id,{...BASE_POWER_RULES[v.base],...v,name:v.label,cooldown:v.cool*1000}]))});
@@ -30,12 +37,13 @@ export function sanitizeLoadout(input){
  if(a.length>=3){let third=VALID_POWERS.includes(a[2])?a[2]:'heal';if(third===first||third===second)third=VALID_POWERS.find(x=>x!==first&&x!==second);return [first,second,third];}
  return [first,second];
 }
-export function freshPowerState(){return {combo:{},empoweredUntil:0,loadout:['push','freeze'],cooldowns:{},activeUntil:{},cloneJumpUsed:false,copyMark:null,copiedUntil:0,originalLoadout:null,frozenUntil:0,flightUntil:0,invisibleUntil:0,phaseUntil:0,shieldUntil:0,gravityUntil:0,resurrectionUntil:0,propUntil:0,propType:null,teleportReturn:null,safe:null,history:[]};}
+export function freshPowerState(){return {combo:{},empoweredUntil:0,loadout:['push','freeze'],cooldowns:{},activeUntil:{},cloneJumpUsed:false,copyMark:null,copiedUntil:0,originalLoadout:null,frozenUntil:0,flightUntil:0,invisibleUntil:0,phaseUntil:0,shieldUntil:0,gravityUntil:0,resurrectionUntil:0,propUntil:0,propType:null,teleportReturn:null,safe:null,history:[],adaptations:[],adaptScanUntil:0,adaptUltimateUntil:0,adaptLast:null,adaptFatalBlock:false};}
 export function powerSnapshot(p,now=Date.now()){
  const s=p.powers;
  return {loadout:s.loadout,cooldowns:s.cooldowns,activeUntil:s.activeUntil,combo:s.combo||{},empoweredUntil:s.empoweredUntil||0,cloneJumpUsed:s.cloneJumpUsed,copiedUntil:s.copiedUntil,copyMarkUntil:s.copyMark?.until||0,frozenUntil:s.frozenUntil,flightUntil:s.flightUntil,
  invisibleUntil:s.invisibleUntil,phaseUntil:s.phaseUntil,shieldUntil:s.shieldUntil,gravityUntil:s.gravityUntil,
  returnUntil:s.teleportReturn?.until||0,resurrectionUntil:s.resurrectionUntil||0,propUntil:s.propUntil||0,propType:s.propUntil>now?s.propType:null,invulnerable:s.resurrectionUntil>now,
+ adaptations:(s.adaptations||[]).filter(a=>a.until>now),adaptScanUntil:s.adaptScanUntil||0,adaptUltimateUntil:s.adaptUltimateUntil||0,adaptLast:s.adaptLast||null,
  frozen:s.frozenUntil>now||s.gravityUntil>now,
  flying:s.flightUntil>now,invisible:s.invisibleUntil>now,phased:s.phaseUntil>now,shielded:s.shieldUntil>now};
 }

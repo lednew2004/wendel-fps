@@ -324,15 +324,16 @@ export class MultiplayerClient {
       case 'dash-state':if(!msg.ok){this.game.player.dashDuration=0;this.game.parkour.dashTime=0;this.game.player.dashCd=Math.max(this.game.player.dashCd,Number(msg.remaining||0)/1000);this.game.toast('DASH EM RECARGA');}break;
       case 'power-state':this.game.powers.onServerState(msg.powers);break;
       case 'power-error':this.game.toast(msg.message||'PODER NÃO ATIVADO');break;
+      case 'adapt-learned':this.game.toast('EVOLUÇÃO · '+msg.event.toUpperCase()+(msg.blocked?' · BLOQUEADO':' · APRENDIDO'));break;
       case 'power-copy':this.game.powers.onServerState(msg.powers);this.game.toast('PODERES COPIADOS DE '+msg.from+' · 30 SEGUNDOS');break;
       case 'power-effect':{
         this.game.powers.onServerEffect(msg);
         if(msg.kind==='combo-dash'&&msg.player!==this.id){const entry=this.others.get(msg.player);if(entry){entry.motion={from:msg.from,to:msg.to,elapsed:0,duration:Math.max(.08,(msg.duration||340)/1000)};entry.group.position.set(msg.from.x,msg.from.y,msg.from.z);entry.target.set(msg.to.x,msg.to.y,msg.to.z);}break;}
         if(msg.kind==='gravity'&&Array.isArray(msg.affected)&&msg.affected.includes(this.id)){this.game.powers.status.gravity=Date.now()+2700;this.game.parkour.y+=3.5;this.game.parkour.vy=0;}
         if((msg.kind==='gravity-land'||msg.kind==='combo-move')&&msg.player===this.id&&Number.isFinite(msg.y))this.game.parkour.spawn(msg.x,msg.y,msg.z);
-        if(msg.player!==this.id&&['combo-move','teleport','teleport-back','swap','clonejump','rewind'].includes(msg.kind)){const remote=this.others.get(msg.player);if(remote&&Number.isFinite(msg.x)){this.game.powers.motion.teleport({x:remote.group.position.x,y:remote.group.position.y,z:remote.group.position.z},{x:msg.x,y:msg.y,z:msg.z},0xb77dff);}}
+        if(msg.player!==this.id&&['combo-move','teleport','teleport-back','swap','clonejump','rewind','vault'].includes(msg.kind)){const remote=this.others.get(msg.player);if(remote&&Number.isFinite(msg.x)){this.game.powers.motion.teleport({x:remote.group.position.x,y:remote.group.position.y,z:remote.group.position.z},{x:msg.x,y:msg.y,z:msg.z},0xb77dff);}}
         if(msg.kind==='push'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x))entry.target.set(msg.x,msg.y,msg.z);}
-        if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='clonejump'||msg.kind==='rewind'||msg.kind==='swap'||msg.kind==='phase-exit'||msg.kind==='gravity-land'||msg.kind==='combo-move'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
+        if(msg.kind==='teleport'||msg.kind==='teleport-back'||msg.kind==='clonejump'||msg.kind==='rewind'||msg.kind==='vault'||msg.kind==='swap'||msg.kind==='phase-exit'||msg.kind==='gravity-land'||msg.kind==='combo-move'){const entry=this.others.get(msg.player);if(entry&&Number.isFinite(msg.x)){entry.target.set(msg.x,msg.y,msg.z);entry.group.position.copy(entry.target);}}
         break;
       }
       case 'power-vfx':{
@@ -343,13 +344,13 @@ export class MultiplayerClient {
           this.game.powers.onServerClones(msg);
           for(const clone of msg.clones||[]){
             if(this.decoys.has(clone.id))continue;
-            const root=remoteAvatar('HOLOGRAMA');root.position.set(clone.x,clone.y,clone.z);
+            const owner=this.players.find(p=>p.id===msg.player);const root=remoteAvatar('HOLOGRAMA',owner?.hero||'echo');root.position.set(clone.x,clone.y,clone.z);
             // Reuse one semi-transparent material per original surface; holograms remain cheap on mobile.
             const clonedMaterials=new Map();
             root.userData.body.traverse(o=>{
               if(!o.isMesh||!o.material?.clone)return;
               if(!clonedMaterials.has(o.material)){
-                const mat=o.material.clone();mat.transparent=true;mat.opacity=.47;mat.depthWrite=false;
+                const mat=o.material.clone();mat.transparent=true;mat.opacity=.83;mat.depthWrite=false;
                 clonedMaterials.set(o.material,mat);
               }
               o.material=clonedMaterials.get(o.material);

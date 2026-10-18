@@ -52,7 +52,7 @@ export class ParkourController {
     this.updateHud();return true;
   }
   spawn(x,y,z){
-    this.x=x;this.z=z;this.y=y;this.vx=0;this.vz=0;this.vy=0;this.grounded=true;
+    this.x=x;this.z=z;this.y=y;this.vexDoubleUsed=false;this.vx=0;this.vz=0;this.vy=0;this.grounded=true;
     this.coyote=0;this.buffer=0;this.wallRun=0;this.slide=0;this.dashTime=0;this.ladder=null;this.hanging=null;
     this.game.player.x=x;this.game.player.z=z;this.game.player.eyeY=y+1.75;
     this.game.positionCamera();
@@ -66,6 +66,7 @@ export class ParkourController {
   jump(){
     if(this.hanging){this.mantle();return;}
     if(this.ladder){this.dismountLadder();return;}
+    if(this.game.powers?.isActive('vex_ultimate')&&!this.grounded&&!this.ladder&&!this.hanging&&!this.vexDoubleUsed){this.vy=CFG.jumpSpeed*1.10;this.vexDoubleUsed=true;this.prompt='VEX · PULO DUPLO';return;}
     this.buffer=CFG.jumpBuffer;
     if(this.grounded){
       const dir=this.direction();
@@ -137,6 +138,7 @@ export class ParkourController {
     let f=Number(!!(k.KeyW||k.ArrowUp))-Number(!!(k.KeyS||k.ArrowDown));
     let r=Number(!!(k.KeyD||k.ArrowRight))-Number(!!(k.KeyA||k.ArrowLeft));
     // Joystick é contínuo; combina com teclado sem duplicar velocidades.
+    if(this.grounded)this.vexDoubleUsed=false;
     const mobile=this.game.mobile;
     if(mobile?.enabled){f+=mobile.move.y;r+=mobile.move.x;}
     const mag=Math.hypot(f,r);
@@ -185,13 +187,15 @@ export class ParkourController {
     this.slide=Math.max(0,this.slide-dt);
     this.buffer=Math.max(0,this.buffer-dt);
     this.coyote=Math.max(0,this.coyote-dt);
+    if(this.grounded)this.vexDoubleUsed=false;
     const mobile=this.game.mobile;
     // A full thumb-stick should sprint in every direction, including strafes.
     const stickMagnitude=mobile?.enabled?Math.hypot(mobile.move.x,mobile.move.y):0;
     const isSprint=!!(k.ShiftLeft||k.ShiftRight||mobile?.sprintTouch)||(!!mobile?.enabled&&stickMagnitude>.72);
     // Mobile-only pace boost. Desktop physics, jump and dash are unchanged.
     const touchPace=mobile?.enabled&&this.slide<=0?(isSprint?1.10:1.18):1;
-    const speed=(this.slide>0?CFG.slideSpeed:isSprint?CFG.sprintSpeed:CFG.walkSpeed)*touchPace*(this.game.player.speedBonus||1);
+    const vexBoost=powers?.isActive('vex_ultimate')?1.34:powers?.isActive('wallrun_boost')?1.12:1;
+    const speed=(this.slide>0?CFG.slideSpeed:isSprint?CFG.sprintSpeed:CFG.walkSpeed)*touchPace*vexBoost*(this.game.player.speedBonus||1);
     const ax=dir.x*speed,az=dir.z*speed;
     const accel=(this.grounded?CFG.accelGround:CFG.accelAir)*dt;
     if(this.dashTime>0){this.dashTime=Math.max(0,this.dashTime-dt);this.vx=this.dashVX;this.vz=this.dashVZ;}
@@ -208,8 +212,8 @@ export class ParkourController {
     }
     if(!this.grounded&&!flying){
       const wall=this.city.wallNear(this.x,this.z,this.y,.76);
-      const canRun=!!wall&&isSprint&&dir.mag>0&&Math.hypot(this.vx,this.vz)>5&&this.vy<3;
-      if(canRun&&this.wallRun<CFG.wallRunTime){
+      const canRun=!!wall&&(isSprint||powers?.isActive('wallrun_boost')||powers?.isActive('vex_ultimate'))&&dir.mag>0&&Math.hypot(this.vx,this.vz)>5&&this.vy<3;
+      if(canRun&&this.wallRun<(powers?.isActive('vex_ultimate')?3.2:powers?.isActive('wallrun_boost')?2.0:CFG.wallRunTime)){
         this.wallRun+=dt;this.vy=Math.max(this.vy,-2.0);
         const dot=this.vx*wall.nx+this.vz*wall.nz;
         if(dot<0){this.vx-=dot*wall.nx;this.vz-=dot*wall.nz;}

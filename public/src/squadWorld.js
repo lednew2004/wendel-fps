@@ -25,9 +25,14 @@ export function createSquadWorld(city){
    const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),concrete);m.rotation.x=-Math.PI/2;m.position.set(x,.025,z);m.receiveShadow=true;root.add(m);
  }
  for(const [index,b] of SQUAD_BLOCKS.entries()){
-   const isShort=b.h<3,material=isShort?concrete:facades[index%facades.length];
+   const isShort=b.h<3,material=b.obstacle?(index%2?orange:wall):isShort?concrete:facades[index%facades.length];
    const mesh=city.box(b.x,b.h/2,b.z,b.w,b.h,b.d,material);city.rayTargets.push(mesh);
    city.solids.push({...b});
+   if(b.obstacle){
+     const top=city.box(b.x,b.h+.07,b.z,b.w+.15,.14,b.d+.15,panel,false);
+     city.rayTargets.push(top);city.addSurface(b.x,b.z,b.w,b.d,b.h+.14);
+     continue;
+   }
    if(!isShort){
      const roof=city.box(b.x,b.h+.16,b.z,b.w+.45,.32,b.d+.45,metal);city.rayTargets.push(roof);
      city.addSurface(b.x,b.z,b.w,b.d,b.h+.32);
@@ -53,7 +58,7 @@ export function createSquadWorld(city){
  const rooftop=new THREE.InstancedMesh(new THREE.BoxGeometry(1.1,.65,1.1),darkMetal,72);
  const dummy=new THREE.Object3D();let windows=[0,0],nr=0,nt=0;
  for(const [i,b] of SQUAD_BLOCKS.entries()){
-   if(b.h<3)continue;
+   if(b.h<3||b.obstacle)continue;
    const side=(i%2===0?1:-1),count=Math.min(6,Math.floor((b.w-1)/2.1)),floors=Math.min(3,Math.floor((b.h-1.4)/2.6));
    for(let floor=0;floor<floors;floor++)for(let j=0;j<count;j++){
      const which=(j+i+floor)%2;const k=windows[which];if(k>=350)continue;
@@ -134,7 +139,7 @@ export function createSquadWorld(city){
  const arches=new THREE.InstancedMesh(new THREE.TorusGeometry(1.3,.12,7,18,Math.PI),archMat,45);
  let p=0,a=0;
  for(const b of SQUAD_BLOCKS){
-   if(b.h<3)continue;
+   if(b.h<3||b.obstacle)continue;
    for(let n=0;n<6;n++){
      const k=n%3;
      dummy.position.set(b.x+(k-1)*b.w*.33,b.h+.65,b.z+(n<3?-.26:.26)*b.d);

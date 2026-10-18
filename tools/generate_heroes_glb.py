@@ -18,7 +18,7 @@ HEROES={
 'aeronaut':('scout',0x5affdf,4),'phantom':('hunter',0xf18bff,5),'chronos':('boss',0xffc86d,6),
 'echo':('scout',0x75c2ff,7),'storm':('gunner',0xffe065,8),'gravity':('tank',0xbc86ff,9),
 'guardian':('gunner',0x83efa5,10),'shiro':('hunter',0xff526b,11),'leo':('boss',0xf5c35a,12),
-'butterfly':('scout',0xae94ff,13),
+'butterfly':('scout',0xae94ff,13),'adaptomega':('tank',0xa17aff,14),
 'scout':('scout',0xff614d,0),'gunner':('gunner',0xf0b756,0),'sniper':('sniper',0x79ccf4,0),
 'hunter':('hunter',0x9bd66a,0),'tank':('tank',0xffa65c,0),'boss':('boss',0xed68fe,0),'player':('scout',0x59dce8,0)
 }

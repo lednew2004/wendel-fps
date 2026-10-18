@@ -22,8 +22,8 @@ test('Squad FPS map has insertion, defense, reconnaissance, sabotage, boss and e
 });
 
 test('13 independent characters, 39 powers and all nine real combo definitions',()=>{
- assert.equal(HEROES.length,13);
- assert.equal(new Set(HEROES.flatMap(h=>h.skills)).size,39);
+ assert.equal(HEROES.length,14);
+ assert.equal(new Set(HEROES.flatMap(h=>h.skills)).size,42);
  for(const h of HEROES){assert.equal(h.skills.length,3);assert.deepEqual(heroLoadout(h.id),h.skills);for(const power of h.skills)assert.ok(heroAllows(h.id,power)&&POWER_RULES[power]);}
  assert.equal(COMBO_IDS.length,9);
  assert.deepEqual(heroLoadout('shiro'),['shiro_step','shiro_retreat','shiro_ricochet']);

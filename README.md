@@ -1,3 +1,16 @@
+## TITAN PROTOCOL 3.6.0 — Ambiente, VEX, ADAPT-Ω, MÍMICO e Mobile
+
+- 14 personagens / 42 habilidades equipadas de heróis.
+- Novos muros, barreiras e obstáculos físicos compartilhados entre cliente e servidor.
+- VEX evoluído com salto de muro, corrida vertical e ultimate SEM LIMITES.
+- ADAPT-Ω: observa eventos, aprende imunidades, contra-ataca e usa evolução automática (três categorias).
+- MÍMICO: clones com aparência e animações de operador; clones comuns também andam no multiplayer.
+- Cópia de poderes pós-eliminação liberada pela validação do cliente.
+- HUD mobile à frente dos controles e suporte a touchstart/touchend, além de pointer events.
+- Todos os efeitos de combate importantes em multiplayer continuam calculados pelo servidor.
+
+**Limites dos testes:** os testes automatizados não substituem uma verificação em celular físico, especialmente Safari iOS.
+
 # TITAN PROTOCOL 3.5.3 — VOXEL SQUAD + EDITOR DE HUD (SQUAD OPERATIONS)
 
 FPS 3D com personagens e habilidades, câmera exclusivamente em **primeira pessoa (FPS)**, 13 heróis com três técnicas próprias, modos de combate e missões táticas de esquadrão. Projeto em HTML/CSS/JavaScript + Three.js com servidor HTTP/WebSocket Node.js >=22, sem dependências de npm. A biblioteca Three.js é carregada pela internet via CDN.

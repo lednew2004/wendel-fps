@@ -16,7 +16,7 @@ export const POWER_VARIANTS=Object.freeze({
  ...HERO_COMBOS
 });
 export const HEROES=Object.freeze([
- {id:'striker',name:'VEX',title:'IMPACTO CINÉTICO',class:'Assalto',color:0xff735f,role:'scout',weapon:0,skills:['push','shockwave','overclock'],description:'Força brutal, deslocamento e combate próximo.'},
+ {id:'striker',name:'VEX',title:'IMPACTO CINÉTICO',class:'Assalto',color:0xff735f,role:'scout',weapon:0,skills:['vault','wallrun_boost','vex_ultimate'],description:'Salta muros, corre por paredes e domina o parkour vertical.'},
  {id:'cryomancer',name:'NYRA',title:'ARQUITETA DO GELO',class:'Controle',color:0x80dfff,role:'sniper',weapon:2,skills:['freeze','iceburst','stasis'],description:'Três formas de congelar, isolar e interromper alvos.'},
  {id:'riftwalker',name:'KAIROS',title:'NAVEGADOR DIMENSIONAL',class:'Mobilidade',color:0xbb8aff,role:'hunter',weapon:0,skills:['teleport','swap','phase'],description:'Teleporte pelo mapa, troca de lugar e intangibilidade.'},
  {id:'aeronaut',name:'ÍCARO',title:'PREDADOR AÉREO',class:'Mobilidade',color:0x5affdf,role:'scout',weapon:0,skills:['flight','jetburst','pulsegravity'],description:'Voo livre, impulsos e domínio aéreo.'},
@@ -28,6 +28,7 @@ export const HEROES=Object.freeze([
  {id:'guardian',name:'ATLAS',title:'PROTETOR BIÔNICO',class:'Suporte',color:0x83efa5,role:'gunner',weapon:3,skills:['heal','shield','lifedrain'],description:'Cura, armadura e sobrevivência em combate.'},
  {id:'shiro',name:'SHIRO',title:'LÂMINA CARMESIM',class:'Assassino',color:0xff526b,role:'hunter',weapon:1,skills:['shiro_step','shiro_retreat','shiro_ricochet'],description:'Dois avanços, recuo com tiro melhorado e ricochetes com escudo.'},
  {id:'leo',name:'LEO',title:'ARQUITETO DO CAOS',class:'Assassino',color:0xf5c35a,role:'boss',weapon:0,skills:['leo_dash','leo_immunity','leo_barrage'],description:'Dois avanços com retorno, imunidade instantânea e chuva de bombas.'},
+ {id:'adaptomega',name:'ADAPT-Ω',title:'EVOLUÇÃO INTELIGENTE',class:'Adaptativo',color:0xa17aff,role:'tank',weapon:0,skills:['adapt_scan','adapt_counter','adapt_ultimate'],description:'Aprende ataques, desenvolve imunidades e evolui em combate.'},
  {id:'butterfly',name:'BUTTERFLY',title:'ORBE ERRANTE',class:'Mobilidade',color:0xae94ff,role:'scout',weapon:2,skills:['butterfly_dash','butterfly_orbit','butterfly_launch'],description:'Dash de retorno, satélite orbital e cometa que repele e teleporta.'}
 ]);
 export const heroById=id=>HEROES.find(h=>h.id===id)||HEROES[0];

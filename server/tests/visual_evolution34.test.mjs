@@ -19,7 +19,7 @@ function inspectGlb(rel){
  return {json,size:b.length};
 }
 test('13 heróis possuem GLB autoral com rig, geometria e nove animações esqueléticas',()=>{
- assert.equal(HEROES.length,13);
+ assert.equal(HEROES.length,14);
  for(const hero of HEROES){
   const {json,size}=inspectGlb(`public/assets/models/operatives/${hero.id}.glb`);
   assert.ok(size<180_000,`${hero.id}: asset pesado`);

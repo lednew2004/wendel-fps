@@ -10,7 +10,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {WORLD_HALF} from '../public/src/worldLayout.js';
-import {FFA_SPAWNS,SQUAD_START,roleForHero,ROLE_INFO} from '../public/src/squadLayout.js';
+import {observeAdaptation,learned,startUltimate,ADAPT_LABELS} from '../public/src/adaptation.js';
+import {FFA_SPAWNS,SQUAD_START,roleForHero,ROLE_INFO,SQUAD_OBSTACLES} from '../public/src/squadLayout.js';
 import {newCoop,advanceCoop,coopSnapshot,coopFire,coopAbility,coopSupportPulse} from './coopEngine.mjs';
 import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,isGroundedDestination,within,nearbyMorphObject,canAutoResurrect,criticalPowerPenalty} from './powers.mjs';
 
@@ -202,7 +203,13 @@ function fire(p,data){
   // Shotgun is strong at close range and weaker at distance.
   if(p.weapon===1)damage=Math.max(12,Math.round(damage*(1-nearest/45)));
   if(victim.powers.resurrectionUntil>now)return;
+  if(adaptedAgainst(victim,'kinetic',now))return;
   if(victim.powers.shieldUntil>now){send(p.socket,{type:'power-vfx',kind:'shield-hit',player:victim.id,x:victim.x,y:victim.y,z:victim.z});return;}
+  // One emergency fatal prevention per absolute evolution, never unlimited invulnerability.
+  if(victim.hero==='adaptomega'&&victim.powers.adaptUltimateUntil>now&&victim.powers.adaptFatalBlock&&damage>=victim.hp+victim.shield){
+    victim.powers.adaptFatalBlock=false;victim.powers.adaptLast='kinetic';notifyPower(victim,'adaptation');
+    broadcast(victim.room,{type:'power-vfx',kind:'adaptation',player:victim.id,x:victim.x,y:victim.y,z:victim.z});return;
+  }
   const absorbed=Math.min(victim.shield,damage);victim.shield-=absorbed;victim.hp=Math.max(0,victim.hp-(damage-absorbed));
   if(victim.hp<=0&&autoResurrect(victim,now)){send(p.socket,{type:'hit',victim:victim.id,hp:victim.hp,shield:victim.shield});return;}
   send(p.socket,{type:'hit',victim:victim.id,hp:victim.hp,shield:victim.shield});
@@ -218,6 +225,31 @@ function fire(p,data){
     send(victim.socket,{type:'respawn',spawn:s,hp:100,shield:40,powers:powerSnapshot(victim)});
     broadcast(p.room,{type:'revived',player:publicPlayer(victim)},victim.socket);
   },2200);
+}
+function adaptedAgainst(victim,kind,now=Date.now()){
+ if(victim.hero!=='adaptomega' || !victim.alive)return false;
+ const result=observeAdaptation(victim.powers,kind,now);
+ if(result.learned){
+   notifyPower(victim,'adaptation');
+   broadcast(victim.room,{type:'power-vfx',kind:'adaptation',player:victim.id,x:victim.x,y:victim.y,z:victim.z,event:kind});
+   send(victim.socket,{type:'adapt-learned',event:kind,blocked:result.blocked});
+ }
+ return result.blocked;
+}
+function vaultEndpoint(p){
+ // Only map-authored climbable walls can trigger this teleport; never client coordinates.
+ const fx=-Math.sin(p.yaw),fz=-Math.cos(p.yaw),blocks=roomColliders(p.room);
+ for(let d=1.0;d<=5;d+=.25){
+   const x=p.x+fx*d,z=p.z+fz*d;
+   const wall=SQUAD_OBSTACLES.find(b=>Math.abs(x-b.x)<b.hx+.4&&Math.abs(z-b.z)<b.hz+.4&&b.maxY<4.3);
+   if(!wall)continue;
+   for(let t=d+1;t<d+11;t+=.35){
+     const tx=p.x+fx*t,tz=p.z+fz*t;
+     if(Math.abs(tx-wall.x)<wall.hx+.65&&Math.abs(tz-wall.z)<wall.hz+.65)continue;
+     if(isGroundedDestination(tx,p.y,tz,blocks)&&within(tx,tz,p,14))return {x:tx,y:p.y,z:tz};
+   }
+ }
+ return null;
 }
 function autoResurrect(p,now=Date.now()){
  if(!canAutoResurrect(p,now))return false;
@@ -242,8 +274,10 @@ function projectedVictim(p,range,angle=.55){
   return nearest;
 }
 function notifyPower(p,id){send(p.socket,{type:'power-state',powers:powerSnapshot(p)});broadcast(p.room,{type:'power-status',player:p.id,powers:powerSnapshot(p)},p.socket);}
-function applyAbilityDamage(attacker,victim,damage,now=Date.now()){
+function applyAbilityDamage(attacker,victim,damage,now=Date.now(),kind='energy'){
  if(attacker.team===victim.team||!victim.alive||victim.powers.phaseUntil>now||victim.powers.shieldUntil>now||victim.powers.resurrectionUntil>now)return false;
+ if(adaptedAgainst(victim,kind,now))return false;
+ if(victim.hero==='adaptomega'&&victim.powers.adaptUltimateUntil>now&&victim.powers.adaptFatalBlock&&damage>=victim.hp+victim.shield){victim.powers.adaptFatalBlock=false;notifyPower(victim,'adaptation');return false;}
  const absorbed=Math.min(victim.shield,damage);victim.shield-=absorbed;victim.hp=Math.max(0,victim.hp-damage+absorbed);
  if(victim.hp===0&&autoResurrect(victim,now))return true;
  broadcast(attacker.room,{type:'health',id:victim.id,hp:victim.hp,shield:victim.shield});
@@ -396,9 +430,26 @@ function castPower(p,data){
   const nearbyTargets=blackholeCenter?[...p.room.players.values()].filter(v=>v.id!==p.id&&v.alive&&Math.hypot(v.x-blackholeCenter.x,v.z-blackholeCenter.z)<rule.radius).length:0;
   const pendingRewind=effect==='rewind'&&state.history.length?state.history.reduce((best,h)=>Math.abs(h.t-(now-rule.history))<Math.abs(best.t-(now-rule.history))?h:best,state.history[0]):null;
   const restoredHealth=pendingRewind?Math.max(0,pendingRewind.hp-p.hp):0;
+  if(effect==='adapt_counter'&&(!state.adaptLast||!learned(state,state.adaptLast,now))){send(p.socket,{type:'power-error',message:'Aprenda um ataque antes de contra-atacar.'});return;}
+  if(effect==='vault'&&!vaultEndpoint(p)){send(p.socket,{type:'power-error',message:'Aponte para um muro baixo e aproxime-se.'});return;}
   state.cooldowns[id]=now+rule.cooldown+criticalPowerPenalty(effect,{hpRatio,nearbyTargets,restoredHealth});
   if(rule.duration)state.activeUntil[id]=now+rule.duration;
-  if(effect==='heal'){
+  if(effect==='vault'){
+    const dest=vaultEndpoint(p),from={x:p.x,y:p.y,z:p.z};
+    if(dest){Object.assign(p,dest,{lastMove:now});broadcast(p.room,{type:'power-effect',kind:'vault',player:p.id,...dest,from});}
+  }else if(effect==='wallrun_boost'||effect==='vex_ultimate'){
+    broadcast(p.room,{type:'power-vfx',kind:effect,player:p.id,x:p.x,y:p.y,z:p.z});
+  }else if(effect==='adapt_scan'){
+    state.adaptScanUntil=now+8000;
+  }else if(effect==='adapt_ultimate'){
+    startUltimate(state,now);
+    broadcast(p.room,{type:'power-vfx',kind:'adapt_ultimate',player:p.id,x:p.x,y:p.y,z:p.z});
+  }else if(effect==='adapt_counter'){
+    const kind=state.adaptLast;
+    const enemyList=[...p.room.players.values()].filter(q=>q!==p&&q.team!==p.team&&q.alive&&Math.hypot(q.x-p.x,q.z-p.z)<=15);
+    for(const enemy of enemyList)applyAbilityDamage(p,enemy,kind==='explosion'?85:55,now);
+    broadcast(p.room,{type:'power-vfx',kind:'adapt_counter',player:p.id,x:p.x,y:p.y,z:p.z,event:kind});
+  }else if(effect==='heal'){
     p.hp=Math.min(100,p.hp+rule.health);p.shield=Math.min(40,p.shield+rule.shield);
     broadcast(p.room,{type:'health',id:p.id,hp:p.hp,shield:p.shield});
     broadcast(p.room,{type:'power-vfx',kind:'heal',player:p.id,x:p.x,y:p.y,z:p.z});
@@ -407,7 +458,7 @@ function castPower(p,data){
     broadcast(p.room,{type:'power-vfx',kind:'morph',player:p.id,x:p.x,y:p.y,z:p.z});
   }else if(effect==='push'){
     for(const v of p.room.players.values()){
-      if(v.id===p.id||v.team===p.team||!v.alive||v.powers.phaseUntil>now||!within(v.x,v.z,p,rule.range))continue;
+      if(v.id===p.id||v.team===p.team||!v.alive||v.powers.phaseUntil>now||!within(v.x,v.z,p,rule.range)||adaptedAgainst(v,'push',now))continue;
       const dist=Math.hypot(v.x-p.x,v.z-p.z)||1,dx=(v.x-p.x)/dist,dz=(v.z-p.z)/dist;
       let pos={x:v.x,y:v.y,z:v.z};
       // Move only along collision-free samples: no wall clipping.
@@ -417,8 +468,8 @@ function castPower(p,data){
     }
     broadcast(p.room,{type:'power-vfx',kind:'push',player:p.id,x:p.x,y:p.y,z:p.z});
   }else if(effect==='freeze'){
-    target.powers.frozenUntil=now+rule.duration;
-    broadcast(p.room,{type:'power-effect',kind:'freeze',player:target.id,until:target.powers.frozenUntil});
+    if(adaptedAgainst(target,'freeze',now)){}else target.powers.frozenUntil=now+rule.duration;
+    if(target.powers.frozenUntil>now)broadcast(p.room,{type:'power-effect',kind:'freeze',player:target.id,until:target.powers.frozenUntil});
   }else if(effect==='teleport'){
     state.teleportReturn={x:p.x,y:p.y,z:p.z,until:now+rule.returnWindow};
     Object.assign(p,target,{lastMove:now});
@@ -451,6 +502,7 @@ function castPower(p,data){
   }else if(effect==='gravity'){
     const affected=[];
     for(const q of p.room.players.values())if(q.id!==p.id&&q.team!==p.team&&q.alive&&q.powers.phaseUntil<now&&Math.hypot(q.x-target.x,q.z-target.z)<=rule.radius){
+      if(adaptedAgainst(q,'gravity',now))continue;
       q.powers.gravityUntil=now+rule.duration;q.powers.gravityOrigin=q.y;q.y=Math.min(37,q.y+3.5);q.lastMove=now;
       affected.push(q.id);
     }
@@ -474,7 +526,7 @@ function castPower(p,data){
       const x=limit(p.x+forwardX*distance+sideX*lateral,-WORLD_HALF+4,WORLD_HALF-4);
       const z=limit(p.z+forwardZ*distance+sideZ*lateral,-WORLD_HALF+4,WORLD_HALF-4);
       if(locationValid(x,p.y,z,roomColliders(p.room))){
-        const clone={id:crypto.randomBytes(4).toString('hex'),owner:p.id,power:id,slot:i,x,z,y:p.y,until:now+rule.duration,angle:p.yaw+Math.PI,speed:effect==='clonejump'?7.5:0,turn:1};
+        const clone={id:crypto.randomBytes(4).toString('hex'),owner:p.id,power:id,slot:i,x,z,y:p.y,until:now+rule.duration,angle:p.yaw+Math.PI,speed:effect==='clonejump'?7.5:6.3,turn:1};
         p.room.clones.push(clone);clones.push(clone);
       }
     }
@@ -621,13 +673,14 @@ const tick=setInterval(()=>{
         if(px!==q.x||pz!==q.z){q.x=px;q.z=pz;q.lastMove=now;broadcast(room,{type:'power-effect',kind:'blackhole-pull',player:q.id,x:q.x,y:q.y,z:q.z});}
       }
     }
-    for(const clone of room.clones){if(clone.power==='clonejump'&&clone.until>now){advanceClone(clone,.1,room);broadcast(room,{type:'clone-move',id:clone.id,x:clone.x,y:clone.y,z:clone.z,until:clone.until});}}
+    for(const clone of room.clones){if(clone.until>now){advanceClone(clone,.1,room);broadcast(room,{type:'clone-move',id:clone.id,x:clone.x,y:clone.y,z:clone.z,until:clone.until});}}
     const expired=room.clones.filter(c=>c.until<=now);
     room.clones=room.clones.filter(c=>c.until>now);
     for(const clone of expired)broadcast(room,{type:'clone-destroy',id:clone.id});
     for(const player of room.players.values()){
       const powers=player.powers;
       if(powers.copyMark?.until<=now)powers.copyMark=null;
+      if(powers.adaptations?.length)powers.adaptations=powers.adaptations.filter(a=>a.until>now);
       if(powers.copiedUntil&&powers.copiedUntil<=now){powers.loadout=sanitizeLoadout(powers.originalLoadout);powers.originalLoadout=null;powers.copiedUntil=0;notifyPower(player,'copy');}
     }
     if(room.mode==='coop'){

@@ -16,6 +16,14 @@ export const SQUAD_POINTS=Object.freeze({
  extraction:{x:-85,z:-148,label:'EXTRAÇÃO'}
 });
 // Low-cost fixed geometry and shared server-side blockers; critical objective zones stay open.
+// 3.6: shared navigable city obstacles. Geometry and PvP collision use the same array.
+export const SQUAD_OBSTACLES=Object.freeze([
+ [-15,-116,13,1.5,2.4], [14,-114,11,1.4,2.1],[-24,-63,1.5,11,3.2],
+ [24,-52,1.4,13,2.8],[-12,-30,13,1.5,3.4],[19,-27,9,1.5,1.6],
+ [-62,14,1.5,12,3.5],[63,43,12,1.5,3.0],[-19,77,13,1.5,2.6],
+ [17,87,1.5,14,3.8],[-54,117,9,1.5,2.0],[53,117,10,1.5,2.3],
+ [-24,162,1.4,12,3.2],[23,166,12,1.6,2.6]
+].map(([x,z,w,d,h])=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h,obstacle:true})));
 export const SQUAD_BLOCKS=Object.freeze([
  [-39,-104,16,9,6], [39,-104,16,9,6],[-31,-76,12,7,4],[31,-76,12,7,4],
  [-84,-50,19,14,12],[84,-50,19,14,12],[-46,-16,14,17,8],[46,-16,14,17,8],
@@ -23,13 +31,13 @@ export const SQUAD_BLOCKS=Object.freeze([
  [-91,97,23,16,10],[91,97,23,16,10],[-46,145,15,22,8],[48,145,15,22,8],
  [-23,5,3.2,8,1.3],[21,12,3.2,8,1.3],[-15,96,6,2.5,1.3],[20,105,6,2.5,1.3],
  [-58,-128,8,3,2], [57,-123,8,3,2],[-83,65,3,6,1.8],[82,-1,3,6,1.8]
-].map(([x,z,w,d,h])=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h})));
+].map(([x,z,w,d,h])=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h})).concat(SQUAD_OBSTACLES));
 export const SQUAD_ENEMY_SPAWNS=Object.freeze([
  [-59,-76],[58,-79],[-32,-50],[31,-47],[-98,-16],[96,-1],[-93,63],[-46,81],
  [47,77],[71,96],[-72,116],[0,158],[51,156],[-46,152],[-105,111],[104,117]
 ]);
 export const FFA_SPAWNS=Object.freeze([[-140,-140],[139,139],[-139,139],[139,-140],[-110,0],[111,1],[0,72],[5,-125]]);
-export function roleForHero(id){return ({striker:'front',cryomancer:'support',riftwalker:'sniper',aeronaut:'sniper',phantom:'sniper',chronos:'bomber',echo:'support',storm:'bomber',gravity:'front',guardian:'support',shiro:'front',leo:'bomber',butterfly:'bomber'})[id]||'front';}
+export function roleForHero(id){return ({striker:'front',cryomancer:'support',riftwalker:'sniper',aeronaut:'sniper',phantom:'sniper',chronos:'bomber',echo:'support',storm:'bomber',gravity:'front',guardian:'support',shiro:'front',leo:'bomber',butterfly:'bomber',adaptomega:'front'})[id]||'front';}
 export function safeSpawnNear(world,x,z,r=1.1){
  if(world.canMove(x,z,r))return {x,z};
  for(let dist=2;dist<=24;dist+=2)for(let n=0;n<16;n++){
