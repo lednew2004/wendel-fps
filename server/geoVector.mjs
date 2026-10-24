@@ -4,7 +4,7 @@
  */
 import {parseVectorTile,relevantTiles,geometryFromVectorTiles} from '../public/src/geoVectorParser.js';
 export const VECTOR_TILE_URL='https://tiles.openfreemap.org/planet/latest';
-const AGENT='TITAN-Protocol/4.6.3 (+https://github.com/lednew2004/wendel-fps)';
+const AGENT='TITAN-Protocol/4.6.4 (+https://github.com/lednew2004/wendel-fps)';
 const timeoutMs=7800;
 export async function fetchVectorTile(t,{fetchImpl=fetch,base=VECTOR_TILE_URL}={}){
   const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),timeoutMs);

@@ -798,3 +798,23 @@ body.mode-geocity #geo-location-hud:not(.hidden){display:flex}
 #geo-location-hud #geo-approx-hint{color:#ffcf93}
 #geo-location-hud #geo-stream-status{color:#83e6db}
 @media(max-width:640px){#geo-location-hud{top:45px;left:8px;padding:7px 9px;width:220px}#geo-location-hud small{font-size:8px}#geo-location-hud strong{font-size:13px}}
+
+/* TITAN 4.6.4 - Photorealistic real-city layer, transparent FPS overlay. */
+#viewport{isolation:isolate}
+#titan-cesium-layer{position:absolute!important;inset:0!important;z-index:0;overflow:hidden;pointer-events:none!important}
+#titan-cesium-layer .cesium-viewer,#titan-cesium-layer .cesium-widget,#titan-cesium-layer canvas{width:100%;height:100%;pointer-events:none!important}
+body.photo-city-active #viewport>canvas{position:absolute!important;inset:0;z-index:1;display:block;pointer-events:auto}
+#titan-cesium-credits{position:fixed;z-index:9999;bottom:1px;left:6px;max-width:calc(100vw - 12px);font:11px system-ui,sans-serif;color:white;text-shadow:0 1px 3px black;background:rgba(12,16,26,.72);border-radius:5px;padding:2px 5px;pointer-events:auto}
+#titan-cesium-credits a{color:#f1e7ff;text-decoration:underline}
+body.photo-city-active #geo-game-credit{display:none!important}
+.photo-choice{display:flex;align-items:center;gap:10px;border:1px solid #a18bcd59;border-radius:8px;padding:10px;color:#e9dbf9;font:700 11px Rajdhani,system-ui,sans-serif;cursor:pointer}
+.photo-choice input{accent-color:#a57cf8;width:19px;height:19px;flex:none}
+.photo-choice span{display:flex;flex-direction:column;gap:3px}.photo-choice small{font-size:10px;color:#bda9cf;font-weight:400}
+.photo-setup{padding:8px 10px;background:#1c1723;border:1px solid #816c9859;border-radius:8px;font:12px Rajdhani,system-ui,sans-serif;color:#cab8de}
+.photo-setup summary{cursor:pointer;color:#e5c8ff;font-weight:700}.photo-setup p{font-size:11px;margin:9px 0;line-height:1.5}
+.photo-setup label{display:flex;flex-direction:column;gap:5px;font-weight:700}
+.photo-setup input{padding:8px 11px;max-width:100%;border:1px solid #886da3;border-radius:5px;background:#110e18;color:#fff}
+#geo-photo-status{display:block;font-size:10px;color:#ba9ee2;line-height:1.4}
+body.photo-city-active #geo-location-hud{top:52px}
+
+#geo-location-hud #geo-photo-hud{color:#f3d695;font-weight:800;letter-spacing:.03em}

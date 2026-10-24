@@ -14,6 +14,7 @@ import {Ordnance} from './ordnance.js';
 import {Campaign,MISSIONS} from './campaign.js';
 import {UrbanCity} from './urban.js';
 import {GeoCityStream} from './geoCityStream.js';
+import {PhotorealCity} from './photorealCity.js';
 import {geoCacheKey,saveGeoSector,readGeoSector,fetchGeoDirect} from './geoFallback.js';
 import {loadBrowserVectorCity,loadRasterGeoCity} from './geoTileFallback.js';
 import {ParkourController} from './parkour.js';
@@ -50,7 +51,7 @@ export class Game {
       el('vegetation').value='35';el('vegetation-label').textContent='35%';
     }
     if(!this.mobile.enabled){this.world.setQuality('medium');el('quality').value='medium';}
-    this.geoCity=null;this.baseUrban=this.urban;this.locationPromise=null;this.geoData=null;this.geoUser=null;this.geoLoadPromise=null;this.bind();this.autoLocate();this.hudCustomizer.attach();this.positionCamera();el('menu-best').textContent=num(this.best);el('loading').classList.add('hidden');this.mobile.sync();this.loop();
+    this.world.gameInstance=this;this.photoreal=null;this.photoConfig=null;this.geoCity=null;this.baseUrban=this.urban;this.locationPromise=null;this.geoData=null;this.geoUser=null;this.geoLoadPromise=null;this.bind();this.autoLocate();this.hudCustomizer.attach();this.positionCamera();el('menu-best').textContent=num(this.best);el('loading').classList.add('hidden');this.mobile.sync();this.loop();
   }
   get yaw(){return this.look.yaw;}
   set yaw(v){this.look.yaw=v;}
@@ -67,7 +68,7 @@ export class Game {
     if(!navigator.geolocation || !window.isSecureContext)throw new Error('GPS requer HTTPS ou localhost.');
     this.locationPromise=new Promise((resolve,reject)=>{
       navigator.geolocation.getCurrentPosition(
-        pos=>resolve({lat:pos.coords.latitude,lon:pos.coords.longitude,accuracy:pos.coords.accuracy}),
+        pos=>resolve({lat:pos.coords.latitude,lon:pos.coords.longitude,accuracy:pos.coords.accuracy,altitude:pos.coords.altitude}),
         e=>reject(new Error(e.code===1?'Permissão de localização negada. Clique no ícone de localização do navegador para liberar.':e.code===3?'Localização demorou demais. Tente novamente.':'Não foi possível obter sua localização.')),
         {enableHighAccuracy:false,timeout:14000,maximumAge:600000}
       );
@@ -164,6 +165,7 @@ export class Game {
     catch(e){this.geoStatus(e.message||'Não foi possível detectar a cidade.',true);}
   }
   restoreGeoCity(){
+    this.disablePhotoreal();
     if(!this.geoCity)return;
     this.geoCity.toggle(false);this.geoCity.dispose();this.geoCity=null;el('geo-location-hud')?.classList.add('hidden');
     this.urban=this.baseUrban;this.parkour.city=this.baseUrban;this.world.city=this.baseUrban;
@@ -187,8 +189,39 @@ export class Game {
       this.parkour.prompt=`CIDADE REAL · ${data.city.toUpperCase()} · BUSQUE AS AMEAÇAS`;
       this.geoStatus(data.rasterOnly?'MAPA REAL SIMPLIFICADO CARREGADO · EDIFÍCIOS 3D INDISPONÍVEIS':`${data.city.toUpperCase()} · MAPA REAL CARREGADO`);
       this.updateHud();this.updateGeoPositionHud();this.toast(data.rasterOnly?'RUAS REAIS · MODO CARTOGRÁFICO':`MAPA REAL: ${data.city.toUpperCase()}`);this.requestLock();
+      // Optional visual upgrade: failure never stops combat or map streaming.
+      if(el('geo-photoreal')?.checked)void this.tryEnablePhotoreal(real);
     }catch(e){this.geoStatus(e.message||'Falha ao carregar cidade real.',true);this.toast('FALHA NO MAPA · VERIFIQUE A LOCALIZAÇÃO');}
     finally{if(button)button.disabled=false;}
+  }
+  photoStatus(message){for(const id of ['geo-photo-status','geo-photo-hud']){const line=el(id);if(line)line.textContent=message;}}
+  disablePhotoreal(){
+    if(this.photoreal){this.photoreal.stop();this.photoreal=null;}
+  }
+  async tryEnablePhotoreal(city){
+    this.photoStatus('CONSULTANDO CONFIGURAÇÃO DO GOOGLE 3D...');
+    const config=await PhotorealCity.config();
+    const manual=el('geo-google-key')?.value?.trim()||'';
+    const key=manual||config.key;
+    if(!key){this.photoStatus('Sem chave Google: cidade com ruas reais e gráficos próprios. Configure a API no Render para ativar fotos 3D.');return;}
+    if(this.mode!=='geocity'||this.geoCity!==city)return;
+    this.photoStatus('INICIANDO CIDADE FOTORREALISTA...');
+    const photo=new PhotorealCity(this.world,city,{
+      key,location:this.geoUser||{},
+      onStatus:msg=>this.photoStatus(msg),
+      onFallback:()=>{
+        if(this.photoreal===photo){this.disablePhotoreal();this.photoStatus('Sem cobertura 3D ou sem conexão com o Google: usando construções próprias do OSM.');}
+      }
+    });
+    this.photoreal=photo;
+    try{
+      await photo.start();
+      if(this.mode!=='geocity'||this.geoCity!==city){this.disablePhotoreal();return;}
+      this.toast('VISUAL REAL · GOOGLE 3D ATIVADO');
+    }catch(e){
+      if(this.photoreal===photo)this.disablePhotoreal();
+      this.photoStatus(`Visual real indisponível: ${e.message}. Permanecendo no mapa 3D geográfico.`);
+    }
   }
   bind(){
     el('geo-start')?.addEventListener('click',()=>{void this.startGeo();});
@@ -514,5 +547,10 @@ export class Game {
     if(this.damageFlash>0)this.damageFlash=Math.max(0,this.damageFlash-dt*1.7);el('damage-vignette').style.opacity=(this.damageFlash*.75).toFixed(3);
     
     if(this.state==='playing'&&this.powers.motion.shake>0){const strength=this.powers.motion.shake*(this.mobile?.enabled ? .012 : .020);this.world.camera.position.x+=(Math.random()-.5)*strength;this.world.camera.position.y+=(Math.random()-.5)*strength;}
-    const now=performance.now();if((!this.mobile?.enabled||this.mobile.landscape)&&(!this.fpsLimit||now-this.lastDraw>=1000/this.fpsLimit)){this.world.render();this.fpsCount++;this.lastDraw=now;}}
+    const now=performance.now();if((!this.mobile?.enabled||this.mobile.landscape)&&(!this.fpsLimit||now-this.lastDraw>=1000/this.fpsLimit)){
+      if(this.photoreal?.active){
+        const p=this.player;
+        this.photoreal.update(p.x,p.z,p.eyeY);
+      }
+      this.world.render();this.fpsCount++;this.lastDraw=now;}}
 }

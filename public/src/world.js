@@ -95,6 +95,7 @@ export class World {
   constructor(mount){
     this.mount=mount;
     this.scene=new THREE.Scene();
+    this.photorealMode=false;this.photorealNodes=()=>[];this.prePhotoState=null;
     this.scene.background=new THREE.Color(0x71c8f8);
     this.scene.fog=new THREE.FogExp2(0xc5e9ff,.0022);
     this.camera=new THREE.PerspectiveCamera(78,1,.07,440);
@@ -104,7 +105,7 @@ export class World {
     this.cameraRig.add(this.cameraPitch);
     this.cameraPitch.add(this.camera);
 
-    this.renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+    this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure=1.21;
@@ -595,7 +596,7 @@ export class World {
       pal.orange.color.setHex(this.graphicsLabEnabled?0xdbbb84:0xffc05f);
     }
     this.renderer.toneMappingExposure=this.graphicsLabEnabled?1.10:1.21;
-    if(this.urbanActive){this.scene.fog.color.setHex(this.graphicsLabEnabled?0xb9c9ca:0xb3d8f0);this.scene.background.setHex(this.graphicsLabEnabled?0x90afc2:0x87c3f2);}
+    if(this.urbanActive&&this.scene.fog&&this.scene.background){this.scene.fog.color.setHex(this.graphicsLabEnabled?0xb9c9ca:0xb3d8f0);this.scene.background.setHex(this.graphicsLabEnabled?0x90afc2:0x87c3f2);}
   }
   setGraphicsLabEnabled(enabled){
     this.graphicsLabEnabled=!!enabled;this.syncGraphicsLab39();
@@ -702,7 +703,39 @@ export class World {
     if(!this.urbanActive)for(const a of this.animated) a.update(this.time);
   }
 
+  setPhotorealMode(enabled,combatNodes=()=>[]){
+    enabled=Boolean(enabled);
+    if(enabled===this.photorealMode)return;
+    if(enabled){
+      this.prePhotoState={background:this.scene.background,fog:this.scene.fog,quality:this.quality};
+      // Save performance for the second WebGL renderer while palette still exists.
+      this.setQuality('low');
+      this.scene.background=null;this.scene.fog=null;this.renderer.setClearColor(0x000000,0);
+      this.photorealNodes=combatNodes;this.photorealMode=true;
+    }else{
+      this.photorealMode=false;
+      this.scene.background=this.prePhotoState?.background||new THREE.Color(0x90afc2);
+      this.scene.fog=this.prePhotoState?.fog||new THREE.FogExp2(0xb9c9ca,.0022);
+      this.renderer.setClearColor(0x000000,1);
+      if(this.prePhotoState?.quality)this.setQuality(this.prePhotoState.quality);
+      this.photorealNodes=()=>[];this.prePhotoState=null;
+    }
+  }
   render(){
+    if(this.photorealMode){
+      // The world and geo city stay intact for movement and raycasts, while only
+      // first-person gear + dynamic combat models are overlaid on Google's tiles.
+      const preserve=new Set([this.cameraRig,...this.photorealNodes()]);
+      const suppressed=[];
+      for(const obj of this.scene.children){
+        if(obj.visible&&!obj.isLight&&!preserve.has(obj)){
+          suppressed.push(obj);obj.visible=false;
+        }
+      }
+      try{this.renderer.render(this.scene,this.camera);}
+      finally{for(const obj of suppressed)obj.visible=true;}
+      return;
+    }
     // No post passes active: render directly, avoiding expensive intermediate targets.
     if(!this.ssao.enabled&&!this.bloom.enabled&&!this.smaa.enabled) this.renderer.render(this.scene,this.camera);
     else this.composer.render();

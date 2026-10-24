@@ -7,7 +7,7 @@ const sectors = new Map();
 const MAX_CACHE = 90;
 const CACHE_MS = 6 * 60 * 60 * 1000;
 const FAIL_COOLDOWN_MS = 8000;
-const CITY_AGENT = 'TITAN-Protocol/4.6.3 (+https://github.com/lednew2004/wendel-fps; real OSM city FPS)';
+const CITY_AGENT = 'TITAN-Protocol/4.6.4 (+https://github.com/lednew2004/wendel-fps; real OSM city FPS)';
 const SOURCES = [
   {name: 'Private.coffee', url: 'https://overpass.private.coffee/api/interpreter', timeoutMs: 6800},
   {name: 'FOSSGIS', url: 'https://overpass-api.de/api/interpreter', timeoutMs: 6500},
