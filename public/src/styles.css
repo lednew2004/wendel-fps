@@ -700,3 +700,20 @@ body.playing.sniper-aiming #crosshair span{background:#eafff1;box-shadow:0 0 0 7
 body.playing.sniper-aiming #crosshair{z-index:14}
 body.playing.aiming #aim-optic-label{display:block}
 body:not(.playing) #aim-optic-label{display:none!important}
+
+/* 4.4: optical aim, aerial deployment and field weapon acquisition */
+body.playing.aiming:not(.sniper-aiming) #crosshair{z-index:18}
+body.playing.aiming #crosshair span{width:2px;height:2px;left:17px;top:17px;background:#f8ffff;box-shadow:0 0 0 1px #04222f,0 0 8px #7af6ff}
+body.playing.aiming #crosshair i{display:block;background:#b9f4ff;opacity:.8}
+body.playing.aiming #crosshair i:nth-of-type(1){left:17px;top:3px;height:8px}
+body.playing.aiming #crosshair i:nth-of-type(2){left:17px;bottom:3px;height:8px}
+body.playing.aiming #crosshair i:nth-of-type(3){top:17px;left:3px;width:8px}
+body.playing.aiming #crosshair i:nth-of-type(4){top:17px;right:3px;width:8px}
+body.playing.aiming #aim-optic-label{top:calc(50% + 32px);font-size:10px;background:#081920a0;padding:4px 8px;border-radius:4px}
+#drop-hud{display:none;position:fixed;z-index:31;left:50%;top:18%;transform:translateX(-50%);pointer-events:none;background:#071621cc;border:1px solid #79eaff99;padding:18px 27px;text-align:center;min-width:280px;box-shadow:0 20px 80px #0008;backdrop-filter:blur(6px);color:#d8fafa;font-family:Rajdhani,sans-serif}
+#drop-hud strong{font:900 27px 'Barlow Condensed',sans-serif;letter-spacing:2px;display:block}
+#drop-hud small{display:block;margin-top:6px;letter-spacing:1.5px;color:#98e5ea;font-size:14px;font-weight:700}
+#drop-hud b{display:block;font:900 17px 'Barlow Condensed',sans-serif;color:#ffd08d;letter-spacing:2px;margin-top:8px}
+body.dropping #drop-hud{display:block}
+body.dropping .abilities,body.dropping .ingame-hint{opacity:.38}
+@media(max-width:760px){#drop-hud{top:13%;padding:10px 16px;min-width:220px}#drop-hud strong{font-size:20px}}

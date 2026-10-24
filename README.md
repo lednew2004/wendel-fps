@@ -1,3 +1,7 @@
+# Versão 4.4.0 — atualização de jogabilidade
+
+Para mira com zoom real, salto inicial com paraquedas, bots reforçados, progressão até os chefes e armas coletáveis, consulte [ATUALIZACAO_4_4.md](./ATUALIZACAO_4_4.md).
+
 # NOVO: TITAN PROTOCOL 4.2 — BASE DE FPS RESTAURADA
 
 **Para subir ao GitHub:** consulte [`GITHUB_COMMIT_PRONTO.md`](./GITHUB_COMMIT_PRONTO.md). O envio usa a branch `restauracao-fps-4.2` e não publica o jogo automaticamente pelo GitHub Actions.

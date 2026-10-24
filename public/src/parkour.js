@@ -87,6 +87,7 @@ export class ParkourController {
     this.spawn(p.x,p.y,p.z);this.prompt='REINICIADO NO ÚLTIMO CHECKPOINT';
   }
   jump(){
+    if(this.game.deployment?.active){this.game.deployment.deploy();return;}
     if(this.hanging){this.mantle();return;}
     if(this.ladder){this.dismountLadder();return;}
     if(this.game.powers?.isActive('vex_ultimate')&&!this.grounded&&!this.ladder&&!this.hanging&&!this.vexDoubleUsed){this.vy=CFG.jumpSpeed*1.75;this.vexDoubleUsed=true;this.prompt='VEX · PULO DUPLO';return;}
@@ -108,6 +109,7 @@ export class ParkourController {
     }
   }
   interact(){
+    if(this.game.deployment?.active){this.game.deployment.deploy();return;}
     if(this.ladder){this.dismountLadder();return;}
     if(this.hanging){this.hanging=null;this.vy=-1.3;this.prompt='BORDA SOLTA';return;}
     const interaction=this.city.nearestInteractable(this.x,this.z,this.y);

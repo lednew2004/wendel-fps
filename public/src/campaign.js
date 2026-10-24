@@ -3,9 +3,9 @@ import * as THREE from 'three';
 import {clamp,rand,WEAPONS} from './constants.js';
 
 export const MISSIONS=[
- {id:'M01',name:'A INVASÃO TITÃ',sector:'INSTALAÇÃO DELTA',chapter:'01 / PRIMEIRO CONTATO',defend:26,prize:400},
- {id:'M02',name:'CORTINA DE FERRO',sector:'ESTAÇÃO DE ENERGIA',chapter:'02 / CONTRA-ATAQUE',defend:34,prize:560},
- {id:'M03',name:'PROTOCOLO EXTINÇÃO',sector:'NÚCLEO TITÃ',chapter:'03 / CERCO FINAL',defend:43,prize:900}
+ {id:'M01',name:'A INVASÃO TITÃ',sector:'INSTALAÇÃO DELTA',chapter:'01 / PRIMEIRO CONTATO',defend:12,prize:400},
+ {id:'M02',name:'CORTINA DE FERRO',sector:'ESTAÇÃO DE ENERGIA',chapter:'02 / CONTRA-ATAQUE',defend:15,prize:560},
+ {id:'M03',name:'PROTOCOLO EXTINÇÃO',sector:'NÚCLEO TITÃ',chapter:'03 / CERCO FINAL',defend:18,prize:900}
 ];
 const SAVE_KEY='titan-protocol-campaign-v06';
 const ARMORY=[
@@ -39,6 +39,7 @@ export class Campaign{
   const {x,z}=SQUAD_START;Object.assign(g.player,{x,z,eyeY:1.75,jump:0,velY:0});g.player.shield=Math.min(g.player.maxShield,g.player.shield+30);g.player.health=Math.min(g.player.maxHealth,g.player.health+45);
   for(const [i,w] of g.weapons.state.entries()){w.clip=WEAPONS[i].clip;w.reserve=Math.min(w.reserve+WEAPONS[i].clip*3,WEAPONS[i].reserve*2);}
   g.parkour.spawn(x,0,z);g.positionCamera();g.squad.start();this.startDefend();
+  if(g.weaponLoot){g.weaponLoot.populate();}
  }
  primaryPoint(){return ({defend:SQUAD_POINTS.defense,recon:SQUAD_POINTS.reconnaissance,sabotage:SQUAD_POINTS.sabotage,boss:SQUAD_POINTS.boss,extract:SQUAD_POINTS.extraction})[this.phase]||SQUAD_POINTS.insertion;}
  clearObjectives(){for(const o of this.objectives){this.deco.remove(o.group);o.group.traverse(n=>{if(n.isMesh){n.geometry.dispose();n.material.dispose();}});}this.objectives=[];this.hold=0;document.getElementById('interaction').classList.add('hidden');}
@@ -64,7 +65,7 @@ export class Campaign{
   if(this.phase==='defend'){
     const inZone=Math.hypot(g.player.x-point.x,g.player.z-point.z)<22;
     const held=this.nearbyRole('support',point,25);
-    this.defenseRemaining=Math.max(0,this.defenseRemaining-dt*(held?1:.55));
+    this.defenseRemaining=Math.max(0,this.defenseRemaining-dt*(held?1.45:1.2));
     // Structural damage derives from intruding enemies; active support repairs it.
     for(const e of g.enemies.enemies)if(Math.hypot(e.x-point.x,e.z-point.z)<17)this.integrity=Math.max(0,this.integrity-dt*(e.boss?5:1.8));
     if(held)this.integrity=Math.min(100,this.integrity+dt*1.7);
@@ -77,11 +78,12 @@ export class Campaign{
   }else if(this.phase==='recon'||this.phase==='sabotage'){
     const role=this.phase==='recon'?'sniper':'bomber',near=this.nearbyRole(role,point,18),playerNear=Math.hypot(g.player.x-point.x,g.player.z-point.z)<4.2;
     const isRole=roleForHero(g.heroSelection.selectedHero)===role;
-    const assist=playerNear&&g.keys.KeyF&&this.phaseElapsed>12;
+    const assist=playerNear&&g.keys.KeyF&&this.phaseElapsed>5;
     if(near&&(!isRole||playerNear))this.phaseProgress+=dt;
-    else if(assist)this.phaseProgress+=dt*.7;
+    else if(assist)this.phaseProgress+=dt*1.0;
+    else if(this.phaseElapsed>5)this.phaseProgress+=dt*.34;
     else this.phaseProgress=Math.max(0,this.phaseProgress-dt*.25);
-    const needed=this.phase==='recon'?4.0:5.0;
+    const needed=this.phase==='recon'?2.1:2.7;
     ui.classList.remove('hidden');ui.querySelector('strong').textContent=(this.phase==='recon'?'VARREDURA DE LONGO ALCANCE':'DESATIVANDO GERADORES')+' · '+Math.floor(this.phaseProgress/needed*100)+'%';
     ui.querySelector('small').textContent=near?'FUNÇÃO '+ROLE_INFO[role].name+' NO OBJETIVO':'AGUARDANDO '+ROLE_INFO[role].name+' · USE F PARA AUXILIAR';ui.querySelector('.interact-track > i').style.width=Math.min(100,100*this.phaseProgress/needed)+'%';
     this.enemyTick-=dt;if(this.enemyTick<=0&&g.enemies.count()<3){g.pendingSpawns.push(this.phase==='recon'?'sniper':'gunner');g.spawnTimer=.12;this.enemyTick=8;}
@@ -92,13 +94,13 @@ export class Campaign{
     const near=Math.hypot(g.player.x-point.x,g.player.z-point.z)<6;
     const allies=g.squad.members.filter(b=>!b.downed&&Math.hypot(b.x-point.x,b.z-point.z)<12).length;
     if(near&&allies>=2)this.hold+=dt;else this.hold=Math.max(0,this.hold-dt);
-    ui.classList.remove('hidden');ui.querySelector('strong').textContent=near?`EXTRAÇÃO · ${allies+1}/4 INTEGRANTES`:'RETORNE À ZONA DE EXTRAÇÃO';ui.querySelector('small').textContent=allies<2?'REAGRUPAR AO MENOS DOIS ALIADOS':'MANTENHA POSIÇÃO PARA EXTRAIR';ui.querySelector('.interact-track > i').style.width=Math.min(100,this.hold/3*100)+'%';
-    if(this.hold>=3)this.complete();
+    ui.classList.remove('hidden');ui.querySelector('strong').textContent=near?`EXTRAÇÃO · ${allies+1}/4 INTEGRANTES`:'RETORNE À ZONA DE EXTRAÇÃO';ui.querySelector('small').textContent=allies<2?'REAGRUPAR AO MENOS DOIS ALIADOS':'MANTENHA POSIÇÃO PARA EXTRAIR';ui.querySelector('.interact-track > i').style.width=Math.min(100,this.hold/1.8*100)+'%';
+    if(this.hold>=1.8)this.complete();
   }
   this.refreshHUD();
  }
- refreshHUD(){if(!this.active)return;const g=this.game,m=MISSIONS[this.index];const names={defend:'DEFENDA O PERÍMETRO',recon:'RECONHECIMENTO · SNIPER',sabotage:'SABOTAGEM · BOMBER',boss:'DERROTE O TITÃ',extract:'REAGRUPAR E EXTRAIR'};document.getElementById('objective').textContent=names[this.phase]||'OPERAÇÃO';document.getElementById('mission-id').textContent=m.id+' · '+m.sector;document.getElementById('chapter-label').textContent=m.chapter;document.getElementById('wave-progress').style.width= Math.max(0,Math.min(100,this.phase==='defend'?100*(1-this.defenseRemaining/m.defend):this.phase==='recon'?100*this.phaseProgress/4:this.phase==='sabotage'?100*this.phaseProgress/5:this.phase==='extract'?100*this.hold/3:g.waveKilled/g.waveCount*100||0))+'%';document.getElementById('mission-progress-label').textContent='SQUAD · '+(this.phase||'MISSÃO').toUpperCase();}
+ refreshHUD(){if(!this.active)return;const g=this.game,m=MISSIONS[this.index];const names={defend:'DEFENDA O PERÍMETRO',recon:'RECONHECIMENTO · SNIPER',sabotage:'SABOTAGEM · BOMBER',boss:'DERROTE O TITÃ',extract:'REAGRUPAR E EXTRAIR'};document.getElementById('objective').textContent=names[this.phase]||'OPERAÇÃO';document.getElementById('mission-id').textContent=m.id+' · '+m.sector;document.getElementById('chapter-label').textContent=m.chapter;document.getElementById('wave-progress').style.width= Math.max(0,Math.min(100,this.phase==='defend'?100*(1-this.defenseRemaining/m.defend):this.phase==='recon'?100*this.phaseProgress/2.1:this.phase==='sabotage'?100*this.phaseProgress/2.7:this.phase==='extract'?100*this.hold/1.8:g.waveKilled/g.waveCount*100||0))+'%';document.getElementById('mission-progress-label').textContent='SQUAD · '+(this.phase||'MISSÃO').toUpperCase();}
  complete(){const g=this.game,m=MISSIONS[this.index];this.clearObjectives();g.pendingSpawns=[];g.enemies.clear();g.mouseDown=false;g.setState('chapter-complete');g.squad?.syncUI();if(document.pointerLockElement)document.exitPointerLock();g.audio.play('pickup');g.score+=m.prize*5;g.saveBest();this.save.credits=clamp(this.save.credits+m.prize,0,99999);if(this.index<MISSIONS.length-1)this.save.checkpoint=Math.max(this.save.checkpoint,this.index+1);else this.save.completed=true;this.updateSave();const $=id=>document.getElementById(id);$('chapter-complete-screen').classList.remove('hidden');$('chapter-name').textContent=m.name;$('chapter-summary').textContent='ESQUADRÃO EXTRAÍDO. O PERÍMETRO FOI PROTEGIDO, A AMEAÇA RECONHECIDA E O TITÃ NEUTRALIZADO.';$('chapter-reward').textContent='+'+m.prize+' CRÉDITOS';$('next-mission').classList.toggle('hidden',this.index===MISSIONS.length-1);$('victory-finish').classList.toggle('hidden',this.index!==MISSIONS.length-1);}
- nextMission(){if(this.index>=MISSIONS.length-1)return;document.getElementById('chapter-complete-screen').classList.add('hidden');this.game.hideScreens();this.game.setState('playing');this.configure(this.index+1);this.game.requestLock();}
+ nextMission(){if(this.index>=MISSIONS.length-1)return;document.getElementById('chapter-complete-screen').classList.add('hidden');this.game.hideScreens();this.game.setState('playing');this.configure(this.index+1);this.game.deployment?.begin(SQUAD_START.x,SQUAD_START.z);this.game.requestLock();}
  disposeSector(){this.active=false;this.clearObjectives();this.deco.clear();this.game.squad?.clear();document.getElementById('interaction').classList.add('hidden');}
 }
