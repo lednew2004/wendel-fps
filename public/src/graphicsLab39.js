@@ -56,7 +56,7 @@ export function installGraphicsLab39(city){
   // Each block has preexisting server-side collision. Visual panels deliberately
   // stay flush with its existing envelope (decorative, non-interactive).
   for(const [i,b] of SQUAD_BLOCKS.entries()){
-    if(b.obstacle||b.interiorPart||b.h<3.4)continue;
+    if(b.obstacle||b.h<3.4)continue;
     const floorN=Math.max(1,Math.floor((b.h-2.0)/2.6));
     const colN=Math.max(2,Math.min(5,Math.floor(b.w/2.75)));
     const sideN=Math.max(1,Math.min(4,Math.floor(b.d/3.2)));

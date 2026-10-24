@@ -47,9 +47,9 @@ export function installCinematicWorld391(city){
   const puddles=inst('WET_ASPHALT_PATCHES',new THREE.CircleGeometry(1,16),materials.wet,100,high);
   const bollards=inst('BOLLARDS',new THREE.CylinderGeometry(.10,.13,1,10),materials.slate,80);
   const shrubs=inst('GREENERY_BUSHES',new THREE.DodecahedronGeometry(1,0),materials.leaves,65,high);
-  const baseCount=SQUAD_BLOCKS.filter(b=>!b.obstacle&&!b.interiorPart&&b.h>=3).length;
+  const baseCount=SQUAD_BLOCKS.filter(b=>!b.obstacle&&b.h>=3).length;
   for(const [i,b] of SQUAD_BLOCKS.entries()){
-    if(b.obstacle||b.interiorPart||b.h<3)continue;
+    if(b.obstacle||b.h<3)continue;
     const floors=Math.max(1,Math.floor((b.h-1.6)/2.7));
     const cols=Math.max(2,Math.min(4,Math.floor(b.w/3)));
     for(const dir of [-1,1]){

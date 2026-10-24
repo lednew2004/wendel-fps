@@ -661,26 +661,3 @@ html.is-touch.touch-playing #hud #hud-config-top,html.is-touch.touch-playing #hu
   .mobile-action.fire{border-width:2px!important}
   .hud-bottom .vitals,.hud-bottom .weapons{backdrop-filter:none}
 }
-
-
-/* TITAN PROTOCOL 4.2 — acabamento tático inspirado em design de produto moderno.
-   Identidade colorida; nada de monocromia Vercel e nenhum componente administrativo. */
-:root{--bg:#081527;--panel:#12233d;--cyan:#67e8f9;--orange:#fdbb74;--red:#ff667f;--text:#f4f8ff;--mute:#9eb5d8;--line:rgba(120,180,255,.23)}
-.screen{background:radial-gradient(ellipse at 48% 39%,rgba(19,61,96,.79),rgba(7,12,31,.96) 86%);backdrop-filter:blur(9px)}
-.menu-card{background:linear-gradient(137deg,rgba(18,39,64,.96),rgba(10,17,39,.97));border:1px solid rgba(126,182,246,.35);border-radius:22px;clip-path:none;box-shadow:0 36px 94px #010514b0,0 0 100px #507aff18;}
-.menu-card:before{display:none}
-.menu-card:after{content:'';position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,#47cfff,#8767ff,#ffb16e);border-radius:22px 22px 0 0;pointer-events:none}
-.menu-card h1>span{background:linear-gradient(120deg,#74e7ff,#7b8df8 65%,#ffb970);-webkit-background-clip:text;background-clip:text;color:transparent}
-.primary-btn{border-radius:10px;background:linear-gradient(110deg,#6be1fa,#86a0ff);color:#0d1d3b;box-shadow:0 9px 34px #405bed43;transition:transform .17s,filter .17s}
-.primary-btn:hover{filter:brightness(1.1);transform:translateY(-2px)}
-.menu-features>div,.hero-choice,.hero-profile,.hero-selector,.squad-role-choice,.vitals,.weapons,.radar-card,.mission-chip,.ability{border-radius:11px;clip-path:none}
-.menu-features>div{background:linear-gradient(150deg,#27456b55,#132a4655);border-color:#98b8ec36}
-.hud-logo .logo-mark,.mission-chip,.vitals,.weapons,.radar-card,.ability{border-color:#8ec7ff3b;background:linear-gradient(155deg,#132846e9,#0d1932dd);box-shadow:0 10px 40px #01081952}
-.ability-fill{background:linear-gradient(90deg,#49cbff,#8d78fc)}
-.ability-icon{color:#6fe4ff}.weapon-main .ammo strong{color:#81ecfc}
-.hud-logo strong em,.radar-head span{color:#7fdcff}
-.hero-choice.chosen{box-shadow:0 0 0 1px var(--hero-accent),0 12px 30px #060a1d;transform:translateY(-1px)}
-.hero-choice:hover,.squad-role-choice:hover{border-color:#7bcfff}
-#grain{opacity:.18}
-@media(max-width:680px){.menu-card{border-radius:14px;padding:22px 18px 17px}.menu-card h1{font-size:clamp(66px,15vw,94px)}}
-@media(prefers-reduced-motion:reduce){.primary-btn,.hero-choice{transition:none}}

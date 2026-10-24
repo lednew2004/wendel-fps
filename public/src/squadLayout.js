@@ -30,7 +30,7 @@ export const SQUAD_OBSTACLES=Object.freeze([
  [27,49,12,1.5,5.2,'concrete'],[-78,83,1.5,10,5.7,'security'],
  [78,82,1.5,10,5.4,'industrial'],[-28,-89,1.4,13,4.8,'construction']
 ].map(([x,z,w,d,h,kind])=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h,obstacle:true,kind})));
-const SQUAD_RAW_BLOCKS=Object.freeze([
+export const SQUAD_BLOCKS=Object.freeze([
  [-39,-104,16,9,6], [39,-104,16,9,6],[-31,-76,12,7,4],[31,-76,12,7,4],
  [-84,-50,19,14,12],[84,-50,19,14,12],[-46,-16,14,17,8],[46,-16,14,17,8],
  [-105,18,18,16,9],[103,25,21,14,8],[-36,62,16,9,7],[37,62,16,9,7],
@@ -38,28 +38,6 @@ const SQUAD_RAW_BLOCKS=Object.freeze([
  [-23,5,3.2,8,1.3],[21,12,3.2,8,1.3],[-15,96,6,2.5,1.3],[20,105,6,2.5,1.3],
  [-58,-128,8,3,2], [57,-123,8,3,2],[-83,65,3,6,1.8],[82,-1,3,6,1.8]
 ].map(([x,z,w,d,h])=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h})).concat(SQUAD_OBSTACLES));
-
-// Four former solid building blocks become navigable structures. Client and server
-// use the same shell, intermediate floor, roof and furnishing collision volumes.
-export const SQUAD_INTERIORS=Object.freeze([4,5,12,13].map(i=>Object.freeze({...SQUAD_RAW_BLOCKS[i],id:`interior-${i}`})));
-export const SQUAD_DOORS=Object.freeze(SQUAD_INTERIORS.map(b=>Object.freeze({id:`${b.id}-door`,kind:'door',x:b.x,z:b.z+b.d/2-.01,hx:1.56,hz:.16,minY:0,maxY:2.9})));
-export function interiorColliders(b){
- const w=b.w,d=b.d,h=b.h,mid=h/2,gap=3.2,front=(w-gap)/2;
- const defs=[
-  [-w/2,0,.40,d,h,0,'wall'],[w/2,0,.40,d,h,0,'wall'],
-  [0,-d/2,w,.40,h,0,'wall'],
-  [-(gap/2+front/2),d/2,front,.40,h,0,'wall'],
-  [gap/2+front/2,d/2,front,.40,h,0,'wall'],
-  [0,0,w,d,.34,h,'roof'],
-  [-w*.18,0,w*.60,d*.66,.30,mid,'loft'],
-  [-w*.25,-d*.19,w*.15,.80,1.45,0,'cover'],
-  [w*.25,-d*.18,w*.12,1.12,1.12,0,'cover'],
-  [-w*.1,-d*.18,.34,d*.31,3.0,0,'partition']
- ];
- return defs.map(([ox,oz,cw,cd,ch,base,part])=>Object.freeze({x:b.x+ox,z:b.z+oz,w:cw,d:cd,h:ch,hx:cw/2,hz:cd/2,minY:base,maxY:base+ch,interiorPart:part,interiorId:b.id}));
-}
-const interiorIndexes=new Set([4,5,12,13]);
-export const SQUAD_BLOCKS=Object.freeze(SQUAD_RAW_BLOCKS.flatMap((b,i)=>interiorIndexes.has(i)?interiorColliders(b):[b]));
 export const SQUAD_ENEMY_SPAWNS=Object.freeze([
  [-59,-76],[58,-79],[-32,-50],[31,-47],[-98,-16],[96,-1],[-93,63],[-46,81],
  [47,77],[71,96],[-72,116],[0,158],[51,156],[-46,152],[-105,111],[104,117]

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {HEROES,ACTIVE_HEROES,heroById} from './heroRoster.js';
+import {HEROES,heroById} from './heroRoster.js';
 import {SQUAD_ROLES,ROLE_INFO,SQUAD_POINTS,roleForHero,safeSpawnNear} from './squadLayout.js';
 import {createOperative,animateOperative,disposeOperative} from './characters.js';
 import {findSquadPath} from './squadNavigation.js';
@@ -19,7 +19,7 @@ export class SquadAI{
  toggleOrders(force){if(this.game.state!=='playing'||this.game.mode!=='campaign')return;const open=typeof force==='boolean'?force:this.ui.classList.contains('hidden');this.ui.classList.toggle('hidden',!open);if(open&&document.pointerLockElement)document.exitPointerLock();else if(!open)this.game.requestLock();}
  command(id){if(!['follow','hold','attack','position'].includes(id))return;this.order=id;if(id==='hold')this.target={x:this.game.player.x,z:this.game.player.z};if(id==='position'){const goal=this.game.campaign?.primaryPoint?.()||SQUAD_POINTS.defense;this.target={x:goal.x,z:goal.z};}document.getElementById('squad-orders-status').textContent='ORDEM: '+id.toUpperCase();this.game.toast('ESQUADRÃO · '+({follow:'SEGUIR',hold:'DEFENDER',attack:'ATACAR',position:'IR AO OBJETIVO'})[id]);}
  start(){this.clear();const chosen=roleForHero(this.game.heroSelection.selectedHero);const available=new Set([this.game.heroSelection.selectedHero]);const start=SQUAD_POINTS.insertion;
-  for(const role of SQUAD_ROLES){if(role===chosen)continue;const hero=ACTIVE_HEROES.find(h=>roleForHero(h.id)===role&&!available.has(h.id));if(!hero)continue;available.add(hero.id);
+  for(const role of SQUAD_ROLES){if(role===chosen)continue;const hero=HEROES.find(h=>roleForHero(h.id)===role&&!available.has(h.id));if(!hero)continue;available.add(hero.id);
    const body=createOperative({role:hero.role,hero:hero.id,tint:hero.color,size:.93});const root=new THREE.Group();root.add(body);
    const spot=safeSpawnNear(this.game.world,start.x+POS[role][0],start.z+POS[role][1]);root.position.set(spot.x,0,spot.z);
    const badge=document.createElement('canvas');badge.width=256;badge.height=75;const ctx=badge.getContext('2d');ctx.fillStyle='rgba(9,24,35,.87)';ctx.fillRect(0,0,256,75);ctx.fillStyle='#b3f7e9';ctx.font='bold 24px Arial';ctx.textAlign='center';ctx.fillText(hero.name,128,27);ctx.fillStyle='#e4f1e9';ctx.font='bold 18px Arial';ctx.fillText(ROLE_INFO[role].name,128,55);

@@ -14,16 +14,11 @@ export class CombatMotion {
   clear(){this.dash=null;for(const f of this.fx){this.game.world.scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();}this.fx=[];this.shake=0;}
   hasDash(){return !!this.dash;}
   startDash(from,to,{duration=DASH_DURATION_MS,color=0x5cf1ff,remote=false}={}){
-    if(!remote){
-      const started=this.game.parkour.startDirectedDash(to.x,to.z,duration/1000);
-      if(!started)return false;
-      this.dash={elapsed:0,duration:duration/1000};
-    }
+    if(!remote){this.dash={from:{...from},to:{...to},elapsed:0,duration:duration/1000};this.game.parkour.spawn(from.x,from.y,from.z);}
     this.burst(from,color,.7);this.shake=Math.max(this.shake,.20);
     // The trail uses a few lightweight spheres and disappears quickly.
     for(let i=1;i<=5;i++){const q=motionPoint(from,to,i/6);this.spark(q,color,.18+i*.08,.43-i*.04);}
     this.burst(to,color,1.25);
-    return true;
   }
   spark(pos,color,size=.35,ttl=.34){
     if(this.fx.length>90)return;
@@ -50,8 +45,9 @@ export class CombatMotion {
   update(dt){
     const pk=this.game.parkour;
     if(this.dash){
-      const d=this.dash;d.elapsed+=dt;
-      if(d.elapsed>=d.duration||pk.dashTime<=0)this.dash=null;
+      const d=this.dash;d.elapsed+=dt;const q=motionPoint(d.from,d.to,d.elapsed/d.duration);
+      pk.spawn(q.x,q.y,q.z);
+      if(d.elapsed>=d.duration){pk.spawn(d.to.x,d.to.y,d.to.z);this.dash=null;}
     }
     if(this.shake>0)this.shake=Math.max(0,this.shake-dt*1.5);
     for(let i=this.fx.length-1;i>=0;i--){const f=this.fx[i];f.ttl-=dt;const p=1-Math.max(0,f.ttl)/f.total;

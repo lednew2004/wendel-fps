@@ -35,10 +35,6 @@ export const HEROES=Object.freeze([
  {id:'butterfly',name:'BUTTERFLY',title:'ORBE ERRANTE',class:'Mobilidade',color:0xae94ff,role:'scout',weapon:2,skills:['butterfly_dash','butterfly_orbit','butterfly_launch'],description:'Dash de retorno, satélite orbital e cometa que repele e teleporta.'},
  ...NOVEL_HEROES
 ]);
-// Hide near-duplicate kits from new character selection without deleting old
-// profiles or breaking multiplayer/saved character IDs.
-export const RESERVED_HERO_IDS=Object.freeze(['leo','butterfly','puppet','vector','echo2']);
-export const ACTIVE_HEROES=Object.freeze(HEROES.filter(h=>!RESERVED_HERO_IDS.includes(h.id)));
 export const heroById=id=>HEROES.find(h=>h.id===id)||HEROES[0];
 export const heroLoadout=id=>[...heroById(id).skills];
 export const heroAllows=(hero,id)=>heroById(hero).skills.includes(id);
