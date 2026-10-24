@@ -51,11 +51,11 @@ export class Campaign{
   this.deco.add(group);const o={x,z,label,role,ring,group,done:false};this.objectives.push(o);return o;
  }
  notify(kicker,headline,detail){const root=document.getElementById('wave-callout');root.querySelector('small').textContent=kicker;root.querySelector('strong').textContent=headline;root.querySelector('span').textContent=detail;root.classList.add('active');this.game.calloutTimer=3;this.game.toast(detail);}
- phaseBegin(phase){this.clearObjectives();this.phase=phase;this.phaseElapsed=0;this.phaseProgress=0;this.hold=0;this.enemyTick=1.8;this.refreshHUD();}
+ phaseBegin(phase){this.clearObjectives();this.phase=phase;this.phaseElapsed=0;this.phaseProgress=0;this.hold=0;this.enemyTick=.38;this.refreshHUD();}
  startDefend(){this.phaseBegin('defend');this.defenseRemaining=MISSIONS[this.index].defend;this.integrity=100;this.addObjective(SQUAD_POINTS.defense,'REATOR DO PERÍMETRO','support');this.notify('OPERAÇÃO DELTA','DEFENDER PERÍMETRO','PROTEJA A INSTALAÇÃO · O SUPORTE SEGURA A POSIÇÃO');}
  startRecon(){this.phaseBegin('recon');this.addObjective(SQUAD_POINTS.reconnaissance,'ANTENA DE OBSERVAÇÃO','sniper');this.notify('RECONHECIMENTO','IDENTIFIQUE A AMEAÇA','SNIPER: ALCANCE A TORRE E IDENTIFIQUE OS ALVOS');}
  startSabotage(){this.phaseBegin('sabotage');this.addObjective(SQUAD_POINTS.sabotage,'GERADORES HOSTIS','bomber');this.notify('SABOTAGEM','CORTE A ENERGIA','BOMBER: DESATIVE OS GERADORES INIMIGOS');}
- startBoss(){this.phaseBegin('boss');const g=this.game;this.addObjective(SQUAD_POINTS.boss,'COLOSSO TITÃ');g.waveCount=4;g.waveKilled=0;g.pendingSpawns=['hunter','gunner','sniper'];g.spawnTimer=.45;g.enemies.spawn('boss',[SQUAD_POINTS.boss.x,SQUAD_POINTS.boss.z],Math.max(2,this.index+2));g.audio.play('boss');this.notify('ALERTA DE INVASÃO','COLOSSO TITÃ','FRENTE CONTÉM · SUPORTE PROTEGE · SNIPER MIRA · BOMBER ATACA');}
+ startBoss(){this.phaseBegin('boss');const g=this.game;this.addObjective(SQUAD_POINTS.boss,'COLOSSO TITÃ');g.waveCount=4;g.waveKilled=0;g.pendingSpawns=['hunter','gunner','sniper'];g.spawnTimer=.12;g.enemies.spawn('boss',[SQUAD_POINTS.boss.x,SQUAD_POINTS.boss.z],Math.max(2,this.index+2));g.audio.play('boss');this.notify('ALERTA DE INVASÃO','COLOSSO TITÃ','FRENTE CONTÉM · SUPORTE PROTEGE · SNIPER MIRA · BOMBER ATACA');}
  startExtract(){this.phaseBegin('extract');this.game.pendingSpawns=[];this.addObjective(SQUAD_POINTS.extraction,'PONTO DE EXTRAÇÃO');this.notify('MISSÃO CONCLUINDO','EVACUAÇÃO TÁTICA','REÚNA O ESQUADRÃO NA ZONA DE EXTRAÇÃO');}
  onCleared(){if(this.phase==='boss')this.startExtract();}
  nearbyRole(role,point,range=17){return this.game.squad.roleNear(role,point.x,point.z,range);}
@@ -71,7 +71,7 @@ export class Campaign{
     if(held)this.integrity=Math.min(100,this.integrity+dt*1.7);
     if(this.integrity<=0){g.toast('PERÍMETRO PERDIDO · MISSÃO FALHOU');g.die();return;}
     this.enemyTick-=dt;if(this.enemyTick<=0&&g.enemies.count()+g.pendingSpawns.length<Math.min(6,3+this.index)){
-      g.pendingSpawns.push(['scout','gunner','hunter','tank'][Math.floor(Math.random()*(this.index+3))]);g.spawnTimer=.13;this.enemyTick=2.3+Math.random()*1.4;
+      g.pendingSpawns.push(['scout','gunner','hunter','tank'][Math.floor(Math.random()*(this.index+3))]);g.spawnTimer=.13;this.enemyTick=1.05+Math.random()*.65;
     }
     ui.classList.remove('hidden');ui.querySelector('strong').textContent='INTEGRIDADE DO PERÍMETRO: '+Math.round(this.integrity)+'%';ui.querySelector('small').textContent='SUSTENTE A DEFESA · '+Math.ceil(this.defenseRemaining)+'S';ui.querySelector('.interact-track > i').style.width=this.integrity+'%';
     if(this.defenseRemaining<=0){g.pendingSpawns=[];this.startRecon();}
@@ -86,7 +86,7 @@ export class Campaign{
     const needed=this.phase==='recon'?2.1:2.7;
     ui.classList.remove('hidden');ui.querySelector('strong').textContent=(this.phase==='recon'?'VARREDURA DE LONGO ALCANCE':'DESATIVANDO GERADORES')+' · '+Math.floor(this.phaseProgress/needed*100)+'%';
     ui.querySelector('small').textContent=near?'FUNÇÃO '+ROLE_INFO[role].name+' NO OBJETIVO':'AGUARDANDO '+ROLE_INFO[role].name+' · USE F PARA AUXILIAR';ui.querySelector('.interact-track > i').style.width=Math.min(100,100*this.phaseProgress/needed)+'%';
-    this.enemyTick-=dt;if(this.enemyTick<=0&&g.enemies.count()<3){g.pendingSpawns.push(this.phase==='recon'?'sniper':'gunner');g.spawnTimer=.12;this.enemyTick=8;}
+    this.enemyTick-=dt;if(this.enemyTick<=0&&g.enemies.count()<3){g.pendingSpawns.push(this.phase==='recon'?'sniper':'gunner');g.spawnTimer=.12;this.enemyTick=3.7+Math.random()*1.3;}
     if(this.phaseProgress>=needed){this.game.score+=220;this.game.toast('OBJETIVO CONCLUÍDO · +220');if(this.phase==='recon')this.startSabotage();else this.startBoss();}
   }else if(this.phase==='boss'){
     ui.classList.remove('hidden');ui.querySelector('strong').textContent='COLÔSSO TITÃ · ZONA DE EXTERMÍNIO';ui.querySelector('small').textContent='DERROTE O CHEFE E PROTEJA O ESQUADRÃO';ui.querySelector('.interact-track > i').style.width='65%';
