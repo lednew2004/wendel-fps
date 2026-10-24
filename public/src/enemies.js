@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {ENEMY_TYPES,rand} from './constants.js';
 import {createOperative,animateOperative,disposeOperative} from './characters.js';
 import {CHARACTER_STYLES} from './characterIdentity.js';
-import {SQUAD_INTERIORS,SQUAD_DOORS} from './squadLayout.js';
+import {SQUAD_INTERIORS,SQUAD_DOORS,SQUAD_OBSTACLES} from './squadLayout.js';
 const vec=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
 
 
@@ -42,7 +42,8 @@ export class EnemySystem {
     const bar=new THREE.Mesh(new THREE.PlaneGeometry(1.85*size,.085),new THREE.MeshBasicMaterial({color:cfg.color,side:THREE.DoubleSide,depthWrite:false})); bar.position.y=2.95*size; bar.position.z=.008; group.add(bar);
     this.world.scene.add(group);
     const hp=cfg.hp*(1+(wave-1)*.105);
-    const enemy={type,cfg,group,body,barBg,bar,nameTag,hp,maxHp:hp,x:pos[0],z:pos[1],y:1.45*size,radius:cfg.radius,fireTimer:rand(.25,1.3),strafe:Math.random()>.5?1:-1,strafeChange:rand(1.2,3.5),flash:0,fireVisual:0,lastMoving:0,phase:rand(0,6.3),boss:type==='boss',phaseIndex:0,telegraph:0,blastTimer:8,blastCharge:0,dead:false};
+    const tunedCfg={...cfg,speed:cfg.speed*(type==='boss'?1.22:1.13),fire:cfg.fire*(type==='boss'?.89:.84)};
+    const enemy={type,cfg:tunedCfg,group,body,barBg,bar,nameTag,hp,maxHp:hp,x:pos[0],z:pos[1],y:1.45*size,radius:cfg.radius,fireTimer:rand(.25,1.3),strafe:Math.random()>.5?1:-1,strafeChange:rand(.7,2.0),dodgeTime:0,flash:0,fireVisual:0,lastMoving:0,phase:rand(0,6.3),boss:type==='boss',phaseIndex:0,telegraph:0,blastTimer:8,blastCharge:0,dead:false};
     if(type==='sniper'){
       const geometry=new THREE.BufferGeometry().setFromPoints([vec(),vec()]);
       const material=new THREE.LineBasicMaterial({color:0xffd7b3,transparent:true,opacity:.72,depthTest:true});
@@ -99,9 +100,32 @@ export class EnemySystem {
     }
     return target;
   }
+  /** Only pick nearby cover when the bot actually sees the target. Recalculate seldom to save FPS. */
+  findCover(e,target){
+    const world=this.world;
+    if(!target||!world.city)return null;
+    let best=null,bestScore=Infinity;
+    for(const obstacle of SQUAD_OBSTACLES){
+      const od=Math.hypot(obstacle.x-e.x,obstacle.z-e.z);
+      if(od>24||od<1.5)continue;
+      const awayX=obstacle.x-target.x,awayZ=obstacle.z-target.z,mag=Math.hypot(awayX,awayZ);
+      if(mag<2)continue;
+      const unitX=awayX/mag,unitZ=awayZ/mag;
+      const x=obstacle.x+unitX*(Math.max(obstacle.hx,obstacle.hz)+1.2);
+      const z=obstacle.z+unitZ*(Math.max(obstacle.hx,obstacle.hz)+1.2);
+      if(!world.city.canOccupy(x,z,e.floorY||0,1.8,e.radius))continue;
+      const eye=new THREE.Vector3(target.x,target.eyeY??1.65,target.z);
+      const delta=new THREE.Vector3(x-eye.x,1.45-eye.y,z-eye.z);
+      const dist=delta.length();
+      if(dist<2||world.raycastDistance(eye,delta.normalize(),dist-.1)>=dist-.3)continue;
+      const score=od+Math.random()*2;
+      if(score<bestScore){bestScore=score;best={x,z,eyeY:1.65};}
+    }
+    return best;
+  }
   spawnProjectile(e,player,angle=0){const start=e.group.position.clone().add(vec(0,e.y,.0));const target=vec(player.x,player.eyeY,player.z);const spread=e.boss?.055:e.type==='sniper'?.012:.042;const jitter=(Math.random()-.5)*spread*2;const dir=target.sub(start).normalize().applyAxisAngle(vec(0,1,0),angle+jitter);const mesh=new THREE.Mesh(e.boss?this.projectileBossGeom:this.projectileGeom,this.projectileMat);mesh.position.copy(start);this.world.scene.add(mesh);e.fireVisual=.13;this.projectiles.push({mesh,vel:dir.multiplyScalar(e.boss?22:e.type==='sniper'?48:16),life:2.8,damage:e.cfg.damage,boss:e.boss,target:player});}
   raycast(origin,dir,maxDist){let hit=null;let dist=maxDist;for(const e of this.enemies){const center=e.group.position.clone().add(vec(0,e.y,0));const radius=e.boss?2.75:e.radius*1.12;const oc=origin.clone().sub(center);const b=oc.dot(dir),c=oc.lengthSq()-radius*radius,discriminant=b*b-c;if(discriminant<0)continue;const t=-b-Math.sqrt(discriminant);if(t>0&&t<dist){dist=t;hit={enemy:e,distance:t,point:origin.clone().addScaledVector(dir,t),headshot:!e.boss&&origin.y+dir.y*t>e.y+.52};}}return hit;}
-  damage(e,amount,point,source='shot'){if(!e||e.dead)return false;e.hp-=amount;e.flash=.10;if(e.boss&&e.hp>0){const stage=e.hp/e.maxHp<.25?2:e.hp/e.maxHp<.56?1:0;if(stage>e.phaseIndex){e.phaseIndex=stage;e.cfg={...e.cfg,speed:e.cfg.speed*(stage===2?1.32:1.18),fire:e.cfg.fire*(stage===2?.66:.78)};this.spawnParticles(e.group.position.clone().add(vec(0,e.y,0)),0xb1674a,38,2);if(this.currentPlayer){this.spawnAt('hunter',this.currentPlayer,this.currentWave||1);this.spawnAt('scout',this.currentPlayer,this.currentWave||1);this.hooks.onSummon?.(2);}}}this.spawnParticles(point||e.group.position.clone().add(vec(0,e.y,0)),0xd7c1a1,source==='pulse'?12:3,source==='pulse'?1.2:.5);if(e.hp<=0){e.dead=true;this.kill(e);return true;}return false;}
+  damage(e,amount,point,source='shot'){if(!e||e.dead)return false;e.hp-=amount;e.flash=.10;if(!e.boss&&e.dodgeTime<=0){e.strafe*=-1;e.strafeChange=rand(.18,.55);e.dodgeTime=rand(.35,.7);}if(e.boss&&e.hp>0){const stage=e.hp/e.maxHp<.25?2:e.hp/e.maxHp<.56?1:0;if(stage>e.phaseIndex){e.phaseIndex=stage;e.cfg={...e.cfg,speed:e.cfg.speed*(stage===2?1.32:1.18),fire:e.cfg.fire*(stage===2?.66:.78)};this.spawnParticles(e.group.position.clone().add(vec(0,e.y,0)),0xb1674a,38,2);if(this.currentPlayer){this.spawnAt('hunter',this.currentPlayer,this.currentWave||1);this.spawnAt('scout',this.currentPlayer,this.currentWave||1);this.hooks.onSummon?.(2);}}}this.spawnParticles(point||e.group.position.clone().add(vec(0,e.y,0)),0xd7c1a1,source==='pulse'?12:3,source==='pulse'?1.2:.5);if(e.hp<=0){e.dead=true;this.kill(e);return true;}return false;}
   kill(e){this.world.scene.remove(e.group);this.disposeEnemy(e);if(e.laser)this.world.scene.remove(e.laser);if(e.warning)this.world.scene.remove(e.warning);const ix=this.enemies.indexOf(e);if(ix!==-1)this.enemies.splice(ix,1);this.spawnParticles(e.group.position.clone().add(vec(0,e.y,0)),0xb79774,e.boss?45:17,e.boss?2.2:1.2);this.audio.play('kill');this.hooks.onKill(e);if(e.boss||Math.random()<.35)this.drop(e.group.position,e.boss?'medkit':Math.random()<.72?'ammo':'medkit');}
   drop(position,type){const mat=new THREE.MeshStandardMaterial({color:type==='medkit'?0x7ea58b:0xffc458,metalness:.13,roughness:.48,emissive:type==='medkit'?0x203829:0x8e4e17,emissiveIntensity:type==='ammo'?.82:.55});const mesh=new THREE.Group();const core=new THREE.Mesh(new THREE.BoxGeometry(.55,.3,.55),mat);mesh.add(core);const ring=new THREE.Mesh(new THREE.TorusGeometry(.52,.04,8,24),mat);ring.rotation.x=Math.PI/2;mesh.add(ring);mesh.position.set(position.x,.75,position.z);this.world.scene.add(mesh);this.pickups.push({mesh,type,life:type==='ammo'?35:18,phase:rand(0,7)});}
   update(dt,player,wave=1){this.currentPlayer=player;this.currentWave=wave;this.time+=dt;for(const e of [...this.enemies]){e.flash=Math.max(0,e.flash-dt);e.fireVisual=Math.max(0,(e.fireVisual||0)-dt);
@@ -110,13 +134,13 @@ export class EnemySystem {
       const viable=[...(this.hiddenPlayer?[]:[player]),...(this.allies||[]).filter(a=>!a.downed)];
       e.perceptionDelay=(e.perceptionDelay||0)-dt;
       if(e.perceptionDelay<=0){
-        e.perceptionDelay=rand(.19,.34);e.visibleTarget=null;
+        e.perceptionDelay=rand(.12,.23);e.visibleTarget=null;
         const visible=viable.filter(t=>this.canSee(e,t,Math.hypot(t.x-e.x,t.z-e.z)));
         visible.sort((a,b)=>Math.hypot(a.x-e.x,a.z-e.z)-(a.role==='front'?4:0)-Math.hypot(b.x-e.x,b.z-e.z)+(b.role==='front'?4:0));
         if(visible.length){
           const t=visible[0];e.visibleTarget=t;
           e.targetMemory={x:t.x,z:t.z,eyeY:t.eyeY||1.65,until:this.time+3.2,kind:'sighted'};
-          e.alertness=Math.min(1,(e.alertness||0)+.26);
+          e.alertness=Math.min(1,(e.alertness||0)+.43);
         }else e.alertness=Math.max(0,(e.alertness||0)-.23);
       }
       const remembered=e.targetMemory&&e.targetMemory.until>this.time?e.targetMemory:null;
@@ -126,7 +150,15 @@ export class EnemySystem {
       e.homeX??=e.x;e.homeZ??=e.z;
       const targetVisible=!!e.visibleTarget;
       const chase=decoy?{x:decoy.mesh.position.x,z:decoy.mesh.position.z,eyeY:decoy.mesh.position.y}:e.visibleTarget||remembered||e.patrolPoint;
-      if(remembered&&Math.hypot(e.x-remembered.x,e.z-remembered.z)<2&&!targetVisible)e.targetMemory=null;const nav=this.navigateTo(e,chase);const dx=nav.x-e.x,dz=nav.z-e.z,dist=Math.max(.0001,Math.hypot(dx,dz)),nx=dx/dist,nz=dz/dist;e.group.rotation.y=Math.atan2(-nx,-nz);e.facingX=nx;e.facingZ=nz;e.fireTimer-=dt;e.strafeChange-=dt;if(e.strafeChange<0){e.strafe*=-1;e.strafeChange=rand(1.5,4);}let fx=0,fz=0;const melee=e.type==='scout'||e.type==='tank'||e.type==='hunter';const optimal=e.boss?20:e.type==='sniper'?33:e.type==='gunner'?19:melee?e.cfg.range*.9:7;if(targetVisible&&e.hp/e.maxHp<.3&&!e.boss){fx-=nx;fz-=nz;}else if(dist>optimal+2){fx+=nx;fz+=nz;}else if(dist<optimal-4&&!melee){fx-=nx*.65;fz-=nz*.65;}if(!melee||dist<optimal+8){fx+=(-nz)*e.strafe*(e.boss?.4:.63);fz+=nx*e.strafe*(e.boss?.4:.63);}const tries=[[fx,fz],[fx+nz*.8*e.strafe,fz-nx*.8*e.strafe],[-nz*e.strafe,nx*e.strafe]];let moved=false;for(const [ax,az] of tries){const mag=Math.hypot(ax,az);if(mag<.05)break;const mx=ax/mag*e.cfg.speed*dt,mz=az/mag*e.cfg.speed*dt;if((this.world.city?.canOccupy(e.x+mx,e.z+mz,e.floorY||0,1.8,e.radius)??this.world.canMove(e.x+mx,e.z+mz,e.radius))){e.x+=mx;e.z+=mz;moved=true;break;}}if(!moved&&dist>optimal+10&&(this.world.city?.canOccupy(e.x+nx*e.cfg.speed*.45*dt,e.z+nz*e.cfg.speed*.45*dt,e.floorY||0,1.8,e.radius)??this.world.canMove(e.x+nx*e.cfg.speed*.45*dt,e.z+nz*e.cfg.speed*.45*dt,e.radius))){e.x+=nx*e.cfg.speed*.45*dt;e.z+=nz*e.cfg.speed*.45*dt;}e.group.position.x=e.x;e.group.position.z=e.z;e.lastMoving=moved?1:0;
+      if(remembered&&Math.hypot(e.x-remembered.x,e.z-remembered.z)<2&&!targetVisible)e.targetMemory=null;
+      e.coverCheck=(e.coverCheck||0)-dt;
+      const ranged=!['scout','tank','hunter'].includes(e.type);
+      if(e.coverCheck<=0){
+        e.coverCheck=rand(1.5,2.8);
+        e.coverSpot=(targetVisible&&ranged&&!e.boss&&e.hp/e.maxHp<.72)?this.findCover(e,chase):null;
+      }
+      if(e.coverSpot&&Math.hypot(e.x-e.coverSpot.x,e.z-e.coverSpot.z)<1.75)e.coverSpot=null;
+      const nav=this.navigateTo(e,e.coverSpot||chase);const dx=nav.x-e.x,dz=nav.z-e.z,dist=Math.max(.0001,Math.hypot(dx,dz)),nx=dx/dist,nz=dz/dist;e.group.rotation.y=Math.atan2(-nx,-nz);e.facingX=nx;e.facingZ=nz;e.fireTimer-=dt;e.strafeChange-=dt;if(e.strafeChange<0){e.strafe*=-1;e.strafeChange=rand(.75,2.2);}let fx=0,fz=0;const melee=e.type==='scout'||e.type==='tank'||e.type==='hunter';const optimal=e.boss?20:e.type==='sniper'?33:e.type==='gunner'?19:melee?e.cfg.range*.9:7;if(targetVisible&&e.hp/e.maxHp<.3&&!e.boss){fx-=nx;fz-=nz;}else if(dist>optimal+2){fx+=nx;fz+=nz;}else if(dist<optimal-4&&!melee){fx-=nx*.65;fz-=nz*.65;}if(!melee||dist<optimal+8){const flank=e.dodgeTime>0?1.9:(e.boss?.7:.92);fx+=(-nz)*e.strafe*flank;fz+=nx*e.strafe*flank;}e.dodgeTime=Math.max(0,(e.dodgeTime||0)-dt);const tries=[[fx,fz],[fx+nz*.8*e.strafe,fz-nx*.8*e.strafe],[-nz*e.strafe,nx*e.strafe]];let moved=false;for(const [ax,az] of tries){const mag=Math.hypot(ax,az);if(mag<.05)break;const mx=ax/mag*e.cfg.speed*dt,mz=az/mag*e.cfg.speed*dt;if((this.world.city?.canOccupy(e.x+mx,e.z+mz,e.floorY||0,1.8,e.radius)??this.world.canMove(e.x+mx,e.z+mz,e.radius))){e.x+=mx;e.z+=mz;moved=true;break;}}if(!moved&&dist>optimal+10&&(this.world.city?.canOccupy(e.x+nx*e.cfg.speed*.45*dt,e.z+nz*e.cfg.speed*.45*dt,e.floorY||0,1.8,e.radius)??this.world.canMove(e.x+nx*e.cfg.speed*.45*dt,e.z+nz*e.cfg.speed*.45*dt,e.radius))){e.x+=nx*e.cfg.speed*.45*dt;e.z+=nz*e.cfg.speed*.45*dt;}e.group.position.x=e.x;e.group.position.z=e.z;e.lastMoving=moved?1:0;
       if(this.world.city){
         const floor=this.world.city.floorAt(e.x,e.z,e.floorY||0,.46);
         e.floorY=floor>(e.floorY||0)-.55?floor:Math.max(0,(e.floorY||0)-5*dt);

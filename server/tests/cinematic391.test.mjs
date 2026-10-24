@@ -21,5 +21,5 @@ test('3.9.1: visual-only UI, mobile controls keep their event IDs and hit target
  assert.match(css,/mobile-action\.fire/);
  assert.match(css,/pointer-events:auto/);
  for(const id of ['m-fire','mobile-move','m-jump','power-a','power-b','power-c'])assert.match(html,new RegExp('id="'+id+'"'));
- assert.match(html,/BUILD 3\.9\.1/);
+ assert.match(html,/BUILD (?:3\.9\.1|4\.4\.0)/);
 });

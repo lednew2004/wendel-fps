@@ -270,8 +270,8 @@ export class Weapons {
     this.model.rotation.y=this.recoil*.22 + Math.sin(this.bob*.5)*sway*.4;
     this.model.rotation.z=lerp(-.06,0,this.ads)+Math.sin(this.bob)*sway*.55 + vault*.24;
     const base=this.world.baseFOV||78;
-    const focused=this.index===2?24:this.index===1?47:this.index===3?43:39;
-    const targetFov=aiming?Math.min(focused,base*.60):base+vault*4;
+    const focused=this.index===2?11:this.index===1?28:this.index===3?22:18;
+    const targetFov=aiming?Math.min(focused,base*.42):base+vault*4;
     const next=this.world.camera.fov+(targetFov-this.world.camera.fov)*Math.min(1,dt*13);
     if(Math.abs(next-this.world.camera.fov)>.015){this.world.camera.fov=next;this.world.camera.updateProjectionMatrix();}
     document.body.classList.toggle('aiming',this.ads>.22);

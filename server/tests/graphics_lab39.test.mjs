@@ -26,5 +26,5 @@ test('3.9: comparador separado, inicializador localhost e material documentado',
  assert.match(comparison,/three-canvas/);
  assert.match(comparison,/pc-canvas/);
  assert.match(comparison,/playcanvas@2\.23\.3/);
- assert.match(file('public/index.html'),/BUILD 3\.9\.1/);
+ assert.match(file('public/index.html'),/BUILD (?:3\.9\.1|4\.4\.0)/);
 });

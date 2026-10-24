@@ -38,7 +38,7 @@ test('4.3: oito portas e patamares possuem colisoes no servidor',()=>{
 });
 test('4.3: mira optica ampliada, feedback e renderização equilibrada',()=>{
  const weapons=read('public/src/weapons.js'),game=read('public/src/game.js');
- assert.match(weapons,/index===2\?24/);
+ assert.match(weapons,/index===2\?11/);
  assert.match(game,/updateAimFocus\(dt\)/);
  assert.match(game,/mode==='multiplayer'/);
  assert.match(game,/setQuality\('medium'\)/);
