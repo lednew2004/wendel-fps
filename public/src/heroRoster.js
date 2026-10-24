@@ -37,8 +37,11 @@ export const HEROES=Object.freeze([
 ]);
 // Hide near-duplicate kits from new character selection without deleting old
 // profiles or breaking multiplayer/saved character IDs.
-export const RESERVED_HERO_IDS=Object.freeze(['leo','butterfly','puppet','vector','echo2']);
-export const ACTIVE_HEROES=Object.freeze(HEROES.filter(h=>!RESERVED_HERO_IDS.includes(h.id)));
+// Only eight tactically distinct characters are shown. Legacy heroes remain in
+// HEROES so existing character IDs, saves and multiplayer sessions still resolve.
+export const SELECTABLE_HERO_IDS=Object.freeze(['striker','shiro','guardian','echo','riftwalker','phantom','storm','forge']);
+export const ACTIVE_HEROES=Object.freeze(SELECTABLE_HERO_IDS.map(id=>HEROES.find(h=>h.id===id)));
+export const RESERVED_HERO_IDS=Object.freeze(HEROES.filter(h=>!SELECTABLE_HERO_IDS.includes(h.id)).map(h=>h.id));
 export const heroById=id=>HEROES.find(h=>h.id===id)||HEROES[0];
 export const heroLoadout=id=>[...heroById(id).skills];
 export const heroAllows=(hero,id)=>heroById(hero).skills.includes(id);

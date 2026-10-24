@@ -13,6 +13,7 @@ import {HudCustomizer} from './hudCustomizer.js';
 import {Ordnance} from './ordnance.js';
 import {Campaign,MISSIONS} from './campaign.js';
 import {UrbanCity} from './urban.js';
+import {GeoCity} from './geoCity.js';
 import {ParkourController} from './parkour.js';
 import {MobileControls} from './mobile.js';
 import {MultiplayerClient} from './multiplayer.js';
@@ -21,7 +22,7 @@ import {VoxelForge} from './voxelForge.js';
 import {MapSupplies} from './mapSupplies.js';
 import {WeaponLoot} from './weaponLoot.js';
 import {AirDeployment} from './airDeployment.js';
-import {HEROES} from './heroRoster.js';
+import {HEROES,ACTIVE_HEROES} from './heroRoster.js';
 import {WEAPONS,UPGRADES,PLAYER_HEIGHT,clamp,lerp,rand} from './constants.js';
 const el=id=>document.getElementById(id);
 const fmt=n=>String(Math.floor(n)).padStart(2,'0');
@@ -47,7 +48,7 @@ export class Game {
       el('vegetation').value='35';el('vegetation-label').textContent='35%';
     }
     if(!this.mobile.enabled){this.world.setQuality('medium');el('quality').value='medium';}
-    this.bind();this.hudCustomizer.attach();this.positionCamera();el('menu-best').textContent=num(this.best);el('loading').classList.add('hidden');this.mobile.sync();this.loop();
+    this.geoCity=null;this.baseUrban=this.urban;this.locationPromise=null;this.geoData=null;this.geoUser=null;this.geoLoadPromise=null;this.bind();this.autoLocate();this.hudCustomizer.attach();this.positionCamera();el('menu-best').textContent=num(this.best);el('loading').classList.add('hidden');this.mobile.sync();this.loop();
   }
   get yaw(){return this.look.yaw;}
   set yaw(v){this.look.yaw=v;}
@@ -55,7 +56,74 @@ export class Game {
   set pitch(v){this.look.pitch=v;}
   loadBest(){try{return Number(localStorage.getItem('titan-protocol-best')||0)||0;}catch{return 0}}
   saveBest(){if(this.score>this.best){this.best=this.score;try{localStorage.setItem('titan-protocol-best',String(this.best));}catch{}return true;}return false;}
+  geoStatus(message,error=false){
+    const status=el('geo-status');if(status){status.textContent=message;status.classList.toggle('geo-error',error);}
+  }
+  async locateCity(){
+    if(this.geoUser)return this.geoUser;
+    if(this.locationPromise)return this.locationPromise;
+    if(!navigator.geolocation || !window.isSecureContext)throw new Error('GPS requer HTTPS ou localhost.');
+    this.locationPromise=new Promise((resolve,reject)=>{
+      navigator.geolocation.getCurrentPosition(
+        pos=>resolve({lat:pos.coords.latitude,lon:pos.coords.longitude,accuracy:pos.coords.accuracy}),
+        e=>reject(new Error(e.code===1?'Permissão de localização negada. Clique no ícone de localização do navegador para liberar.':e.code===3?'Localização demorou demais. Tente novamente.':'Não foi possível obter sua localização.')),
+        {enableHighAccuracy:false,timeout:14000,maximumAge:600000}
+      );
+    });
+    try{return this.geoUser=await this.locationPromise;}finally{this.locationPromise=null;}
+  }
+  async loadGeoData(){
+    if(this.geoData&&this.geoUser)return this.geoData;
+    if(this.geoLoadPromise)return this.geoLoadPromise;
+    this.geoLoadPromise=(async()=>{
+      const point=await this.locateCity();
+      this.geoStatus('LOCALIZAÇÃO PERMITIDA · IMPORTANDO RUAS REAIS...');
+      const quantizedLat=(Math.round(point.lat*1000)/1000).toFixed(3);
+      const quantizedLon=(Math.round(point.lon*1000)/1000).toFixed(3);
+      const res=await fetch(`/api/geo/area?lat=${quantizedLat}&lon=${quantizedLon}`);
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error||'Mapa real indisponível.');
+      if(!data.roads?.length)throw new Error('Não existem ruas mapeadas neste setor.');
+      this.geoData=data;
+      if(el('geo-side-city'))el('geo-side-city').textContent=data.city.toUpperCase();
+      this.geoStatus(`${data.city.toUpperCase()} · ${data.roads.length} VIAS · ${data.buildings.length} EDIFÍCIOS`);
+      return data;
+    })();
+    try{return await this.geoLoadPromise;}finally{this.geoLoadPromise=null;}
+  }
+  async autoLocate(){
+    this.geoStatus('DETECTANDO SUA REGIÃO · AUTORIZAÇÃO NECESSÁRIA');
+    try{await this.loadGeoData();}
+    catch(e){this.geoStatus(e.message||'Não foi possível detectar a cidade.',true);}
+  }
+  restoreGeoCity(){
+    if(!this.geoCity)return;
+    this.geoCity.toggle(false);this.geoCity.dispose();this.geoCity=null;
+    this.urban=this.baseUrban;this.parkour.city=this.baseUrban;this.world.city=this.baseUrban;
+    this.world.spawnPoints=this.baseUrban.spawnPoints;this.baseUrban.toggle(true);
+  }
+  async startGeo(){
+    const button=el('geo-start');if(button?.disabled)return;
+    if(button)button.disabled=true;
+    this.geoStatus('CARREGANDO MAPA DA SUA REGIÃO...');
+    try{
+      const data=await this.loadGeoData();
+      // Only build WebGL world after real geographic data has been received.
+      const real=new GeoCity(this.world,data,this.geoUser);
+      this.start('survival'); // Preserve existing weapons, buffs and PvE enemy waves.
+      this.geoCity=real;this.baseUrban.toggle(false);
+      this.urban=real;this.world.city=real;this.world.spawnPoints=real.spawnPoints;this.parkour.city=real;
+      this.mode='geocity';this.setState('playing');this.weaponLoot.clear();this.mapSupplies.clear();
+      this.parkour.startCombat(real.entry.x,real.entry.z);
+      this.parkour.prompt=`CIDADE REAL · ${data.city.toUpperCase()} · BUSQUE AS AMEAÇAS`;
+      this.geoStatus(`${data.city.toUpperCase()} · MAPA REAL CARREGADO`);
+      this.updateHud();this.toast(`MAPA REAL: ${data.city.toUpperCase()}`);this.requestLock();
+    }catch(e){this.geoStatus(e.message||'Falha ao carregar cidade real.',true);this.toast('FALHA NO MAPA · VERIFIQUE A LOCALIZAÇÃO');}
+    finally{if(button)button.disabled=false;}
+  }
   bind(){
+    el('geo-start')?.addEventListener('click',()=>{void this.startGeo();});
+    el('geo-retry')?.addEventListener('click',()=>{this.geoUser=null;this.geoData=null;this.locationPromise=null;this.geoLoadPromise=null;void this.autoLocate();});
     el('start-btn').addEventListener('click',()=>this.start('survival'));el('retry-btn').addEventListener('click',()=>this.start(this.mode,this.campaign.index));el('back-menu-btn').addEventListener('click',()=>this.menu());el('resume-btn').addEventListener('click',()=>this.resume());el('hud-pause').addEventListener('click',()=>this.pause());el('restart-from-pause').addEventListener('click',()=>this.start(this.mode,this.campaign.index));el('survival-btn').addEventListener('click',()=>this.campaign.confirmNew());
     this.setupTrainingSwitcher();
     el('adaptive-fps').addEventListener('change',e=>{this.adaptiveFPS=e.target.checked;this.lowFPSTime=0;this.highFPSTime=0;});
@@ -116,6 +184,7 @@ export class Game {
     if(state!=='playing')document.body.classList.remove('aiming','sniper-aiming','near-interaction','on-target');
     document.body.classList.toggle('mode-multiplayer',inGame&&this.mode==='multiplayer');
     document.body.classList.toggle('mode-training',inGame&&this.mode==='survival');
+    document.body.classList.toggle('mode-geocity',inGame&&this.mode==='geocity');
     document.body.classList.toggle('reloading',state==='playing'&&this.weapons.reloadTime>0);
     document.body.classList.toggle('trial-active',this.parkour.trialActive&&inGame);
     el('parkour-hud').classList.toggle('hidden',!inGame);
@@ -136,7 +205,7 @@ export class Game {
     if(this.mode!=='survival'||this.state!=='playing')return;
     this.pause();document.getElementById('pause-screen').classList.add('hidden');
     const root=document.getElementById('training-hero-screen'),grid=document.getElementById('training-hero-grid');grid.replaceChildren();
-    for(const hero of HEROES){const b=document.createElement('button');b.type='button';b.style.setProperty('--hero-accent','#'+hero.color.toString(16).padStart(6,'0'));b.className='training-hero-choice'+(hero.id===this.heroSelection.selectedHero?' selected':'');
+    for(const hero of ACTIVE_HEROES){const b=document.createElement('button');b.type='button';b.style.setProperty('--hero-accent','#'+hero.color.toString(16).padStart(6,'0'));b.className='training-hero-choice'+(hero.id===this.heroSelection.selectedHero?' selected':'');
       b.innerHTML='<b>'+hero.name+'</b><small>'+hero.class+'</small>';b.addEventListener('click',()=>this.changeTrainingHero(hero.id));grid.appendChild(b);}
     root.classList.remove('hidden');
   }
@@ -151,6 +220,8 @@ export class Game {
       if(this.urban.canOccupy(x,z,0,1.7,.7)){this.enemies.drop(new THREE.Vector3(x,0,z),'ammo');return;}}
   }
   start(mode='campaign',index=this.campaign.index){
+    if(mode==='geocity'){void this.startGeo();return;}
+    this.restoreGeoCity();
     this.mode=mode;
     this.powers.reset();
     this.forge.clear();this.mapSupplies.clear();this.weaponLoot.clear();this.deployment.reset();this.ammoSpawnTimer=5;
@@ -184,7 +255,7 @@ export class Game {
     this.world.update(0);
     this.positionCamera();this.updateHud();this.requestLock();
   }
-  menu(){this.forge?.clear();this.mapSupplies?.clear();this.weaponLoot?.clear();this.deployment?.reset();this.powers?.reset();el('power-hud').classList.add('hidden');if(this.mode==='multiplayer'&&this.multiplayer?.connected)this.multiplayer.disconnect();this.parkour.stop();this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.urban.resetInteractions();document.body.classList.remove('trial-active');this.campaign.disposeSector();this.hideScreens();el('start-screen').classList.remove('hidden');this.enemies.clear();this.ordnance.clear();this.pendingSpawns=[];this.setState('menu');this.powers.restoreMenuLoadout();el('menu-best').textContent=num(this.best);if(document.pointerLockElement)document.exitPointerLock();}
+  menu(){this.restoreGeoCity();this.forge?.clear();this.mapSupplies?.clear();this.weaponLoot?.clear();this.deployment?.reset();this.powers?.reset();el('power-hud').classList.add('hidden');if(this.mode==='multiplayer'&&this.multiplayer?.connected)this.multiplayer.disconnect();this.parkour.stop();this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.urban.resetInteractions();document.body.classList.remove('trial-active');this.campaign.disposeSector();this.hideScreens();el('start-screen').classList.remove('hidden');this.enemies.clear();this.ordnance.clear();this.pendingSpawns=[];this.setState('menu');this.powers.restoreMenuLoadout();el('menu-best').textContent=num(this.best);if(document.pointerLockElement)document.exitPointerLock();}
   pause(){if(this.state!=='playing')return;if(this.mode==='multiplayer'){this.multiplayer.openRoomPanel();return;}this.setState('paused');this.mobile?.clear();this.mouseDown=false;this.rightDown=false;el('pause-screen').classList.remove('hidden');if(document.pointerLockElement)document.exitPointerLock();}
   resume(){if(this.state!=='paused')return;if(this.mode==='multiplayer'&&this.multiplayer?.panelOpen){this.multiplayer.closeRoomPanel();return;}this.hideScreens();this.setState('playing');this.requestLock();}
   beginWave(){this.wave++;this.waveKilled=0;const bossWave=this.wave%2===0;this.waveCount=3+Math.min(6,this.wave)+(bossWave?1:0);this.pendingSpawns=[];if(bossWave){this.pendingSpawns.push('boss');this.audio.play('boss');}
@@ -195,7 +266,7 @@ export class Game {
     this.hideScreens();this.setState('playing');this.beginWave();this.requestLock();}
   cycleWeapon(direction=1){
     const squadMatch=this.mode==='campaign'||this.mode==='survival'||(this.mode==='multiplayer'&&this.multiplayer?.roomMode==='coop');
-    const allowed=this.mode==='multiplayer'?(squadMatch?ROLE_INFO[roleForHero(this.heroSelection?.selectedHero)]?.weapons:[0,1,2,3]):[...this.weaponLoot.unlocked].sort((a,b)=>a-b);
+    const allowed=this.mode==='multiplayer'?(squadMatch?ROLE_INFO[roleForHero(this.heroSelection?.selectedHero)]?.weapons:WEAPONS.map((_,i)=>i)):WEAPONS.map((_,i)=>i);
     if(!allowed?.length)return;
     const current=allowed.indexOf(this.weapons.index);
     const next=allowed[((current<0?0:current)+ (direction<0?-1:1)+allowed.length)%allowed.length];
@@ -216,7 +287,7 @@ export class Game {
     }
     const surface=this.world.raycastSurface(origin,dir,range);
     const wallDist=surface?.distance??range;
-    const barrelHit=this.world.findBarrelHit(origin,dir,wallDist+.02);
+    const barrelHit=this.mode==='geocity'?null:this.world.findBarrelHit(origin,dir,wallDist+.02);
     const enemyHit=this.enemies.raycast(origin,dir,wallDist);
     if(voxel&&voxel.distance<wallDist&&(!enemyHit||voxel.distance<enemyHit.distance)&&(!barrelHit||voxel.distance<barrelHit.distance))return this.forge.hitFromShot(origin,dir,damage,true);
     // Resolve the nearest hit, not the barrel first if a soldier is in front.
@@ -260,9 +331,9 @@ export class Game {
     if(this.mode==='campaign'&&this.campaign.active){for(const obj of this.campaign.objectives){if(obj.done)continue;const dx=obj.x-this.player.x,dz=obj.z-this.player.z;const x=dx*Math.cos(this.yaw)-dz*Math.sin(this.yaw),z=dx*Math.sin(this.yaw)+dz*Math.cos(this.yaw);const rx=cx+x*scale,ry=cy+z*scale;if(Math.hypot(rx-cx,ry-cy)<78){ctx.fillStyle='#f8d17e';ctx.fillRect(rx-4,ry-4,8,8);}}}
     if(this.mode==='multiplayer')for(const entry of this.multiplayer.others.values()){const dx=entry.group.position.x-this.player.x,dz=entry.group.position.z-this.player.z;const rx=cx+(dx*Math.cos(this.yaw)-dz*Math.sin(this.y))*scale,ry=cy+(dx*Math.sin(this.y)+dz*Math.cos(this.y))*scale;if(Math.hypot(rx-cx,ry-cy)<78){ctx.fillStyle='#ff956a';ctx.beginPath();ctx.arc(rx,ry,4,0,Math.PI*2);ctx.fill();}}
     ctx.fillStyle='#72ffde';ctx.beginPath();ctx.moveTo(cx,cy-7);ctx.lineTo(cx-4,cy+6);ctx.lineTo(cx+4,cy+6);ctx.closePath();ctx.fill();}
-  updateHud(){if(!this.weapons)return;const p=this.player,w=this.weapons,s=w.ammo;el('health-number').textContent=Math.ceil(p.health);el('health-bar').style.width=(p.health/p.maxHealth*100)+'%';el('health-number').nextElementSibling.textContent='/'+Math.ceil(p.maxHealth);el('shield-number').textContent=Math.ceil(p.shield);el('shield-bar').style.width=(p.shield/p.maxShield*100)+'%';el('wave').textContent=fmt(this.wave);el('hostiles').textContent=fmt(this.enemies.count()+this.pendingSpawns.length);el('wave-progress').style.width=(this.waveCount?this.waveKilled/this.waveCount*100:0)+'%';el('score').textContent=num(this.score);el('weapon-name').textContent=w.def.name;el('weapon-sub').textContent=w.def.sub;el('weapon-type').textContent=w.def.type;el('ammo').textContent=fmt(s.clip);el('reserve').textContent=s.reserve;el('combo').textContent=this.combo>2?'COMBO ×'+this.combo:'';const lootHint=el('loot-hint');if(lootHint)lootHint.textContent=this.mode==='multiplayer'?'ARMAMENTO DISPONÍVEL':this.weaponLoot?.unlocked.size>=WEAPONS.length?'ARSENAL COMPLETO':`ARMAS ENCONTRADAS ${this.weaponLoot?.unlocked.size||1}/${WEAPONS.length}`;
-    const dashReady=1-p.dashCd/Math.max(2.5,4.8*p.dashFactor),pulseReady=1-p.pulseCd/12;el('grenade-fill').style.width=(100*Math.max(0,1-this.grenadeCd/7.5))+'%';el('grenade-label').textContent=this.grenadeCd>0?this.grenadeCd.toFixed(1)+' S':'PRONTO';el('grenade-ui').classList.toggle('cooling',this.grenadeCd>0);el('dash-fill').style.width=(Math.max(0,dashReady)*100)+'%';el('pulse-fill').style.width=(Math.max(0,pulseReady)*100)+'%';el('dash-label').textContent=p.dashCd>0?p.dashCd.toFixed(1)+' S':'PRONTO';el('pulse-label').textContent=p.pulseCd>0?p.pulseCd.toFixed(1)+' S':'PRONTO';el('dash-ui').classList.toggle('cooling',p.dashCd>0);el('pulse-ui').classList.toggle('cooling',p.pulseCd>0);if(this.mode==='multiplayer'){el('objective').textContent=this.multiplayer.roomMode==='coop'?this.multiplayer.coopObjectiveLabel():'TODOS CONTRA TODOS · ELIMINAÇÕES';el('hostiles').textContent=fmt(this.multiplayer.roomMode==='coop'?this.multiplayer.coopState?.enemies?.length||0:Math.max(0,this.multiplayer.players.length-1));}else if(this.mode!=='campaign')el('objective').textContent=this.wave%3===0?'NEUTRALIZE O COLOSSUS':'ELIMINE OS HOSTIS';document.body.classList.toggle('reloading',this.state==='playing'&&w.reloadTime>0);
-    const boss=this.enemies.enemies.find(e=>e.boss);el('boss-hud').classList.toggle('hidden',!boss);if(boss)el('boss-fill').style.width=Math.max(0,boss.hp/boss.maxHp*100)+'%';if(this.mode==='campaign'&&this.campaign.active)this.campaign.refreshHUD();else if(this.mode==='multiplayer'){el('mission-id').textContent='MULTIPLAYER · SALA '+this.multiplayer.room;el('chapter-label').textContent=this.multiplayer.roomMode==='coop'?'COOP · OPERAÇÃO':'PVP · TODOS CONTRA TODOS';el('wave').classList.add('hidden');el('mission-progress-label').textContent='JOGADORES';}else{el('mission-id').textContent='MODO SOBREVIVÊNCIA';el('chapter-label').textContent='ONDA';el('wave').classList.remove('hidden');el('mission-progress-label').textContent='ONDA';}}
+  updateHud(){if(!this.weapons)return;const p=this.player,w=this.weapons,s=w.ammo;el('health-number').textContent=Math.ceil(p.health);el('health-bar').style.width=(p.health/p.maxHealth*100)+'%';el('health-number').nextElementSibling.textContent='/'+Math.ceil(p.maxHealth);el('shield-number').textContent=Math.ceil(p.shield);el('shield-bar').style.width=(p.shield/p.maxShield*100)+'%';el('wave').textContent=fmt(this.wave);el('hostiles').textContent=fmt(this.enemies.count()+this.pendingSpawns.length);el('wave-progress').style.width=(this.waveCount?this.waveKilled/this.waveCount*100:0)+'%';el('score').textContent=num(this.score);el('weapon-name').textContent=w.def.name;el('weapon-sub').textContent=w.def.sub;el('weapon-type').textContent=w.def.type;el('ammo').textContent=fmt(s.clip);el('reserve').textContent=s.reserve;el('combo').textContent=this.combo>2?'COMBO ×'+this.combo:'';const lootHint=el('loot-hint');if(lootHint)lootHint.textContent=this.mode==='multiplayer'?'ARMAMENTO DISPONÍVEL':'TODAS AS ARMAS · TECLA 4 / F / RODA DO MOUSE';
+    const dashReady=1-p.dashCd/Math.max(2.5,4.8*p.dashFactor),pulseReady=1-p.pulseCd/12;el('grenade-fill').style.width=(100*Math.max(0,1-this.grenadeCd/7.5))+'%';el('grenade-label').textContent=this.grenadeCd>0?this.grenadeCd.toFixed(1)+' S':'PRONTO';el('grenade-ui').classList.toggle('cooling',this.grenadeCd>0);el('dash-fill').style.width=(Math.max(0,dashReady)*100)+'%';el('pulse-fill').style.width=(Math.max(0,pulseReady)*100)+'%';el('dash-label').textContent=p.dashCd>0?p.dashCd.toFixed(1)+' S':'PRONTO';el('pulse-label').textContent=p.pulseCd>0?p.pulseCd.toFixed(1)+' S':'PRONTO';el('dash-ui').classList.toggle('cooling',p.dashCd>0);el('pulse-ui').classList.toggle('cooling',p.pulseCd>0);if(this.mode==='multiplayer'){el('objective').textContent=this.multiplayer.roomMode==='coop'?this.multiplayer.coopObjectiveLabel():'TODOS CONTRA TODOS · ELIMINAÇÕES';el('hostiles').textContent=fmt(this.multiplayer.roomMode==='coop'?this.multiplayer.coopState?.enemies?.length||0:Math.max(0,this.multiplayer.players.length-1));}else if(this.mode!=='campaign')el('objective').textContent=this.mode==='geocity'?'CAÇADA EM '+String(this.geoData?.city||'SUA CIDADE').toUpperCase():(this.wave%3===0?'NEUTRALIZE O COLOSSUS':'ELIMINE OS HOSTIS');document.body.classList.toggle('reloading',this.state==='playing'&&w.reloadTime>0);
+    const boss=this.enemies.enemies.find(e=>e.boss);el('boss-hud').classList.toggle('hidden',!boss);if(boss)el('boss-fill').style.width=Math.max(0,boss.hp/boss.maxHp*100)+'%';if(this.mode==='campaign'&&this.campaign.active)this.campaign.refreshHUD();else if(this.mode==='multiplayer'){el('mission-id').textContent='MULTIPLAYER · SALA '+this.multiplayer.room;el('chapter-label').textContent=this.multiplayer.roomMode==='coop'?'COOP · OPERAÇÃO':'PVP · TODOS CONTRA TODOS';el('wave').classList.add('hidden');el('mission-progress-label').textContent='JOGADORES';}else{el('mission-id').textContent=this.mode==='geocity'?'CIDADE REAL · '+String(this.geoData?.city||'LOCAL').toUpperCase():'MODO SOBREVIVÊNCIA';el('chapter-label').textContent='ONDA';el('wave').classList.remove('hidden');el('mission-progress-label').textContent='ONDA';}}
   dieFxUpdate(dt){for(let i=this.fx.length-1;i>=0;i--){const f=this.fx[i];f.life-=dt;const t=1-f.life/f.max;if(f.type==='ring'){const s=1+t*12;f.mesh.scale.set(s,s,s);f.mesh.material.opacity=Math.max(0,1-t);}if(f.life<=0){this.world.scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();this.fx.splice(i,1);}}}
   updateCombatTimers(dt){
     const p=this.player;

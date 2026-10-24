@@ -10,7 +10,7 @@ export class WeaponLoot{
   this.materials=WEAPONS.map(w=>new THREE.MeshStandardMaterial({color:w.color,emissive:w.color,emissiveIntensity:.20,metalness:.50,roughness:.42}));
   this.labels=WEAPONS.map(w=>{const canvas=document.createElement('canvas');canvas.width=256;canvas.height=64;const ctx=canvas.getContext('2d');ctx.fillStyle='#061924e8';ctx.fillRect(0,0,256,64);ctx.strokeStyle='#7dece6';ctx.strokeRect(2,2,252,60);ctx.fillStyle='#e9ffff';ctx.font='bold 28px Arial';ctx.textAlign='center';ctx.fillText(w.name,128,41);return new THREE.SpriteMaterial({map:new THREE.CanvasTexture(canvas),transparent:true,depthWrite:false});});
  }
- resetInventory(mode,starting){this.unlocked=new Set(mode==='multiplayer'?[0,1,2,3]:[starting]);}
+ resetInventory(mode,starting){this.unlocked=new Set(WEAPONS.map((_,i)=>i));}
  clear(){for(const drop of this.drops)this.game.world.scene.remove(drop.mesh);this.drops.length=0;}
  findGround(x,z){
   const city=this.game.urban;
@@ -51,10 +51,10 @@ export class WeaponLoot{
   const index=missing.length?missing[Math.floor(Math.random()*missing.length)]:Math.floor(Math.random()*WEAPONS.length);
   return this.spawn(index,x+(Math.random()-.5)*3,z+(Math.random()-.5)*3,boss?90:50);
  }
- collect(drop){
+ collect(drop,equip=false){
   const i=drop.index;this.unlocked.add(i);
   const w=this.game.weapons.state[i];w.reserve=Math.max(w.reserve,WEAPONS[i].clip*3);w.clip=WEAPONS[i].clip;
-  this.game.weapons.switchTo(i);this.game.updateHud();this.game.toast('ARMA RECOLHIDA · '+WEAPONS[i].name+' · TECLA F PARA TROCAR');
+  if(equip)this.game.weapons.switchTo(i);this.game.updateHud();this.game.toast('SUPRIMENTO: '+WEAPONS[i].name+' · F / 4 / RODA DO MOUSE PARA TROCAR');
   this.game.audio.play('pickup');this.game.world.scene.remove(drop.mesh);
   const pos=this.drops.indexOf(drop);if(pos!==-1)this.drops.splice(pos,1);
  }
@@ -64,7 +64,7 @@ export class WeaponLoot{
  }
  interact(){
   if(this.game.state!=='playing'||this.game.mode==='multiplayer'||this.game.deployment?.active)return false;
-  const item=this.nearest(2.3);if(!item)return false;this.collect(item);return true;
+  const item=this.nearest(2.3);if(!item)return false;this.collect(item,true);return true;
  }
  update(dt){
   if(this.game.state!=='playing')return;this.time+=dt;
@@ -73,6 +73,6 @@ export class WeaponLoot{
    d.mesh.rotation.y+=dt*.48;d.mesh.position.y=d.spot.y+.64+Math.sin(this.time*2+i)*.065;
   }
   if(this.game.deployment?.active)return;
-  const item=this.nearest(1.25);if(item)this.collect(item);
+  const item=this.nearest(1.25);if(item)this.collect(item,false);
  }
 }

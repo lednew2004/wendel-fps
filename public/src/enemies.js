@@ -80,7 +80,7 @@ export class EnemySystem {
   // reveal the hidden player's position and never ghosts through a closed door.
   navigateTo(e,target){
     const city=this.world.city;
-    if(!city||!target)return target;
+    if(!city||!target||city.isGeoCity)return target;
     for(const b of SQUAD_INTERIORS){
       const within=p=>Math.abs(p.x-b.x)<b.hx-.55&&Math.abs(p.z-b.z)<b.hz-.55;
       const inMe=within(e),inTarget=within(target);

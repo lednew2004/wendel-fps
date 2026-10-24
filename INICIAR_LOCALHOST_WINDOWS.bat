@@ -9,9 +9,9 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo  TITAN PROTOCOL 3.9.1 - CINEMATIC LAB
+echo  TITAN PROTOCOL 4.6.0 - CIDADE REAL AUTOMATICA
  echo  Abra no navegador: http://localhost:3000
- echo  Compare ORIGINAL e NOVO com F8 ou com o botao na tela.
+ echo  Autorize a localizacao no navegador para explorar a sua cidade.
 echo.
 node server/server.mjs
 pause

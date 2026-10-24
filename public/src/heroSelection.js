@@ -27,7 +27,7 @@ export class HeroSelection {
   const room=document.querySelector('#mp-room-panel .power-loadout');if(room)room.replaceWith(document.createElement('div'));
  }
  choose(id){
-  const hero=heroById(id);this.selectedHero=hero.id;this.selectedRole=roleForHero(hero.id);this.starter=hero.skills[0];this.weapon=ROLE_INFO[this.selectedRole].weapons.includes(hero.weapon)?hero.weapon:ROLE_INFO[this.selectedRole].weapons[0];
+  const hero=heroById(id);this.selectedHero=hero.id;this.selectedRole=roleForHero(hero.id);this.starter=hero.skills[0];this.weapon=hero.weapon;
   this.persist();this.render();this.game.weapons?.setHeroAccent(hero.color);
   if(this.game.powers){this.game.powers.loadout=heroLoadout(hero.id);this.game.powers.menuLoadout=[...this.game.powers.loadout];this.game.powers.refreshSelects();this.game.powers.refreshButtons();}
  }
@@ -35,7 +35,7 @@ export class HeroSelection {
   const parent=document.getElementById('hero-roster');if(!parent)return;
   const tabs=document.getElementById('squad-role-tabs');const tf=document.createDocumentFragment();
   for(const role of SQUAD_ROLES){const b=document.createElement('button');b.type='button';b.className='squad-role-choice'+(this.selectedRole===role?' chosen':'');b.innerHTML=`<span>${ROLE_INFO[role].icon}</span><strong>${ROLE_INFO[role].name}</strong>`;b.addEventListener('click',()=>{this.selectedRole=role;this.choose(ACTIVE_HEROES.find(h=>roleForHero(h.id)===role).id);});tf.append(b);}tabs.replaceChildren(tf);
-  const allowed=ROLE_INFO[this.selectedRole].weapons;const weapons=document.getElementById('hero-weapon');weapons.replaceChildren();for(const i of allowed){const option=document.createElement('option');option.value=String(i);option.textContent=`${WEAPONS[i].name} · ${WEAPONS[i].sub}`;weapons.appendChild(option);}if(!allowed.includes(this.weapon))this.weapon=allowed[0];
+  const allowed=WEAPONS.map((_,i)=>i);const weapons=document.getElementById('hero-weapon');weapons.replaceChildren();for(const i of allowed){const option=document.createElement('option');option.value=String(i);option.textContent=`${WEAPONS[i].name} · ${WEAPONS[i].sub}`;weapons.appendChild(option);}if(!allowed.includes(this.weapon))this.weapon=allowed[0];
   const frag=document.createDocumentFragment();
   for(const h of ACTIVE_HEROES.filter(h=>roleForHero(h.id)===this.selectedRole)){const b=document.createElement('button');b.type='button';b.className='hero-choice'+(h.id===this.selectedHero?' chosen':'');b.style.setProperty('--hero-accent','#'+h.color.toString(16).padStart(6,'0'));b.setAttribute('aria-pressed',String(h.id===this.selectedHero));const initials=h.name.split(/\s+/).slice(0,2).map(v=>v[0]).join('').toUpperCase();b.innerHTML=`<span class="hero-portrait" aria-hidden="true"><span>${initials}</span></span><span class="hero-emblem">✦</span><strong>${h.name}</strong><small>${ROLE_INFO[roleForHero(h.id)].name} · ${h.class}</small>`;b.addEventListener('click',()=>this.choose(h.id));frag.append(b);}parent.replaceChildren(frag);
   const h=heroById(this.selectedHero), accent='#'+h.color.toString(16).padStart(6,'0');
