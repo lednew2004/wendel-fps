@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {projectGeo,geoPolyline,nearPolyline,nearestRoadPoint} from './geoProjection.js';
+import {tileBounds} from './geoVectorParser.js';
 
 const makeMat=color=>new THREE.MeshStandardMaterial({color,roughness:.86,metalness:.08});
 const bannedRoads=new Set(['footway','cycleway','path','steps','bridleway','pedestrian','corridor','construction','proposed']);
@@ -13,6 +14,19 @@ export class GeoCity {
     this.center=data.center;this.cityName=data.city;this.solids=[];this.surfaces=[];this.ladders=[];this.lowWalls=[];this.courses=[];this.rayTargets=[];this.spawnPoints=[];this.polygons=[];
     this.visibilityRadius=245;
     const terrain=new THREE.Mesh(new THREE.PlaneGeometry(512,512),makeMat(0x899a91));terrain.rotation.x=-Math.PI/2;terrain.position.y=-.023;terrain.receiveShadow=true;this.root.add(terrain);
+    if(data.rasterOnly){
+      // Emergency map mode: authentic OSM streets are drawn on the ground in geographic positions.
+      // No made-up building footprints or road geometry are substituted.
+      for(const tile of data.rasterTiles){
+        const b=tileBounds(tile.z,tile.x,tile.y);
+        const nw=projectGeo(b.north,b.west,this.center),se=projectGeo(b.south,b.east,this.center);
+        const texture=new THREE.Texture(tile.image);texture.colorSpace=THREE.SRGBColorSpace;texture.needsUpdate=true;
+        const mat=new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide});
+        const segment=new THREE.Mesh(new THREE.PlaneGeometry(se.x-nw.x,se.z-nw.z),mat);
+        segment.rotation.x=-Math.PI/2;segment.position.set((nw.x+se.x)/2,.012,(nw.z+se.z)/2);
+        this.root.add(segment);
+      }
+    }
     const roadMat=makeMat(0x444654),walkMat=makeMat(0x7d818c),parkMat=makeMat(0x608a68);
     const facades=[0x413950,0x5c526d,0x6d647c,0x68738f,0x9b859a,0x514f61,0x826f92].map(makeMat);
     const roof=makeMat(0x403a51);
@@ -78,9 +92,9 @@ export class GeoCity {
       const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));
       sprite.position.set(p.x,5.2,p.z);sprite.scale.set(12,2.2,1);this.root.add(sprite);
     }
-    if(roads.length===0)throw new Error('Não há ruas mapeadas nesta região.');
+    if(roads.length===0&&!data.rasterOnly)throw new Error('Não há ruas mapeadas nesta região.');
     const gps=projectGeo(userLocation.lat,userLocation.lon,this.center);
-    const near=nearestRoadPoint(gps,roads);
+    const near=roads.length?nearestRoadPoint(gps,roads):gps;
     this.entry=this.findFreeNear(near.x,near.z)||this.findFreeNear(0,0)||{x:0,z:0};
     const candidate=[];
     for(const p of urbanPoints){
@@ -89,7 +103,10 @@ export class GeoCity {
     }
     candidate.sort((a,b)=>Math.hypot(a[0]-this.entry.x,a[1]-this.entry.z)-Math.hypot(b[0]-this.entry.x,b[1]-this.entry.z));
     const seen=[];for(const p of candidate){if(seen.every(v=>Math.hypot(v[0]-p[0],v[1]-p[1])>25))seen.push(p);if(seen.length>=24)break;}
-    this.spawnPoints=seen.length?seen:[[this.entry.x+35,this.entry.z+35]];
+    // Raster mode is still tied to true map coordinates, but individual road footprints are unavailable.
+    if(data.rasterOnly){
+      this.spawnPoints=Array.from({length:16},(_,i)=>{const a=i*Math.PI*2/16,d=55+(i%4)*32;return [Math.max(-222,Math.min(222,this.entry.x+Math.cos(a)*d)),Math.max(-222,Math.min(222,this.entry.z+Math.sin(a)*d))];});
+    }else this.spawnPoints=seen.length?seen:[[this.entry.x+35,this.entry.z+35]];
   }
   findFreeNear(x,z){
     for(let d=0;d<38;d+=2.5)for(let a=0;a<16;a++){
@@ -120,7 +137,7 @@ export class GeoCity {
   updateVisibility(){}
   toggle(on){this.root.visible=!!on;}
   dispose(){
-    this.root.traverse(obj=>{if(obj.isMesh)obj.geometry?.dispose?.();});
+    this.root.traverse(obj=>{if(obj.isMesh){obj.geometry?.dispose?.();if(obj.material?.map)obj.material.map.dispose();if(obj.material?.dispose)obj.material.dispose();}});
     this.world.scene.remove(this.root);
   }
 }

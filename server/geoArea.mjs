@@ -2,15 +2,16 @@
  * Only approximate GPS positions are accepted and cached. No fake city generation.
  * External public Overpass servers are independent and occasionally unavailable.
  */
+import {loadVectorCity} from './geoVector.mjs';
 const sectors = new Map();
 const MAX_CACHE = 90;
 const CACHE_MS = 6 * 60 * 60 * 1000;
 const FAIL_COOLDOWN_MS = 8000;
-const CITY_AGENT = 'TITAN-Protocol/4.6.1 (+https://github.com/lednew2004/wendel-fps; real OSM city FPS)';
+const CITY_AGENT = 'TITAN-Protocol/4.6.2 (+https://github.com/lednew2004/wendel-fps; real OSM city FPS)';
 const SOURCES = [
-  {name: 'Private.coffee', url: 'https://overpass.private.coffee/api/interpreter', timeoutMs: 14500},
-  {name: 'FOSSGIS', url: 'https://overpass-api.de/api/interpreter', timeoutMs: 11500},
-  {name: 'VK Maps', url: 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', timeoutMs: 11500},
+  {name: 'Private.coffee', url: 'https://overpass.private.coffee/api/interpreter', timeoutMs: 6800},
+  {name: 'FOSSGIS', url: 'https://overpass-api.de/api/interpreter', timeoutMs: 6500},
+  {name: 'VK Maps', url: 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', timeoutMs: 6500},
 ];
 
 function send(res, status, data, ttl = 0) {
@@ -94,9 +95,15 @@ async function cityName(lat, lon) {
 }
 export async function loadArea(lat, lon) {
   const center = {lat, lon};
-  const q = overpassQuery(lat, lon);
   const errors = [];
-  for (const source of SOURCES) {
+  // Primary: static vector tiles, not Overpass's live query API.
+  try {
+    const data = await loadVectorCity(lat,lon);
+    // City-name lookup is optional and must not delay map geometry.
+    return data;
+  } catch (error) { errors.push(`OpenFreeMap: ${error.message}`); }
+  const q = overpassQuery(lat, lon);
+  for (const source of SOURCES.slice(0, 2)) {
     try {
       const payload = await querySource(source, q);
       const data = normalizeOsmElements(payload, center);
@@ -110,7 +117,7 @@ export async function loadArea(lat, lon) {
   }
   // Do not log exact GPS, API bodies or browser device locations.
   console.warn('[GEO] Provedores de mapas indisponíveis:', errors.join(' | '));
-  throw new Error('Serviços de mapas temporariamente indisponíveis. Tente novamente em alguns instantes.');
+  throw new Error('Não foi possível consultar o mapa vetorial ou as vias OSM pelo servidor.');
 }
 export async function handleGeoArea(req, res) {
   if (req.method !== 'GET') {send(res, 405, {error: 'Método não permitido.'}); return;}

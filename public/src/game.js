@@ -15,6 +15,7 @@ import {Campaign,MISSIONS} from './campaign.js';
 import {UrbanCity} from './urban.js';
 import {GeoCity} from './geoCity.js';
 import {geoCacheKey,saveGeoSector,readGeoSector,fetchGeoDirect} from './geoFallback.js';
+import {loadBrowserVectorCity,loadRasterGeoCity} from './geoTileFallback.js';
 import {ParkourController} from './parkour.js';
 import {MobileControls} from './mobile.js';
 import {MultiplayerClient} from './multiplayer.js';
@@ -83,29 +84,38 @@ export class Game {
       const lon=Number((Math.round(point.lon*1000)/1000).toFixed(3));
       const key=geoCacheKey(lat,lon);
       const cached=readGeoSector(key);
-      let data=null,onlineError=null,usingCache=false;
-      try{
-        const res=await fetch(`/api/geo/area?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}`,{headers:{'Accept':'application/json'}});
-        const body=await res.json().catch(()=>({}));
-        if(!res.ok)throw new Error(body.error||`Serviço de mapas HTTP ${res.status}`);
-        if(!body.roads?.length)throw new Error('Nenhuma via cadastrada neste setor.');
-        data=body;
-        saveGeoSector(key,data);
-      }catch(error){onlineError=error;}
-      if(!data&&cached){data=cached;usingCache=true;}
-      if(!data){
-        this.geoStatus('SERVIDOR OCUPADO · TENTANDO CARREGAR O MAPA DIRETO...');
+      let data=null,usingCache=false,method='vetorial';
+      const serverLoad=async()=>{
+        const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
         try{
-          data=await fetchGeoDirect(lat,lon);
-          saveGeoSector(key,data);
-        }catch(error){
-          throw new Error(`${onlineError?.message||'Serviço do mapa indisponível.'} A consulta alternativa também falhou. Tente novamente mais tarde.`);
+          const res=await fetch(`/api/geo/area?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}`,{headers:{'Accept':'application/json'},signal:controller.signal});
+          const body=await res.json().catch(()=>({}));
+          if(!res.ok)throw new Error(body.error||`HTTP ${res.status}`);
+          if(!body.roads?.length)throw new Error('O setor geográfico não retornou ruas');
+          return body;
+        }finally{clearTimeout(timer);}
+      };
+      // Two independent routes: the game's server and public static vector tiles
+      // straight from the browser. Neither depends on an Overpass query succeeding.
+      try{
+        data=await Promise.any([serverLoad(),loadBrowserVectorCity(lat,lon)]);
+        saveGeoSector(key,data);
+      }catch{
+        if(cached){data=cached;usingCache=true;}
+        if(!data){
+          this.geoStatus('MAPA 3D INDISPONÍVEL · CARREGANDO RUAS REAIS EM MAPA CARTOGRÁFICO...');
+          try{data=await loadRasterGeoCity(lat,lon);method='cartográfico';}
+          catch(rasterError){
+            // Keep the old Overpass fallback as a last resort, never the sole dependency.
+            try{data=await fetchGeoDirect(lat,lon);saveGeoSector(key,data);}
+            catch{throw new Error(`Falha ao consultar fontes geográficas nesta conexão. ${rasterError.message}. Verifique internet e tente atualizar a página.`);}
+          }
         }
       }
       this.geoData=data;
       if(el('geo-side-city'))el('geo-side-city').textContent=data.city.toUpperCase();
       const origin=usingCache?' · SETOR REAL SALVO':'';
-      this.geoStatus(`${data.city.toUpperCase()} · ${data.roads.length} VIAS · ${data.buildings.length} EDIFÍCIOS${origin}`);
+      this.geoStatus(data.rasterOnly?`${data.city.toUpperCase()} · MAPA REAL SIMPLIFICADO (RUAS CARTOGRÁFICAS)`: `${data.city.toUpperCase()} · ${data.roads.length} VIAS · ${data.buildings.length} EDIFÍCIOS${origin}`);
       return data;
     })();
     try{return await this.geoLoadPromise;}finally{this.geoLoadPromise=null;}
@@ -135,8 +145,8 @@ export class Game {
       this.mode='geocity';this.setState('playing');this.weaponLoot.clear();this.mapSupplies.clear();
       this.parkour.startCombat(real.entry.x,real.entry.z);
       this.parkour.prompt=`CIDADE REAL · ${data.city.toUpperCase()} · BUSQUE AS AMEAÇAS`;
-      this.geoStatus(`${data.city.toUpperCase()} · MAPA REAL CARREGADO`);
-      this.updateHud();this.toast(`MAPA REAL: ${data.city.toUpperCase()}`);this.requestLock();
+      this.geoStatus(data.rasterOnly?'MAPA REAL SIMPLIFICADO CARREGADO · EDIFÍCIOS 3D INDISPONÍVEIS':`${data.city.toUpperCase()} · MAPA REAL CARREGADO`);
+      this.updateHud();this.toast(data.rasterOnly?'RUAS REAIS · MODO CARTOGRÁFICO':`MAPA REAL: ${data.city.toUpperCase()}`);this.requestLock();
     }catch(e){this.geoStatus(e.message||'Falha ao carregar cidade real.',true);this.toast('FALHA NO MAPA · VERIFIQUE A LOCALIZAÇÃO');}
     finally{if(button)button.disabled=false;}
   }
