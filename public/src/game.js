@@ -14,6 +14,7 @@ import {Ordnance} from './ordnance.js';
 import {Campaign,MISSIONS} from './campaign.js';
 import {UrbanCity} from './urban.js';
 import {GeoCity} from './geoCity.js';
+import {geoCacheKey,saveGeoSector,readGeoSector,fetchGeoDirect} from './geoFallback.js';
 import {ParkourController} from './parkour.js';
 import {MobileControls} from './mobile.js';
 import {MultiplayerClient} from './multiplayer.js';
@@ -77,16 +78,34 @@ export class Game {
     if(this.geoLoadPromise)return this.geoLoadPromise;
     this.geoLoadPromise=(async()=>{
       const point=await this.locateCity();
-      this.geoStatus('LOCALIZAÇÃO PERMITIDA · IMPORTANDO RUAS REAIS...');
-      const quantizedLat=(Math.round(point.lat*1000)/1000).toFixed(3);
-      const quantizedLon=(Math.round(point.lon*1000)/1000).toFixed(3);
-      const res=await fetch(`/api/geo/area?lat=${quantizedLat}&lon=${quantizedLon}`);
-      const data=await res.json();
-      if(!res.ok)throw new Error(data.error||'Mapa real indisponível.');
-      if(!data.roads?.length)throw new Error('Não existem ruas mapeadas neste setor.');
+      this.geoStatus('LOCALIZAÇÃO PERMITIDA · CONSULTANDO RUAS REAIS...');
+      const lat=Number((Math.round(point.lat*1000)/1000).toFixed(3));
+      const lon=Number((Math.round(point.lon*1000)/1000).toFixed(3));
+      const key=geoCacheKey(lat,lon);
+      const cached=readGeoSector(key);
+      let data=null,onlineError=null,usingCache=false;
+      try{
+        const res=await fetch(`/api/geo/area?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}`,{headers:{'Accept':'application/json'}});
+        const body=await res.json().catch(()=>({}));
+        if(!res.ok)throw new Error(body.error||`Serviço de mapas HTTP ${res.status}`);
+        if(!body.roads?.length)throw new Error('Nenhuma via cadastrada neste setor.');
+        data=body;
+        saveGeoSector(key,data);
+      }catch(error){onlineError=error;}
+      if(!data&&cached){data=cached;usingCache=true;}
+      if(!data){
+        this.geoStatus('SERVIDOR OCUPADO · TENTANDO CARREGAR O MAPA DIRETO...');
+        try{
+          data=await fetchGeoDirect(lat,lon);
+          saveGeoSector(key,data);
+        }catch(error){
+          throw new Error(`${onlineError?.message||'Serviço do mapa indisponível.'} A consulta alternativa também falhou. Tente novamente mais tarde.`);
+        }
+      }
       this.geoData=data;
       if(el('geo-side-city'))el('geo-side-city').textContent=data.city.toUpperCase();
-      this.geoStatus(`${data.city.toUpperCase()} · ${data.roads.length} VIAS · ${data.buildings.length} EDIFÍCIOS`);
+      const origin=usingCache?' · SETOR REAL SALVO':'';
+      this.geoStatus(`${data.city.toUpperCase()} · ${data.roads.length} VIAS · ${data.buildings.length} EDIFÍCIOS${origin}`);
       return data;
     })();
     try{return await this.geoLoadPromise;}finally{this.geoLoadPromise=null;}
