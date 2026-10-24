@@ -119,6 +119,7 @@ export class World {
     this.animated=[];
     this.time=0;
     this.quality='high';
+    try{this.graphicsLabEnabled=localStorage.getItem('titan-graphics-39')!=='original';}catch{this.graphicsLabEnabled=true;}
 
     // PBR assets generated offline: base color + OpenGL normal + roughness.
     this.materialLibrary=new MaterialLibrary(this.renderer);
@@ -130,7 +131,8 @@ export class World {
       metalGreen:this.materialLibrary.load('metal_green',1,1),
       metalBrown:this.materialLibrary.load('metal_brown',1,1),
       roof:this.materialLibrary.load('roof',8,2),
-      wood:this.materialLibrary.load('wood',1,1)
+      wood:this.materialLibrary.load('wood',1,1),
+      facade:this.materialLibrary.load('facade',2,2)
     };
     // PMREM provides roughness-dependent reflections to metal; not real-time SSR.
     this.pmrem=new THREE.PMREMGenerator(this.renderer);
@@ -569,8 +571,35 @@ export class World {
     this.camera.far=p.far;
     this.camera.updateProjectionMatrix();
     if(this.city?.squadDetailRoot)this.city.squadDetailRoot.visible=q!=='low';
+    this.syncGraphicsLab39();
     if(this.vegetation)this.vegetation.count=Math.floor(this.vegetation.instanceMatrix.count*p.vegetation);
     this.resize();
+  }
+
+  syncGraphicsLab39(){
+    const lab=this.city?.graphicsLab;
+    if(lab){lab.root.visible=!!this.graphicsLabEnabled;lab.deluxe.visible=['high','ultra','cinematic'].includes(this.quality);}
+    const premium=this.city?.cinematic391;
+    if(premium){premium.root.visible=!!this.graphicsLabEnabled;premium.high.visible=['high','ultra','cinematic'].includes(this.quality);}
+    for(const part of this.city?.premiumFacadeMeshes||[]){part.mesh.material=this.graphicsLabEnabled?part.cinematic:part.original;}
+    // Preserve the original palette for the A/B switch. No collision changes.
+    const pal=this.city?.cinematicPalette;
+    if(pal){
+      pal.road.color.setHex(this.graphicsLabEnabled?0x54595a:0x638091);
+      pal.road.metalness=this.graphicsLabEnabled?.12:0;
+      pal.road.roughness=this.graphicsLabEnabled?.82:.85;
+      pal.road.map=this.graphicsLabEnabled?this.textures.asphalt:null;pal.road.needsUpdate=true;
+      pal.concrete.color.setHex(this.graphicsLabEnabled?0xd0d1cb:0xaabcc2);
+      pal.panel.color.setHex(this.graphicsLabEnabled?0x9ebfbb:0x72e8db);
+      pal.panel.emissiveIntensity=this.graphicsLabEnabled?.10:.22;
+      pal.orange.color.setHex(this.graphicsLabEnabled?0xdbbb84:0xffc05f);
+    }
+    this.renderer.toneMappingExposure=this.graphicsLabEnabled?1.10:1.21;
+    if(this.urbanActive){this.scene.fog.color.setHex(this.graphicsLabEnabled?0xb9c9ca:0xb3d8f0);this.scene.background.setHex(this.graphicsLabEnabled?0x90afc2:0x87c3f2);}
+  }
+  setGraphicsLabEnabled(enabled){
+    this.graphicsLabEnabled=!!enabled;this.syncGraphicsLab39();
+    try{localStorage.setItem('titan-graphics-39',enabled?'new':'original');}catch{}
   }
 
   setRenderScale(scale){this.renderScale=Math.min(1.35,Math.max(.5,Number(scale)||1));this.resize();}
@@ -626,7 +655,7 @@ export class World {
     this.moon.shadow.camera.updateProjectionMatrix();
     for(const node of this.baseEnvironmentNodes)node.visible=!enabled;
     if(!enabled){this.scene.background.setHex(0xc0c9cf);this.scene.fog.color.setHex(0xb7c0c7);}
-    else{this.scene.background.setHex(0x87c3f2);this.scene.fog.color.setHex(0xb3d8f0);}
+    else{this.scene.background.setHex(this.graphicsLabEnabled?0x90afc2:0x87c3f2);this.scene.fog.color.setHex(this.graphicsLabEnabled?0xb9c9ca:0xb3d8f0);}
   }
   canMove(x,z,r=.5){
     if(this.urbanActive && this.city) return this.city.canOccupy(x,z,0,1.65,r);

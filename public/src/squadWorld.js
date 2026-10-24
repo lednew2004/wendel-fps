@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {SQUAD_BLOCKS,SQUAD_POINTS} from './squadLayout.js';
 import {installArchitecturalDetails} from './sceneDetails35.js';
+import {installGraphicsLab39} from './graphicsLab39.js';
+import {installCinematicWorld391} from './cinematicWorld391.js';
 /** Linear FPS mission environment. No lanes, towers, jungle camps or MOBA bases. */
 export function createSquadWorld(city){
  const root=city.root;
@@ -9,10 +11,14 @@ export function createSquadWorld(city){
  const wall=new THREE.MeshStandardMaterial({color:0x95c9eb,metalness:.08,roughness:.76});
  // Distinct bright districts stay readable without bloom or dynamic light sources.
  const facades=[0x8acbed,0xf2ae81,0xb0d887,0xc9adea,0xffd379,0x79d6d0].map(color=>new THREE.MeshStandardMaterial({color,roughness:.82,metalness:0}));
+ // PBR alternatives are enabled only with the cinematic A/B switch.
+ const cinematicFacades=[0xf7f7f0,0xe7d6c2,0xc8d7d7,0xdbdce0,0xe4e2d8,0xd1bcae].map(color=>world.mat(color,.12,.87,world.textures.facade));
+ city.premiumFacadeMeshes=[];
  const concrete=new THREE.MeshStandardMaterial({color:0xaabcc2,roughness:.91});
  const road=new THREE.MeshStandardMaterial({color:0x638091,metalness:0,roughness:.85});
  const panel=new THREE.MeshStandardMaterial({color:0x72e8db,emissive:0x238d86,emissiveIntensity:.22});
  const orange=new THREE.MeshStandardMaterial({color:0xffc05f,emissive:0xb96920,emissiveIntensity:.12});
+ city.cinematicPalette={road,concrete,panel,orange};
  const obstacleMaterials={
   concrete:new THREE.MeshStandardMaterial({color:0xb3c6cf,roughness:.95}),
   security:new THREE.MeshStandardMaterial({color:0x5995b2,metalness:.18,roughness:.76}),
@@ -38,6 +44,7 @@ export function createSquadWorld(city){
  for(const [index,b] of SQUAD_BLOCKS.entries()){
    const isShort=b.h<3,material=b.obstacle?(obstacleMaterials[b.kind]||wall):isShort?concrete:facades[index%facades.length];
    const mesh=city.box(b.x,b.h/2,b.z,b.w,b.h,b.d,material);city.rayTargets.push(mesh);
+   if(!b.obstacle&&!isShort)city.premiumFacadeMeshes.push({mesh,original:material,cinematic:cinematicFacades[index%cinematicFacades.length]});
    city.solids.push({...b});
    if(b.obstacle){
      const top=city.box(b.x,b.h+.07,b.z,b.w+.08,.14,b.d+.08,b.kind==='industrial'?orange:metal,false);
@@ -190,6 +197,8 @@ export function createSquadWorld(city){
  const cabin=new THREE.Mesh(new THREE.CapsuleGeometry(2.0,3.7,5,12),metal);cabin.rotation.z=Math.PI/2;craft.add(cabin);
  for(const sign of [-1,1]){const wing=new THREE.Mesh(new THREE.BoxGeometry(4,.2,1.6),panel);wing.position.set(0,-.3,sign*3);craft.add(wing);}
  installArchitecturalDetails(city);
+ installGraphicsLab39(city);
+ installCinematicWorld391(city);
  city.squadLandmarks={rings,craft};
  return SQUAD_POINTS;
 }

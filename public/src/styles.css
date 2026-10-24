@@ -622,3 +622,42 @@ html.is-touch.touch-playing #hud #hud-config-top,html.is-touch.touch-playing #hu
 #forge-manual-tools button{touch-action:manipulation;min-height:35px;border:1px solid #6698a9;border-radius:7px;background:#142c3c;color:#fff;font:700 11px system-ui;padding:5px 9px;}
 .forge-actions{margin-top:3px}.forge-actions button{min-width:100px;}
 @media (pointer:coarse) and (orientation:landscape){#forge-manual-tools{bottom:8px;left:50%;width:min(380px,48vw);padding:5px;}#forge-manual-tools button{min-height:27px;padding:4px 6px;font-size:9px;}.forge-tools-heading{font-size:9px;margin-bottom:4px}.forge-actions{margin-top:4px;} .forge-actions button{min-width:55px;}}
+
+/* ─────────────────── TITAN 3.9.1 / CINEMATIC TACTICAL UI ───────────────────
+   Screen geometry moves from rounded/cubic cards to slender, clipped-line
+   tactical readouts. Input sizes, IDs, z-index and event targets are retained. */
+:root{--cyan:#94d4df;--orange:#e8ac70;--bg:#080f16;--panel:#101921;--text:#eff5f5;--mute:#a4b0ba;--line:rgba(176,199,208,.22)}
+#grain{opacity:.25!important;background:radial-gradient(ellipse at 50% 55%,transparent 42%,rgba(1,5,10,.42) 100%)!important}
+.hud-logo,.score,.mission-chip,.vitals,.weapons,.ability,.radar-card,.boss-hud,.wave-strip,.dialog,.menu-card,.power-slot,.titan-overlay-inner,.titan-map-content,.titan-wheel-content,.pk-head,.pk-times,.pk-bottom,.training-dialog,.hud-editor-frame,.hud-editor-preview,.hud-editor-side,#forge-manual-tools,.training-hero-choice,.hud-editor-tile{border-radius:0!important}
+.menu-card,.dialog,.training-dialog,.hud-editor-frame{background:linear-gradient(143deg,rgba(16,25,32,.97),rgba(7,15,22,.98))!important;border-color:rgba(154,195,209,.37)!important;box-shadow:0 32px 88px #0009!important;clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px))}
+.menu-card{border-top:2px solid #8ecad4!important}
+.dialog h2,.menu-card h1{letter-spacing:.012em;text-shadow:0 4px 25px rgba(0,0,0,.38)}
+.hud{filter:none}
+.hud-top{align-items:center}
+.hud-logo{padding:4px 0;gap:9px}
+.hud-logo .logo-mark{background:transparent!important;border:none!important;border-left:3px solid #9ecbd2!important;box-shadow:none!important;width:44px}
+.mission-chip{background:rgba(4,13,20,.54)!important;border:0!important;border-bottom:1px solid #a5c6cd88!important;box-shadow:none!important;padding:6px 14px!important}
+.hud-bottom .vitals,.hud-bottom .weapons{background:linear-gradient(90deg,rgba(5,13,19,.76),rgba(7,18,26,.52))!important;box-shadow:none!important;border:0!important;border-left:2px solid rgba(144,201,215,.54)!important;backdrop-filter:blur(6px)}
+.radAR-card{border-radius:0}
+.radar-card{background:rgba(6,14,19,.55)!important;border:0!important;border-left:1px solid #b3dbe06b!important;box-shadow:none!important}
+.ability{background:rgba(6,15,20,.45)!important;border-color:rgba(173,198,206,.17)!important;box-shadow:none!important}
+#power-hud .power-slot,.power-slot{border-radius:2px!important;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);background:rgba(4,13,20,.78)!important;box-shadow:none!important}
+.primary-btn,.secondary-btn,.icon-btn,.menu-card button,.dialog button,.training-dialog button,#hud-config-top,#training-change-hero,#forge-manual-tools button,#hud-editor button,#titan-graphics-ab{border-radius:2px!important;box-shadow:none!important;letter-spacing:.07em;}
+.primary-btn{background:linear-gradient(105deg,#e5b576,#cc9a65)!important;color:#101921!important;border:1px solid #ecc58e!important;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,0 100%)}
+.icon-btn{background:rgba(6,18,25,.65)!important;border-color:#8ab4c483!important}
+#forge-manual-tools{background:rgba(7,17,23,.9)!important;border:1px solid #82b6c2b5!important;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,0 100%)}
+#forge-manual-tools button{background:rgba(23,39,48,.95)!important}
+/* HUD no longer displays chunky radial-style touch buttons. Maintain
+   pointer-event priority, minimum touch sizes and current joystick logic. */
+.mobile-action{border-radius:2px!important;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));background:rgba(9,20,28,.77)!important;border:1px solid rgba(188,214,215,.68)!important;box-shadow:inset 0 1px 0 #ffffff12!important;font-family:Rajdhani,sans-serif!important;letter-spacing:.03em!important}
+.mobile-action.fire{background:rgba(126,67,50,.85)!important;border:2px solid #edba8b!important}
+.mobile-action.pressed{background:rgba(227,174,101,.88)!important;color:#131b1e!important}
+.mobile-stick .stick-ring{border-radius:6px!important;clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%);background:rgba(9,19,26,.5)!important;border:1.5px solid #d4d3c1a0!important;box-shadow:none!important}
+.mobile-stick .stick-knob{border-radius:4px!important;clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%);background:#9fb6b46e!important;box-shadow:none!important}
+#hud-editor .hud-editor-tile,#hud-editor .hud-editor-side{border-radius:2px!important}
+/* Readable but smaller corner labels on limited mobile viewport. */
+@media (pointer:coarse) and (orientation:landscape){
+  .mission-chip{padding:3px 7px!important}
+  .mobile-action.fire{border-width:2px!important}
+  .hud-bottom .vitals,.hud-bottom .weapons{backdrop-filter:none}
+}

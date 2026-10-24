@@ -16,7 +16,7 @@ test('3.7: FORGE, voxel placement and survival selection are wired',()=>{
  assert.match(src('game.js'),/spawnMapAmmo\(\)/);
  assert.match(src('game.js'),/this\.forge\.place\(\)/);
  assert.match(src('powers.js'),/g\.forge\.arm\('local'\)/);
- const h=fs.readFileSync(new URL('../../public/index.html',import.meta.url),'utf8');assert.match(h,/BUILD 3\.8\.1/);
+ const h=fs.readFileSync(new URL('../../public/index.html',import.meta.url),'utf8');assert.match(h,/BUILD 3\.9\.1/);
 });
 test('3.7: grid cannot place blocks through objects, inside players, or at arbitrary distances',()=>{
  const p={x:0,y:0,z:0};

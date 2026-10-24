@@ -70,5 +70,5 @@ test('version and combat loop are updated without requiring pointer lock on touc
   const html=readFileSync(new URL('../../public/index.html',import.meta.url),'utf8');
   assert.match(game,/this\.mouseDown\|\|this\.mobile\?\.isFiring\(\)/);
   assert.match(css,/html\.is-touch\.touch-playing #mobile-controls\{z-index:90!important\}/);
-  assert.match(html,/BUILD 3\.8\.1/);
+  assert.match(html,/BUILD 3\.9\.1/);
 });

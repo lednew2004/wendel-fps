@@ -1,3 +1,22 @@
+# TITAN PROTOCOL 3.9.1 — Laboratório Cinemático
+
+Instruções e limitações: **[ATUALIZACAO_3_9_1_CINEMATIC.md](./ATUALIZACAO_3_9_1_CINEMATIC.md)**.
+
+---
+
+# TITAN PROTOCOL 3.9.0 — LABORATÓRIO GRÁFICO EXPERIMENTAL
+
+**Comece por [`TESTAR_GRAFICOS_LOCALHOST.md`](TESTAR_GRAFICOS_LOCALHOST.md).**
+
+Windows: execute `INICIAR_LOCALHOST_WINDOWS.bat` e abra `http://localhost:3000`.
+macOS/Linux: execute `sh INICIAR_LOCALHOST_MAC_LINUX.sh`.
+
+Atalho **F8** compara a cidade original versus detalhes gráficos 3.9; o botão equivalente aparece no canto superior da tela. A página `/comparativo-grafico.html` exibe demonstrações menores de Three.js e PlayCanvas.
+
+Esta é uma experiência visual em cima do gameplay **3.8.1**. A nova proposta de reformulação de heróis não foi aplicada neste pacote.
+
+---
+
 ## NOVO — TITAN PROTOCOL 3.8.1 | FORGE com bloco único
 
 A construção manual do FORGE foi simplificada: **um único bloco voxel (pedra)**, sem escolha de materiais e sem barra de tipos. Ative o Poder 1, mire e use **COLOCAR** (ou atire); **REMOVER** exclui blocos de sua autoria e **SAIR** encerra o modo. A habilidade **Redstone Explosiva** continua armando e detonando os blocos existentes. No multiplayer, o servidor obriga o material padrão, mesmo se um cliente alterado tentar enviar outro tipo de bloco. As habilidades de outros personagens e seus materiais continuam preservados.

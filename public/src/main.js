@@ -1,8 +1,10 @@
 import {Game} from './game.js';
+import {installGraphicsLabControls39} from './graphicsLabControls39.js';
 import {installSkinnedOperativeRuntime} from './skinnedOperatives.js';
 try{
   installSkinnedOperativeRuntime();
-  new Game();
+  const game=new Game();
+  installGraphicsLabControls39(game);
   clearTimeout(window.__titanBootTimer);
 }catch(err){
   console.error('Falha ao iniciar TITAN PROTOCOL:',err);
