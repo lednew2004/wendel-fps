@@ -1,3 +1,11 @@
+# NOVO: TITAN PROTOCOL 4.2 — BASE DE FPS RESTAURADA
+
+**Para subir ao GitHub:** consulte [`GITHUB_COMMIT_PRONTO.md`](./GITHUB_COMMIT_PRONTO.md). O envio usa a branch `restauracao-fps-4.2` e não publica o jogo automaticamente pelo GitHub Actions.
+
+**Inicie por [`LEIA_PRIMEIRO_RESTAURACAO_4_2.md`](./LEIA_PRIMEIRO_RESTAURACAO_4_2.md).** Este pacote de teste é baseado na versão 3.9.1 restaurada, com melhorias de dash, mapa, bots e interface. A documentação histórica original permanece abaixo.
+
+---
+
 # TITAN PROTOCOL 3.9.1 — Laboratório Cinemático
 
 Instruções e limitações: **[ATUALIZACAO_3_9_1_CINEMATIC.md](./ATUALIZACAO_3_9_1_CINEMATIC.md)**.
@@ -212,3 +220,8 @@ A pasta pode ser publicada na **Render** usando `render.yaml` e um repositório 
 - Camada de combate acima da câmera; HUD superior continua acessível.
 - Novas alterações visíveis como BUILD 3.5.3 no menu e no endpoint /health, para conferir que o deploy foi atualizado.
 - CSS/JS/HTML enviados com Cache-Control no-store pelo servidor para evitar instalações antigas.
+
+
+## Correção Render 4.2.1
+
+O Three.js 0.180.0 agora é dependência local instalada com `npm ci` e disponibilizada pelo servidor em `/vendor/three/`. Para deploy, configure Render com build `npm ci`, start `npm start`, e confira a versão de `/health`. Veja `CORRECAO_RENDER_4_2_1.md`.

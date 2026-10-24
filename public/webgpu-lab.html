@@ -1,7 +1,9 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TITAN 3.4 — Laboratório WebGL / WebGPU</title>
 <style>body{font:15px system-ui,sans-serif;background:#0b1420;color:#e7f7fa;margin:0;padding:25px}main{max-width:900px;margin:auto}h1{font-size:clamp(22px,4vw,35px)}p{line-height:1.6;color:#b3c9d6}button{background:#47dae7;color:#07171b;padding:13px 24px;border:0;border-radius:6px;font-weight:800;cursor:pointer}button:disabled{opacity:.5}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{text-align:left;border-bottom:1px solid #2b4a56;padding:13px 8px}small{color:#90acb9}#visual{height:220px;background:#152533;border:1px solid #385460}a{color:#77d8ff}</style>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/webgpu":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.webgpu.js"}}</script></head>
+<script type="importmap">
+  {"imports": {"three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/", "three/webgpu": "/vendor/three/build/three.webgpu.js", "three/tsl": "/vendor/three/build/three.tsl.js", "three/core": "/vendor/three/build/three.core.js"}}
+  </script></head>
 <body><main><p><a href="/">← Voltar ao jogo</a></p><h1>Laboratório gráfico TITAN 3.4</h1>
 <p>Comparação experimental e opcional, <strong>fora do jogo principal</strong>. Renderiza uma cena de teste equivalente em WebGL e WebGPU, sem alterar suas configurações ou o multiplayer. O ensaio mede <strong>tempo de execução JS/render por quadro</strong> (não o tempo de GPU), portanto não garante o mesmo desempenho em uma partida real.</p>
 <button id="start">Testar neste dispositivo</button><p id="status" aria-live="polite">Pronto para testar. Alguns navegadores não permitem WebGPU.</p>
