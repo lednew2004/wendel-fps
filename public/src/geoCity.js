@@ -12,7 +12,7 @@ export class GeoCity {
   constructor(world,data,userLocation){
     this.isGeoCity=true;this.world=world;this.root=new THREE.Group();this.root.name='REAL_OSM_CITY';world.scene.add(this.root);
     this.center=data.center;this.cityName=data.city;this.solids=[];this.surfaces=[];this.ladders=[];this.lowWalls=[];this.courses=[];this.rayTargets=[];this.spawnPoints=[];this.polygons=[];
-    this.visibilityRadius=245;
+    this.visibilityRadius=245;this.streetPaths=[];this.approximateBuildings=0;
     const terrain=new THREE.Mesh(new THREE.PlaneGeometry(512,512),makeMat(0x899a91));terrain.rotation.x=-Math.PI/2;terrain.position.y=-.023;terrain.receiveShadow=true;this.root.add(terrain);
     if(data.rasterOnly){
       // Emergency map mode: authentic OSM streets are drawn on the ground in geographic positions.
@@ -44,9 +44,21 @@ export class GeoCity {
         roadInstances[group].push({x:(a.x+b.x)/2,z:(a.z+b.z)/2,width,len,angle:-Math.atan2(b.x-a.x,b.z-a.z)});
       }
       if(!bannedRoads.has(feature.class)){roads.push(poly);urbanPoints.push(...poly);}
+      if(feature.name&&poly.length>1)this.streetPaths.push({name:feature.name,points:poly});
       if(feature.name&&poly.length>1&&!streetLabels.has(feature.name)&&streetLabels.size<16){
         const mid=poly[Math.floor(poly.length/2)];
         if(Math.abs(mid.x)<190&&Math.abs(mid.z)<190)streetLabels.set(feature.name,mid);
+      }
+    }
+    // OpenMapTiles separates street names into the transportation_name layer.
+    // Reading only transportation.class loses most real names.
+    for(const feature of data.labels||[]){
+      if(!feature.name||!Array.isArray(feature.points)||feature.points.length<2)continue;
+      const poly=geoPolyline(feature.points,this.center);
+      this.streetPaths.push({name:feature.name,points:poly});
+      if(!streetLabels.has(feature.name)&&streetLabels.size<24){
+        const pt=poly[Math.floor(poly.length/2)];
+        if(Math.abs(pt.x)<230&&Math.abs(pt.z)<230)streetLabels.set(feature.name,pt);
       }
     }
     // One draw call per road category (instanced), instead of thousands of draw calls per street segment.
@@ -81,6 +93,58 @@ export class GeoCity {
       this.solids.push(collider);this.polygons.push({collider,polygon});
       const top=new THREE.Mesh(new THREE.ShapeGeometry(shape),roof);top.rotation.x=-Math.PI/2;top.position.y=height+.006;this.root.add(top);
       // Roofing is visual only. Rectangular roof walking would otherwise extend outside complex footprints.
+    }
+    // Optional stylized street-front buildings where OSM has roads but no mapped
+    // building outlines: visual estimates, NOT claimed to be actual buildings.
+    // Never invent streets or replace the map's genuine geometry.
+    if(data.roads.length>0&&data.buildings.length<10){
+      const bGeom=new THREE.BoxGeometry(1,1,1),bDummy=new THREE.Object3D();
+      const props=[];const visited=new Set();
+      for(const road of data.roads){
+        if(bannedRoads.has(road.class))continue;
+        const pts=geoPolyline(road.points,this.center);
+        for(let j=1;j<pts.length;j++){
+          const a=pts[j-1],b=pts[j],dx=b.x-a.x,dz=b.z-a.z,length=Math.hypot(dx,dz);
+          if(length<18||length>250)continue;
+          const nx=-dz/length,nz=dx/length;
+          for(let t=12;t<length-5;t+=25){
+            for(const side of [-1,1]){
+              const offset=roadWidth(road.class)/2+9,fx=a.x+dx*t/length+nx*offset*side,fz=a.z+dz*t/length+nz*offset*side;
+              if(Math.abs(fx)>212||Math.abs(fz)>212)continue;
+              const key=`${Math.round(fx/13)}:${Math.round(fz/13)}`;
+              if(visited.has(key))continue;
+              visited.add(key);
+              if(!this.canOccupy(fx,fz,0,2,4.1))continue;
+              // Do not fabricate a house in the middle of another real street.
+              const closest=roads.length?nearestRoadPoint({x:fx,z:fz},roads):{x:10000,z:10000};
+              if(Math.hypot(fx-closest.x,fz-closest.z)<6.5)continue;
+              const h=7+((Math.abs(Math.round(fx*2+fz))%4)*3);
+              props.push({x:fx,z:fz,h,rot:-Math.atan2(dz,dx)});
+              if(props.length>=100)break;
+            }
+            if(props.length>=100)break;
+          }
+          if(props.length>=100)break;
+        }
+        if(props.length>=100)break;
+      }
+      if(props.length){
+        const mesh=new THREE.InstancedMesh(bGeom,facades[1],props.length);
+        props.forEach((a,i)=>{bDummy.position.set(a.x,a.h/2,a.z);bDummy.rotation.set(0,a.rot,0);bDummy.scale.set(8.5,a.h,10.5);bDummy.updateMatrix();mesh.setMatrixAt(i,bDummy.matrix);});
+        mesh.instanceMatrix.needsUpdate=true;mesh.frustumCulled=false;mesh.receiveShadow=true;
+        this.root.add(mesh);this.rayTargets.push(mesh);this.approximateBuildings=props.length;
+        for(const item of props){
+          const c=Math.cos(item.rot),q=Math.sin(item.rot),polygon=[];
+          for(const [dx,dz] of [[-4.25,-5.25],[4.25,-5.25],[4.25,5.25],[-4.25,5.25]]){
+            polygon.push({x:item.x+dx*c+dz*q,z:item.z-dx*q+dz*c});
+          }
+          const xs=polygon.map(p=>p.x),zs=polygon.map(p=>p.z);
+          const collider={x:(Math.max(...xs)+Math.min(...xs))/2,z:(Math.max(...zs)+Math.min(...zs))/2,
+            hx:(Math.max(...xs)-Math.min(...xs))/2,hz:(Math.max(...zs)-Math.min(...zs))/2,minY:0,maxY:item.h};
+          this.solids.push(collider);this.polygons.push({collider,polygon});
+        }
+        // Collidable visual approximations are not surveyed building positions.
+      }
     }
     // Signs carry actual street names from OSM, so the setting is recognizable even with original game graphics.
     for(const [name,p] of streetLabels){

@@ -783,3 +783,18 @@ body.playing.sniper-aiming::after{box-shadow:0 0 0 100vmax rgba(0,0,0,.82), inse
 #geo-game-credit{display:none;position:fixed;bottom:5px;left:50%;transform:translateX(-50%);z-index:15;background:#161020c9;color:#c5b1de;font:700 9px Rajdhani,system-ui,sans-serif;letter-spacing:.06em;padding:4px 12px;pointer-events:none;white-space:nowrap;border-radius:6px}
 body.mode-geocity #geo-game-credit{display:block}
 @media(max-width:640px){.geo-panel{padding:9px}.geo-panel .geo-title{font-size:10px}#geo-game-credit{font-size:7px;bottom:1px}}
+
+/* 4.6.3 – Real-time WGS84 street HUD, high contrast, no extra combat clutter. */
+#geo-location-hud{display:none;position:fixed;top:82px;left:20px;z-index:18;
+  width:min(335px,calc(100vw - 32px));padding:12px 15px;gap:4px;flex-direction:column;
+  pointer-events:none;border:1px solid rgba(188,144,255,.5);border-radius:9px;
+  background:linear-gradient(130deg,rgba(18,14,28,.90),rgba(33,20,47,.89));
+  color:#f4ecff;box-shadow:0 9px 25px #0007}
+body.mode-geocity #geo-location-hud:not(.hidden){display:flex}
+#geo-location-hud strong{font:800 clamp(14px,1.7vw,19px) Rajdhani,system-ui,sans-serif;
+  line-height:1.15;overflow-wrap:anywhere;text-transform:uppercase}
+#geo-location-hud small{font:700 10px Rajdhani,system-ui,sans-serif;letter-spacing:.04em;color:#e0c7f8}
+#geo-location-hud .geo-caption{font:800 10px Rajdhani,system-ui,sans-serif;letter-spacing:.15em;color:#ad8be6}
+#geo-location-hud #geo-approx-hint{color:#ffcf93}
+#geo-location-hud #geo-stream-status{color:#83e6db}
+@media(max-width:640px){#geo-location-hud{top:45px;left:8px;padding:7px 9px;width:220px}#geo-location-hud small{font-size:8px}#geo-location-hud strong{font-size:13px}}

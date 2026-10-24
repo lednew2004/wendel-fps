@@ -32,3 +32,6 @@ export function nearestRoadPoint(pos,roads){
   }
   return closest;
 }
+
+/** Reconstruct approximate WGS84 position as player moves through local game coordinates. */
+export function unprojectGeo(x,z,center){return {lat:center.lat-z/111320,lon:center.lon+x/(111320*Math.cos(center.lat*Math.PI/180))};}

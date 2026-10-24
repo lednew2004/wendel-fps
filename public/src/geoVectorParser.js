@@ -23,20 +23,21 @@ export function relevantTiles(lat,lon,z=14,halfMeters=265){const dLat=halfMeters
 const aliases={street:'residential',minor:'residential',path:'footway',track:'service',pedestrian:'pedestrian'};
 const forbidden=new Set(['rail','railway','aerialway','ferry','busway','subway','tram','funicular']);
 /** Convert OpenMapTiles vector streets/buildings into the same data the existing Three.js world consumes. */
-export function geometryFromVectorTiles(tiles,lat,lon){const roads=[],buildings=[],parks=[],ids={roads:new Set(),buildings:new Set(),parks:new Set()};const dLat=.0025,dLon=dLat/Math.max(.22,Math.cos(lat*Math.PI/180));const clip=paths=>paths.some(path=>path.some(p=>Math.abs(p[0]-lat)<dLat&&Math.abs(p[1]-lon)<dLon));
-  for(const item of tiles){const {z,x,y,layers}=item;for(const layer of layers){const kind=layer.name==='transportation'?'roads':layer.name==='building'?'buildings':layer.name==='park'||layer.name==='landuse'?'parks':null;if(!kind)continue;
-      for(const f of layer.features){if((kind==='roads'&&f.type!==2)||(kind!=='roads'&&f.type!==3))continue;const tags={};for(let i=0;i+1<f.tagList.length;i+=2){const k=layer.keys[f.tagList[i]],v=layer.values[f.tagList[i+1]];if(k)tags[k]=v;}
+export function geometryFromVectorTiles(tiles,lat,lon){const roads=[],buildings=[],parks=[],labels=[],ids={roads:new Set(),buildings:new Set(),parks:new Set(),labels:new Set()};const dLat=.0025,dLon=dLat/Math.max(.22,Math.cos(lat*Math.PI/180));const clip=paths=>paths.some(path=>path.some(p=>Math.abs(p[0]-lat)<dLat&&Math.abs(p[1]-lon)<dLon));
+  for(const item of tiles){const {z,x,y,layers}=item;for(const layer of layers){const kind=layer.name==='transportation'?'roads':layer.name==='transportation_name'?'labels':layer.name==='building'?'buildings':layer.name==='park'||layer.name==='landuse'?'parks':null;if(!kind)continue;
+      for(const f of layer.features){if(((kind==='roads'||kind==='labels')&&f.type!==2)||((kind==='buildings'||kind==='parks')&&f.type!==3))continue;const tags={};for(let i=0;i+1<f.tagList.length;i+=2){const k=layer.keys[f.tagList[i]],v=layer.values[f.tagList[i+1]];if(k)tags[k]=v;}
         const className=String(tags.class||tags.subclass||'');if(kind==='roads'&&(forbidden.has(className)||forbidden.has(String(tags.subclass||''))))continue;
         if(kind==='parks'&&!['park','grass','recreation_ground','village_green','garden'].includes(className))continue;
         const paths=pathsFromCommands(f.geometry).filter(p=>p.length>1).map(path=>path.map(p=>latLonAt(p.x,p.y,z,layer.extent||4096,x,y))).filter(p=>clip([p]));
         for(let n=0;n<paths.length;n++){if(!paths[n].length)continue;const key=`${kind}:${z}:${x}:${y}:${f.id}:${n}`;if(ids[kind].has(key))continue;ids[kind].add(key);
           const obj={id:key,points:paths[n],name:String(tags.name||'').slice(0,70)};
           if(kind==='roads'){if(roads.length>=520)break;obj.class=aliases[className]||className||'residential';roads.push(obj);}
+          else if(kind==='labels'){if(labels.length>=200)break;if(obj.name)labels.push(obj);}
           else if(kind==='buildings'){if(buildings.length>=800)break;if(paths[n].length<4)continue;obj.height=Number(tags.render_height||tags.height)||0;obj.levels=Number(tags['building:levels']||tags.levels)||0;buildings.push(obj);}
           else {if(parks.length>=60)break;parks.push(obj);}
         }
       }
     }}
   if(!roads.length)throw Error('As peças vetoriais não continham ruas para sua região');
-  return {source:'OpenFreeMap © OpenMapTiles · Dados © OpenStreetMap contributors (ODbL)',city:'MINHA CIDADE',center:{lat,lon},roads,buildings,parks,loadedAt:new Date().toISOString(),provider:'OpenFreeMap · ruas vetoriais'};
+  return {source:'OpenFreeMap © OpenMapTiles · Dados © OpenStreetMap contributors (ODbL)',city:'MINHA CIDADE',center:{lat,lon},roads,buildings,parks,labels,loadedAt:new Date().toISOString(),provider:'OpenFreeMap · ruas vetoriais'};
 }

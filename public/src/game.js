@@ -13,7 +13,7 @@ import {HudCustomizer} from './hudCustomizer.js';
 import {Ordnance} from './ordnance.js';
 import {Campaign,MISSIONS} from './campaign.js';
 import {UrbanCity} from './urban.js';
-import {GeoCity} from './geoCity.js';
+import {GeoCityStream} from './geoCityStream.js';
 import {geoCacheKey,saveGeoSector,readGeoSector,fetchGeoDirect} from './geoFallback.js';
 import {loadBrowserVectorCity,loadRasterGeoCity} from './geoTileFallback.js';
 import {ParkourController} from './parkour.js';
@@ -120,6 +120,44 @@ export class Game {
     })();
     try{return await this.geoLoadPromise;}finally{this.geoLoadPromise=null;}
   }
+  async loadGeoSectorAt(lat,lon){
+    // Dynamic extension: all positions remain real WGS84; cache per 0.001 degree grid.
+    lat=Math.round(lat*1000)/1000;lon=Math.round(lon*1000)/1000;
+    const key=geoCacheKey(lat,lon),cached=readGeoSector(key);
+    const serverLoad=async()=>{
+      const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),9500);
+      try{
+        const response=await fetch(`/api/geo/area?lat=${lat.toFixed(3)}&lon=${lon.toFixed(3)}`,{signal:ctrl.signal});
+        if(!response.ok)throw Error(`Servidor cartográfico ${response.status}`);
+        const body=await response.json();
+        if(!body.roads?.length)throw Error('Nenhuma via vetorial encontrada');
+        return body;
+      }finally{clearTimeout(timer);}
+    };
+    try{
+      const data=await Promise.any([serverLoad(),loadBrowserVectorCity(lat,lon)]);
+      saveGeoSector(key,data);return data;
+    }catch{
+      if(cached)return cached;
+      // Raster data can show a real city map, but has no surveyed 3D footprints.
+      try{return await loadRasterGeoCity(lat,lon);}
+      catch{
+        return fetchGeoDirect(lat,lon).then(data=>{saveGeoSector(key,data);return data;});
+      }
+    }
+  }
+  updateGeoPositionHud(){
+    const status=el('geo-location-hud');if(!status)return;
+    if(this.mode!=='geocity'||!this.geoCity){status.classList.add('hidden');return;}
+    status.classList.remove('hidden');
+    const coords=this.geoCity.coords,stats=this.geoCity.stats;
+    const street=el('geo-street-current');if(street)street.textContent=this.geoCity.streetName;
+    const coordsText=el('geo-coordinates');if(coordsText)coordsText.textContent=`${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`;
+    const tile=el('geo-sector-counter');if(tile)tile.textContent=`${stats.sectors} SETORES · ${stats.footprints} EDIFÍCIOS REAIS`;
+    const approx=el('geo-approx-hint');
+    if(approx)approx.textContent=stats.approximate?`+ ${stats.approximate} FACHADAS ILUSTRATIVAS (POSIÇÕES APROXIMADAS)`:
+      (stats.footprints?'EDIFÍCIOS EM POSIÇÕES MAPEADAS NO OSM':'EDIFÍCIOS 3D NÃO DISPONÍVEIS NESTE SETOR');
+  }
   async autoLocate(){
     this.geoStatus('DETECTANDO SUA REGIÃO · AUTORIZAÇÃO NECESSÁRIA');
     try{await this.loadGeoData();}
@@ -127,7 +165,7 @@ export class Game {
   }
   restoreGeoCity(){
     if(!this.geoCity)return;
-    this.geoCity.toggle(false);this.geoCity.dispose();this.geoCity=null;
+    this.geoCity.toggle(false);this.geoCity.dispose();this.geoCity=null;el('geo-location-hud')?.classList.add('hidden');
     this.urban=this.baseUrban;this.parkour.city=this.baseUrban;this.world.city=this.baseUrban;
     this.world.spawnPoints=this.baseUrban.spawnPoints;this.baseUrban.toggle(true);
   }
@@ -138,7 +176,9 @@ export class Game {
     try{
       const data=await this.loadGeoData();
       // Only build WebGL world after real geographic data has been received.
-      const real=new GeoCity(this.world,data,this.geoUser);
+      const real=new GeoCityStream(this.world,data,this.geoUser,
+        (lat,lon)=>this.loadGeoSectorAt(lat,lon),
+        message=>{const line=el('geo-stream-status');if(line)line.textContent=message;});
       this.start('survival'); // Preserve existing weapons, buffs and PvE enemy waves.
       this.geoCity=real;this.baseUrban.toggle(false);
       this.urban=real;this.world.city=real;this.world.spawnPoints=real.spawnPoints;this.parkour.city=real;
@@ -146,7 +186,7 @@ export class Game {
       this.parkour.startCombat(real.entry.x,real.entry.z);
       this.parkour.prompt=`CIDADE REAL · ${data.city.toUpperCase()} · BUSQUE AS AMEAÇAS`;
       this.geoStatus(data.rasterOnly?'MAPA REAL SIMPLIFICADO CARREGADO · EDIFÍCIOS 3D INDISPONÍVEIS':`${data.city.toUpperCase()} · MAPA REAL CARREGADO`);
-      this.updateHud();this.toast(data.rasterOnly?'RUAS REAIS · MODO CARTOGRÁFICO':`MAPA REAL: ${data.city.toUpperCase()}`);this.requestLock();
+      this.updateHud();this.updateGeoPositionHud();this.toast(data.rasterOnly?'RUAS REAIS · MODO CARTOGRÁFICO':`MAPA REAL: ${data.city.toUpperCase()}`);this.requestLock();
     }catch(e){this.geoStatus(e.message||'Falha ao carregar cidade real.',true);this.toast('FALHA NO MAPA · VERIFIQUE A LOCALIZAÇÃO');}
     finally{if(button)button.disabled=false;}
   }
@@ -453,7 +493,7 @@ export class Game {
       else if(this.powers.frozen())this.positionCamera();
       this.multiplayer.update(dt);
       this.cityTick-=dt;
-      if(this.cityTick<=0){this.urban.updateVisibility(this.player.x,this.player.z,this.world.quality==='low'?105:this.world.quality==='medium'?145:185);this.cityTick=.55;}
+      if(this.cityTick<=0){this.urban.updateVisibility(this.player.x,this.player.z,this.world.quality==='low'?105:this.world.quality==='medium'?145:185);this.updateGeoPositionHud();this.cityTick=.55;}
       const moving=Math.hypot(this.parkour.vx,this.parkour.vz)>1;
       this.updateAimFocus(dt);
       this.weapons.update(dt,moving,this.rightDown);
