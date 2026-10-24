@@ -1,3 +1,9 @@
+# NOVO: TITAN PROTOCOL 4.2 — BASE DE FPS RESTAURADA
+
+**Inicie por [`LEIA_PRIMEIRO_RESTAURACAO_4_2.md`](./LEIA_PRIMEIRO_RESTAURACAO_4_2.md).** Este pacote de teste é baseado na versão 3.9.1 restaurada, com melhorias de dash, mapa, bots e interface. A documentação histórica original permanece abaixo.
+
+---
+
 # TITAN PROTOCOL 3.9.1 — Laboratório Cinemático
 
 Instruções e limitações: **[ATUALIZACAO_3_9_1_CINEMATIC.md](./ATUALIZACAO_3_9_1_CINEMATIC.md)**.

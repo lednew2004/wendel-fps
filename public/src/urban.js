@@ -1,5 +1,6 @@
 import {createSquadWorld} from './squadWorld.js';
 import {SQUAD_ENEMY_SPAWNS} from './squadLayout.js';
+import {UrbanDoors} from './urbanDoors.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {solidBlocksCapsule,standHeight,intersectLanding} from './parkourPhysics.js';
@@ -26,7 +27,7 @@ export class UrbanCity {
       road:color(0x59636b),white:color(0xfff3e4),green:color(0x67c973)
     };
     this.build();
-    this.expansion={update(){},reset(){},nearby(){return null;},setState(){return false;}};
+    this.expansion=new UrbanDoors(this);
     this.makeFuelDrums();
     this.spawnPoints=SQUAD_ENEMY_SPAWNS.map(p=>[...p]);
   }
