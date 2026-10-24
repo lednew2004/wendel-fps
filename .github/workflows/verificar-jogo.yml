@@ -1,0 +1,23 @@
+name: Verificar TITAN PROTOCOL
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Obter codigo
+        uses: actions/checkout@v4
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar projeto
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Gerar colisoes e executar testes
+        run: npm run build

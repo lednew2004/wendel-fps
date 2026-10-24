@@ -1,5 +1,7 @@
 # NOVO: TITAN PROTOCOL 4.2 — BASE DE FPS RESTAURADA
 
+**Para subir ao GitHub:** consulte [`GITHUB_COMMIT_PRONTO.md`](./GITHUB_COMMIT_PRONTO.md). O envio usa a branch `restauracao-fps-4.2` e não publica o jogo automaticamente pelo GitHub Actions.
+
 **Inicie por [`LEIA_PRIMEIRO_RESTAURACAO_4_2.md`](./LEIA_PRIMEIRO_RESTAURACAO_4_2.md).** Este pacote de teste é baseado na versão 3.9.1 restaurada, com melhorias de dash, mapa, bots e interface. A documentação histórica original permanece abaixo.
 
 ---
