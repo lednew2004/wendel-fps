@@ -56,7 +56,7 @@ export class Game {
   loadBest(){try{return Number(localStorage.getItem('titan-protocol-best')||0)||0;}catch{return 0}}
   saveBest(){if(this.score>this.best){this.best=this.score;try{localStorage.setItem('titan-protocol-best',String(this.best));}catch{}return true;}return false;}
   bind(){
-    el('start-btn').addEventListener('click',()=>this.campaign.confirmNew());el('retry-btn').addEventListener('click',()=>this.start(this.mode,this.campaign.index));el('back-menu-btn').addEventListener('click',()=>this.menu());el('resume-btn').addEventListener('click',()=>this.resume());el('hud-pause').addEventListener('click',()=>this.pause());el('restart-from-pause').addEventListener('click',()=>this.start(this.mode,this.campaign.index));el('survival-btn').addEventListener('click',()=>this.start('survival'));
+    el('start-btn').addEventListener('click',()=>this.start('survival'));el('retry-btn').addEventListener('click',()=>this.start(this.mode,this.campaign.index));el('back-menu-btn').addEventListener('click',()=>this.menu());el('resume-btn').addEventListener('click',()=>this.resume());el('hud-pause').addEventListener('click',()=>this.pause());el('restart-from-pause').addEventListener('click',()=>this.start(this.mode,this.campaign.index));el('survival-btn').addEventListener('click',()=>this.campaign.confirmNew());
     this.setupTrainingSwitcher();
     el('adaptive-fps').addEventListener('change',e=>{this.adaptiveFPS=e.target.checked;this.lowFPSTime=0;this.highFPSTime=0;});
     el('sensitivity').addEventListener('input',e=>{this.sensitivity=Number(e.target.value);el('sensitivity-value').textContent=this.sensitivity.toFixed(1)+'×';});
@@ -175,21 +175,21 @@ export class Game {
       this.campaign.active=false;document.body.dataset.sector='0';
       this.pendingSpawns=[];this.enemies.clear();el('wave').classList.add('hidden');
       this.player.maxShield=40;this.player.shield=40;
-      el('objective').textContent='TODOS CONTRA TODOS · ELIMINAÇÕES';
+      el('objective').textContent='ONLINE · ELIMINAÇÕES';
     }else{
       this.campaign.active=false;document.body.dataset.sector='0';
       this.beginWave();
     }
-    if(mode!=='multiplayer'){if(mode!=='campaign')this.weaponLoot.populate();this.deployment.begin(SQUAD_START.x,SQUAD_START.z);}
+    if(mode!=='multiplayer'){if(mode!=='campaign')this.weaponLoot.populate();}
     this.world.update(0);
     this.positionCamera();this.updateHud();this.requestLock();
   }
   menu(){this.forge?.clear();this.mapSupplies?.clear();this.weaponLoot?.clear();this.deployment?.reset();this.powers?.reset();el('power-hud').classList.add('hidden');if(this.mode==='multiplayer'&&this.multiplayer?.connected)this.multiplayer.disconnect();this.parkour.stop();this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.urban.resetInteractions();document.body.classList.remove('trial-active');this.campaign.disposeSector();this.hideScreens();el('start-screen').classList.remove('hidden');this.enemies.clear();this.ordnance.clear();this.pendingSpawns=[];this.setState('menu');this.powers.restoreMenuLoadout();el('menu-best').textContent=num(this.best);if(document.pointerLockElement)document.exitPointerLock();}
   pause(){if(this.state!=='playing')return;if(this.mode==='multiplayer'){this.multiplayer.openRoomPanel();return;}this.setState('paused');this.mobile?.clear();this.mouseDown=false;this.rightDown=false;el('pause-screen').classList.remove('hidden');if(document.pointerLockElement)document.exitPointerLock();}
   resume(){if(this.state!=='paused')return;if(this.mode==='multiplayer'&&this.multiplayer?.panelOpen){this.multiplayer.closeRoomPanel();return;}this.hideScreens();this.setState('playing');this.requestLock();}
-  beginWave(){this.wave++;this.waveKilled=0;this.waveCount=3+Math.min(7,this.wave)+(this.wave%3===0?1:0);this.pendingSpawns=[];if(this.wave%3===0){this.pendingSpawns.push('boss');this.audio.play('boss');}
-    for(let i=this.pendingSpawns.length;i<this.waveCount;i++){const roll=Math.random();let type='scout';if(this.wave>=2&&roll>.48)type='gunner';if(this.wave>=3&&roll>.82)type='tank';if(this.wave>=4&&roll>.67&&roll<=.82)type='sniper';if(this.wave>=5&&roll>.33&&roll<=.46)type='hunter';this.pendingSpawns.push(type);}
-    this.spawnTimer=.14;el('wave-callout').querySelector('small').textContent=this.wave%3===0?'ALERTA · ASSINATURA TITAN':'AMEAÇA DETECTADA';el('wave-callout').querySelector('strong').textContent='ONDA '+fmt(this.wave);el('wave-callout').querySelector('span').textContent=this.wave%3===0?'COLOSSUS NO SETOR':'ELIMINE OS HOSTIS';el('wave-callout').classList.add('active');this.calloutTimer=2.4;this.toast(this.wave%3===0?'CONTATO COM ALVO DE CLASSE TITAN':'SINAIS HOSTIS DETECTADOS');this.updateHud();}
+  beginWave(){this.wave++;this.waveKilled=0;const bossWave=this.wave%2===0;this.waveCount=3+Math.min(6,this.wave)+(bossWave?1:0);this.pendingSpawns=[];if(bossWave){this.pendingSpawns.push('boss');this.audio.play('boss');}
+    for(let i=this.pendingSpawns.length;i<this.waveCount;i++){const roll=Math.random();let type='scout';if(this.wave>=1&&roll>.40)type='gunner';if(this.wave>=2&&roll>.78)type='tank';if(this.wave>=3&&roll>.60&&roll<=.78)type='sniper';if(this.wave>=4&&roll>.28&&roll<=.40)type='hunter';this.pendingSpawns.push(type);}
+    this.spawnTimer=.12;el('wave-callout').querySelector('small').textContent=bossWave?'ALERTA · ASSINATURA TITAN':'AMEAÇA DETECTADA';el('wave-callout').querySelector('strong').textContent='ONDA '+fmt(this.wave);el('wave-callout').querySelector('span').textContent=bossWave?'BOSS NO SETOR':'ELIMINE OS HOSTIS';el('wave-callout').classList.add('active');this.calloutTimer=2.1;this.toast(bossWave?'CONTATO COM BOSS':'SINAIS HOSTIS DETECTADOS');this.updateHud();}
   waveComplete(){if(this.state!=='playing')return;this.setState('upgrade');this.mouseDown=false;this.rightDown=false;if(document.pointerLockElement)document.exitPointerLock();const options=[...UPGRADES].sort(()=>Math.random()-.5).slice(0,3);el('upgrade-choices').replaceChildren();for(const opt of options){const b=document.createElement('button');b.type='button';b.className='upgrade-choice';b.innerHTML=`<span class="upgrade-icon">${opt.icon}</span><small>${opt.tag}</small><strong>${opt.name}</strong><p>${opt.desc}</p>`;b.addEventListener('click',()=>this.applyUpgrade(opt.id));el('upgrade-choices').appendChild(b);}el('upgrade-screen').classList.remove('hidden');this.audio.play('pickup');}
   applyUpgrade(id){const p=this.player,w=this.weapons;if(id==='damage')w.damageMultiplier*=1.25;if(id==='speed')p.speedBonus*=1.17;if(id==='health'){p.maxHealth+=25;p.health=p.maxHealth;}if(id==='shield'){p.maxShield+=25;p.shield=p.maxShield;}if(id==='rapid')w.fireMultiplier*=1.14;if(id==='heal')p.killsHeal+=8;if(id==='ammo')for(const [i,s] of w.state.entries())s.reserve+=Math.ceil(WEAPONS[i].reserve*.5);if(id==='dash')p.dashFactor*=.7;if(id==='grenade')this.ordnance.damageMultiplier*=1.28;
     this.hideScreens();this.setState('playing');this.beginWave();this.requestLock();}
@@ -367,7 +367,7 @@ export class Game {
         this.uiTick-=dt;if(this.uiTick<=0){this.updateHud();this.uiTick=.095;}this.radarTick-=dt;if(this.radarTick<=0){this.updateRadar();this.radarTick=.12;}}
       else if(this.state==='playing'){this.uiTick-=dt;if(this.uiTick<=0){this.updateHud();this.uiTick=.15;}this.radarTick-=dt;if(this.radarTick<=0){this.updateRadar();this.radarTick=.2;}}
     }else if(this.mode==='multiplayer'&&this.state==='paused'){this.multiplayer.update(dt);this.mouseDown=false;}else if(this.state==='menu'){const t=this.animTime*.095;this.world.setMenuCamera(t);this.weapons.model.visible=false;}else if(this.state==='paused'||this.state==='upgrade'||this.state==='dead'){/* Keep last camera frame and scene. */}
-    if(this.state==='playing')this.weapons.model.visible=this.weapons.ads<.55&&!this.deployment?.active;
+    if(this.state==='playing')this.weapons.model.visible=this.weapons.ads<.18&&!this.deployment?.active;
     if(this.calloutTimer>0){this.calloutTimer-=dt;if(this.calloutTimer<=0)el('wave-callout').classList.remove('active');}
     if(this.toastTimer>0){this.toastTimer-=dt;if(this.toastTimer<=0)el('toast').classList.remove('active');}
     if(this.hitmarkTimer>0){this.hitmarkTimer-=dt;if(this.hitmarkTimer<=0){el('hitmarker').classList.remove('active','kill');}}

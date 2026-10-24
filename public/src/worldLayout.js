@@ -2,7 +2,7 @@
 const protectedRoute=()=>false;
 /** Deterministic extension shared by the browser renderer and authoritative Node server.
  * Coordinates are in meters; no Three.js dependency. */
-export const WORLD_HALF = 219;
+export const WORLD_HALF = 256;
 export const EXPANSION_SPOTS = [
   [-160,-192],[-192,0],[160,192],[192,0],[-32,192],[96,-160],[-96,160],[160,-96]
 ];
@@ -10,17 +10,22 @@ export const PARK_SPOTS = [[-192,192],[192,-192],[0,-192],[0,160]];
 export const isSpot = (x,z,spots)=>spots.some(([sx,sz])=>sx===x&&sz===z);
 export function expandedBuildings(){
   const result=[];
-  for(let x=-192;x<=192;x+=32){
-    for(let z=-192;z<=192;z+=32){
-      if(Math.abs(x)<160&&Math.abs(z)<160)continue;
+  for(let x=-224;x<=224;x+=32){
+    for(let z=-224;z<=224;z+=32){
       if(isSpot(x,z,EXPANSION_SPOTS)||isSpot(x,z,PARK_SPOTS))continue;
-      if(Math.abs(x)===192&&Math.abs(z)===192)continue;
+      if(Math.abs(x)===224&&Math.abs(z)===224)continue;
+      if(Math.abs(x)<26 || Math.abs(z)<26)continue; // avenidas centrais
+      if((Math.abs(x)%64<2 && Math.abs(z)<224) || (Math.abs(z)%64<2 && Math.abs(x)<224))continue; // ruas largas recorrentes
       if(protectedRoute(x,z))continue;
-      const n=Math.abs(x*31+z*17),zone=(x>100?'centro':z>140?'residencial':z< -140?'industrial':'bairro');
-      const w=11+(n%3),d=11+((n>>2)%3);
-      const h=zone==='centro'?12+(n%5)*2.7:zone==='industrial'?7+(n%4)*1.9:5.6+(n%5)*1.75;
-      const palette=[0xf3b27b,0x81bfd3,0xf1d28a,0x94cbb6,0xce9cc5,0xe3a5a0,0xb3c4ef,0xf4c1a0];
-      result.push({x,z,w,d,h,accent:palette[n%palette.length],zone,roofAccess:n%3===0});
+      const n=Math.abs(x*31+z*17);
+      const dist=Math.max(Math.abs(x),Math.abs(z));
+      const downtown=Math.abs(x)<128&&Math.abs(z)<128;
+      const mid=Math.abs(x)<180&&Math.abs(z)<180;
+      const w=downtown?14+(n%4):11+(n%3);
+      const d=downtown?14+((n>>2)%4):11+((n>>2)%3);
+      const h=downtown?24+(n%6)*6:mid?14+(n%5)*3.4:7+(n%4)*2.4;
+      const palette=[0x2e243f,0x3d3256,0x53427a,0x697aab,0x8e8ea8,0x242730,0x51406f,0x7077a4];
+      result.push({x,z,w,d,h,accent:palette[n%palette.length],zone:downtown?'downtown':mid?'midtown':'outer',roofAccess:n%2===0});
     }
   }
   return result;

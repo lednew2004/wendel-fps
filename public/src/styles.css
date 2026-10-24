@@ -717,3 +717,52 @@ body.playing.aiming #aim-optic-label{top:calc(50% + 32px);font-size:10px;backgro
 body.dropping #drop-hud{display:block}
 body.dropping .abilities,body.dropping .ingame-hint{opacity:.38}
 @media(max-width:760px){#drop-hud{top:13%;padding:10px 16px;min-width:220px}#drop-hud strong{font-size:20px}}
+
+
+/* TITAN 4.5 UI + city refresh */
+:root{--bg:#07050c;--panel:#130f1d;--cyan:#f7f7ff;--orange:#a76bff;--red:#ff84bf;--text:#f8f6ff;--mute:#beb6d8;--line:rgba(170,140,255,.24)}
+body{background:#07050c}
+#grain{background:radial-gradient(ellipse at 50% 52%,transparent 22%,rgba(8,5,15,.72) 100%),repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 4px)}
+.hud-top{top:18px;left:22px;right:22px;grid-template-columns:1fr auto auto}
+.hud-logo small,.radar-card,.killfeed,.ingame-hint,.wave-strip{display:none!important}
+.mission-chip{min-width:210px;background:rgba(17,12,28,.92);border-color:rgba(177,129,255,.28)}
+.vitals,.weapons,.ability{background:linear-gradient(145deg,rgba(17,12,28,.92),rgba(8,6,14,.96));border-color:rgba(177,129,255,.18)}
+.meter{background:rgba(255,255,255,.11)}
+.health>div{background:linear-gradient(90deg,#b177ff,#f5ecff);box-shadow:0 0 15px #a76bff}
+.shield>div{background:linear-gradient(90deg,#6857d4,#c6c0ff)}
+.ability-icon,.reload-hint,.top-right .score strong,.ammo strong{color:#f4f1ff}
+.logo-mark,.icon-btn,.secondary-btn,.mp-trigger{background:linear-gradient(155deg,rgba(44,29,72,.85),rgba(8,6,14,.92));border-color:rgba(177,129,255,.35);color:#f6f2ff}
+.menu-card{background:linear-gradient(145deg,rgba(18,12,28,.95),rgba(8,6,14,.97));border-color:rgba(177,129,255,.34);box-shadow:0 35px 120px #000a,0 0 90px rgba(142,88,255,.12)}
+.menu-card:before{border-top-color:rgba(177,129,255,.82)}
+.primary-btn{background:linear-gradient(100deg,#7b43d4,#ece9ff);color:#150d27}
+.subtitle span,.card-topline{background:linear-gradient(90deg,#b177ff,transparent)}
+.mode-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0 18px}
+.mode-card{padding:12px;border:1px solid rgba(177,129,255,.22);background:rgba(255,255,255,.03)}
+.mode-card strong{display:block;font:800 18px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:#f7f3ff}
+.mode-card small{display:block;color:#beb6d8;letter-spacing:1px;font-size:11px}
+.hero-roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:10px}
+.hero-choice{position:relative;padding:10px 10px 12px;border:1px solid rgba(177,129,255,.18);background:rgba(255,255,255,.02);color:#fff;text-align:left;min-height:168px}
+.hero-choice.chosen{border-color:var(--hero-accent);box-shadow:0 0 0 1px var(--hero-accent) inset,0 10px 30px rgba(0,0,0,.26)}
+.hero-portrait{display:flex;align-items:flex-end;justify-content:center;height:82px;border-radius:10px;margin-bottom:10px;background:radial-gradient(circle at 50% 28%,rgba(255,255,255,.18),transparent 34%),linear-gradient(160deg,var(--hero-accent),#120c1f 74%);overflow:hidden}
+.hero-portrait span,.hero-profile-art span{font:900 38px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:#fff;text-shadow:0 8px 26px rgba(0,0,0,.45)}
+.hero-choice .hero-emblem{position:absolute;top:8px;right:8px;color:var(--hero-accent)}
+.hero-choice strong{display:block;font:800 18px 'Barlow Condensed',sans-serif;letter-spacing:.7px}
+.hero-choice small{display:block;color:#c8c0e1;font-size:11px;line-height:1.2;margin-top:4px}
+.hero-profile{margin-top:12px;padding:12px;border:1px solid rgba(177,129,255,.16);background:rgba(255,255,255,.02)}
+.hero-profile-head{display:flex;gap:12px;align-items:center;margin-bottom:10px}
+.hero-profile-art{width:84px;height:84px;display:grid;place-items:center;border-radius:12px;background:radial-gradient(circle at 50% 28%,rgba(255,255,255,.18),transparent 34%),linear-gradient(160deg,var(--hero-accent),#120c1f 74%);flex:none}
+.hero-powers{display:grid;grid-template-columns:1fr;gap:7px}
+.hero-powers span{display:block;padding:7px 8px;border:1px solid rgba(177,129,255,.12);background:rgba(255,255,255,.02)}
+.hero-loadout-config label,.hero-loadout-note{display:block;margin-top:12px;color:#cfc7e4}
+body.playing.aiming #crosshair{width:62px;height:62px}
+body.playing.aiming #crosshair span{width:3px;height:3px;left:29px;top:29px;background:#fff;box-shadow:0 0 0 1px #000,0 0 12px #fff}
+body.playing.aiming #crosshair i{background:#fff;opacity:.95}
+body.playing.aiming #crosshair i:nth-of-type(1){left:30px;top:8px;height:16px}
+body.playing.aiming #crosshair i:nth-of-type(2){left:30px;bottom:8px;height:16px}
+body.playing.aiming #crosshair i:nth-of-type(3){top:30px;left:8px;width:16px}
+body.playing.aiming #crosshair i:nth-of-type(4){top:30px;right:8px;width:16px}
+body.playing.aiming:not(.sniper-aiming)::before{content:"";position:fixed;z-index:12;left:50%;top:50%;width:min(28vmin,260px);height:min(28vmin,260px);transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.92);border-radius:50%;box-shadow:0 0 0 999vmax rgba(0,0,0,.06), inset 0 0 0 1px rgba(177,129,255,.65);pointer-events:none}
+body.playing.sniper-aiming::after{box-shadow:0 0 0 100vmax rgba(0,0,0,.82), inset 0 0 24px rgba(167,107,255,.25)}
+#aim-optic-label{color:#f7f4ff;background:rgba(14,10,22,.72);border:1px solid rgba(177,129,255,.28);padding:4px 9px;border-radius:6px}
+#drop-hud{display:none!important}
+@media(max-width:760px){.mode-cards{grid-template-columns:1fr}.hero-roster{grid-template-columns:repeat(2,minmax(0,1fr))}}

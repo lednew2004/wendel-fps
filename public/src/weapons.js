@@ -261,17 +261,17 @@ export class Weapons {
     this.recoil=Math.max(0,this.recoil-dt*1.7);
     this.bob+=dt*(moving?12:2.1);
     const sway=moving?.0075:0;
-    const x=lerp(.41,0,this.ads)+Math.sin(this.bob)*sway*(1-this.ads*.9);
-    const y=lerp(-.34,-.24,this.ads)-this.reloadingVisual*.35+Math.abs(Math.cos(this.bob))*sway*(1-this.ads*.85) - .016*Math.sin(this.bob*.32);
-    const z=lerp(-.71,-.51,this.ads)+this.recoil*.78;
+    const x=lerp(.41,-.01,this.ads)+Math.sin(this.bob)*sway*(1-this.ads*.9);
+    const y=lerp(-.34,-.42,this.ads)-this.reloadingVisual*.35+Math.abs(Math.cos(this.bob))*sway*(1-this.ads*.85) - .016*Math.sin(this.bob*.32);
+    const z=lerp(-.71,-.28,this.ads)+this.recoil*.46;
     const vault=Math.max(0,Math.min(1,this.vaultAnim||0));
     this.model.position.set(x-vault*.15,y-vault*.25,z+vault*.08);
     this.model.rotation.x=this.recoil*.52 + this.reloadingVisual*.24 + Math.abs(Math.sin(this.bob))*sway*.5 - vault*.42;
     this.model.rotation.y=this.recoil*.22 + Math.sin(this.bob*.5)*sway*.4;
     this.model.rotation.z=lerp(-.06,0,this.ads)+Math.sin(this.bob)*sway*.55 + vault*.24;
     const base=this.world.baseFOV||78;
-    const focused=this.index===2?11:this.index===1?28:this.index===3?22:18;
-    const targetFov=aiming?Math.min(focused,base*.42):base+vault*4;
+    const focused=this.index===2?9:this.index===1?22:this.index===3?19:16;
+    const targetFov=aiming?Math.min(focused,base*.36):base+vault*4;
     const next=this.world.camera.fov+(targetFov-this.world.camera.fov)*Math.min(1,dt*13);
     if(Math.abs(next-this.world.camera.fov)>.015){this.world.camera.fov=next;this.world.camera.updateProjectionMatrix();}
     document.body.classList.toggle('aiming',this.ads>.22);
