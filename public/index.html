@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="screen-orientation" content="landscape">
+  <meta name="theme-color" content="#070b10">
+  <meta name="description" content="TITAN PROTOCOL 3.9.1 — FPS tático de esquadrão, 4 funções, missões contra o Titã, PvP e cooperativo online">
+  <title>TITAN PROTOCOL 3.9.1 · SQUAD OPERATIONS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./src/styles.css">
+  <link rel="stylesheet" href="./src/powers.css">
+  <script>
+    // The rotation hint appears immediately, even before the Three.js CDN loads.
+    (() => {
+      const sync = () => {
+        const touch = matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && Math.min(innerWidth,innerHeight)<=600);
+        document.documentElement.classList.toggle('needs-landscape', touch && innerWidth <= innerHeight);
+      };
+      sync(); addEventListener('resize',sync,{passive:true});
+    })();
+  </script>
+  <script type="importmap">
+  {"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <!-- Mobile: screen must be landscape before touch controls unlock. Orientation is user-driven; lock is optional. -->
+  <div id="rotate-screen" aria-live="polite" role="status">
+    <div class="rotate-card">
+      <div class="rotate-icon" aria-hidden="true">↻</div>
+      <strong>VIRE O CELULAR</strong>
+      <p>Para jogar TITAN PROTOCOL, coloque o aparelho na <b>horizontal</b>.</p>
+      <small>Em seguida use os dois controles de toque para andar e mirar.</small>
+      <button type="button" id="mobile-fullscreen">⛶ TELA CHEIA (OPCIONAL)</button>
+    </div>
+  </div>
+  <main id="viewport" aria-label="Arena 3D"></main>
+  <div id="grain" aria-hidden="true"></div>
+  <div id="squad-status" class="hidden" aria-label="Estado dos companheiros de esquadrão"></div>
+  <div id="damage-vignette" aria-hidden="true"></div>
+  <div id="hitmarker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div id="crosshair" aria-hidden="true"><span></span><i></i><i></i><i></i><i></i></div>
+  <div id="reload-msg" aria-live="polite">RECARREGANDO</div>
+  <div id="wave-callout" aria-live="polite"><small>AMEAÇA DETECTADA</small><strong>ONDA 01</strong><span>ELIMINE OS HOSTIS</span></div>
+  <div id="toast" aria-live="polite"></div>
+  <div id="interaction" class="interaction hidden" aria-live="off"><div class="interaction-head"><span>⬡ INTERFACE TÁTICA</span><small>DISTÂNCIA DO OBJETIVO</small></div><strong>ACESSAR TERMINAL</strong><small>SEGURE F PARA INTERAGIR</small><div class="interact-track"><i></i></div></div>
+
+  <section id="hud" class="hud hidden" aria-label="Informações da partida">
+    <header class="hud-top">
+      <div class="hud-logo"><b class="logo-mark">T<span>/</span>P</b><div><strong>TITAN <em>PROTOCOL</em></strong><small id="mission-id">M01 · OPERAÇÕES SQUAD</small></div></div>
+      <div class="mission-chip"><span class="live-dot"></span><div><small>MISSÃO ATIVA</small><strong id="objective">ELIMINE OS HOSTIS</strong></div></div>
+      <div class="top-right"><small id="perf-fps" class="perf-fps">-- FPS</small><div class="score"><small>PONTUAÇÃO</small><strong id="score">000000</strong></div><button id="hud-config-top" type="button" title="Configurar HUD" aria-label="Configurar HUD">⚙ HUD</button><button id="hud-pause" class="icon-btn" title="Pausar (Esc)" aria-label="Pausar">Ⅱ</button></div>
+    </header>
+    <div class="wave-strip"><span><b id="chapter-label">01 / A QUEDA</b> <strong id="wave" class="hidden">01</strong></span><span style="font-size:10px;color:var(--cyan)" id="mission-progress-label">MISSÃO</span><div class="wave-track"><div id="wave-progress"></div></div><span>HOSTIS <strong id="hostiles">00</strong></span></div>
+    <aside class="radar-card"><div class="radar-head"><strong>RADAR TÁTICO</strong><span>60M</span></div><canvas id="radar" width="180" height="180" aria-label="Radar dos inimigos"></canvas><div class="radar-foot"><i></i> MOVIMENTO DETECTADO</div></aside>
+    <div class="killfeed" id="killfeed" aria-live="polite"></div>
+    <div id="boss-hud" class="boss-hud hidden"><div><small>ASSINATURA HOSTIL · CLASSE TITAN</small><strong id="boss-name">COLOSSUS // MK-IV</strong></div><div class="boss-track"><div id="boss-fill"></div></div></div>
+    <div class="hud-bottom">
+      <div class="vitals"><div class="vitals-label"><span>INTEGRIDADE</span><strong><span id="health-number">100</span><small>/100</small></strong></div><div class="meter health"><div id="health-bar"></div></div><div class="vitals-label shield-line"><span>DEFESA</span><strong id="shield-number">60</strong></div><div class="meter shield"><div id="shield-bar"></div></div><div class="vitals-status"><span class="live-dot"></span> SISTEMA OPERACIONAL <span id="combo" class="combo"></span></div></div>
+      <div class="abilities"><div class="ability" id="dash-ui"><span class="ability-key">X</span><div class="ability-icon">➜</div><strong>DASH</strong><small id="dash-label">PRONTO</small><div class="ability-fill" id="dash-fill"></div></div><div class="ability" id="grenade-ui"><span class="ability-key">G</span><div class="ability-icon">◉</div><strong>GRANADA</strong><small id="grenade-label">PRONTO</small><div class="ability-fill" id="grenade-fill"></div></div><div class="ability" id="pulse-ui"><span class="ability-key">Q</span><div class="ability-icon">✦</div><strong>PULSO</strong><small id="pulse-label">PRONTO</small><div class="ability-fill" id="pulse-fill"></div></div></div>
+      <div class="weapons"><div class="weapon-top"><span>ARMA EQUIPADA</span><span id="weapon-type">ASSALTO · AUTOMÁTICA</span></div><div class="weapon-main"><div><strong id="weapon-name">M4A1</strong><small id="weapon-sub">RIFLE DE ASSALTO</small></div><div class="ammo"><strong id="ammo">36</strong><span>/ <b id="reserve">216</b></span></div></div><div class="weapon-bottom"><span>1 M4A1</span><span>2 M870</span><span>3 M24</span><span>4 M249</span><span class="reload-hint">R RECARREGAR</span></div></div>
+    </div>
+    <div class="ingame-hint" id="ingame-hint">WASD MOVER · MOUSE MIRAR · CLIQUE ATIRAR · F OBJETIVO · E ESCADA · SHIFT CORRER · ESPAÇO PULAR · X DASH · CTRL DESLIZAR · Q PULSO · G GRANADA · T DESAFIO · R RECARGA</div>
+  </section>
+
+  <section id="parkour-hud" class="hidden" aria-label="Parkour urbano">
+    <div class="pk-top"><div class="pk-head"><small id="pk-level">NÍVEL 1</small><strong id="pk-route">TELHADOS DO DISTRITO</strong><span>CHECKPOINT <b id="pk-progress">0/4</b></span></div><div class="pk-times"><small>CRONÔMETRO</small><strong id="pk-time">0.00 s</strong><span>MELHOR TEMPO: <b id="pk-best">—</b></span></div></div>
+    <div class="pk-bottom"><div class="pk-status"><span>ALTURA <b id="pk-height">0.0 m</b></span><span>VELOCIDADE <b id="pk-speed">0 km/h</b></span></div><div class="pk-nav"><span id="pk-direction">↑</span><div>PRÓXIMO MARCADOR <b id="pk-target-dist">—</b></div></div><strong id="pk-prompt">SIGA OS MARCADORES</strong><small>WASD ANDAR · SHIFT CORRER · ESPAÇO PULAR · E ESCADA · CTRL DESLIZAR · X DASH · T DESAFIO · R RECARREGAR</small></div>
+  </section>
+
+  <div id="titan-economy-hud" class="hidden" role="status" aria-live="polite">◈ 0 CR · 1 PODER</div>
+  <button type="button" id="titan-power-picker" class="hidden" aria-label="Escolher habilidades">✦ PODERES</button>
+  <section id="titan-abilities-dialog" class="hidden" role="dialog" aria-modal="true" aria-label="Seleção de habilidades">
+    <div class="titan-overlay-inner">
+      <div class="titan-map-content"><h2>↝ TELEPORTE · MAPA DA CIDADE</h2><p>Toque ou clique no destino. Verde: local seguro. Você terá 15 segundos para VOLTAR.</p><canvas id="titan-teleport-map" width="560" height="560" aria-label="Mapa para escolher a posição do teleporte"></canvas><span id="titan-map-feedback" role="status">TOQUE NO MAPA</span><div class="titan-map-buttons"><button type="button" id="titan-power-pick" disabled>TELEPORTAR</button><button type="button" id="titan-power-cancel">CANCELAR</button></div></div>
+      <div class="titan-wheel-content"><h2>✦ EQUIPAR SUPERPODERES</h2><p>Roda do personagem: TAB abre e fecha. As três habilidades estão disponíveis sem comprar. O personagem e a arma são escolhidos antes da partida.</p><div class="titan-wheel-slots"><button type="button" data-power-target-slot="0">PODER 1 · 1</button><button type="button" data-power-target-slot="1">PODER 2 · 2</button><button type="button" data-power-target-slot="2">PODER 3 · 3</button></div><div class="titan-wheel-stage"><div id="titan-abilities-wheel"></div><div id="titan-wheel-center" aria-live="polite">ESCOLHA O PODER</div></div><div class="titan-wheel-navigation"><button type="button" id="titan-wheel-prev">◀ ANTERIORES</button><span id="titan-wheel-page">1 / 3</span><button type="button" id="titan-wheel-next">PRÓXIMAS ▶</button></div><button type="button" id="titan-wheel-close">VOLTAR AO JOGO</button></div>
+    </div>
+  </section>
+  <div id="power-hud" class="hidden" aria-label="Habilidades equipadas"><button type="button" id="power-a" class="power-slot"><span class="power-key">1</span><span class="power-symbol">◉</span><span class="power-name">REPULSÃO</span><span class="power-time">PRONTO</span></button><button type="button" id="power-b" class="power-slot"><span class="power-key">2</span><span class="power-symbol">❄</span><span class="power-name">CONGELAR</span><span class="power-time">PRONTO</span></button><button type="button" id="power-c" class="power-slot"><span class="power-key">3 · ULT</span><span class="power-symbol">✦</span><span class="power-name">PODER 3</span><span class="power-time">PRONTO</span></button><button type="button" id="power-descend" aria-label="Descer voando">↓ DESCER</button></div>
+  <section id="mobile-controls" aria-label="Controles móveis" aria-hidden="true">
+    <div id="mobile-move" class="mobile-stick" aria-label="Analógico de movimento"><div class="stick-ring"><div id="mobile-move-knob" class="stick-knob"></div></div><span>MOVER</span></div>
+    <div id="mobile-look" aria-label="Área de toque para girar a câmera"></div>
+    <div id="mobile-actions">
+      <button type="button" id="m-fire" class="mobile-action fire" aria-label="Atirar">ATIRAR</button>
+      <button type="button" id="m-jump" class="mobile-action jump" aria-label="Pular ou subir">PULAR</button>
+      <button type="button" id="m-dash" class="mobile-action dash" aria-label="Dash">DASH</button>
+      <button type="button" id="m-reload" class="mobile-action" aria-label="Recarregar">REC.</button>
+      <button type="button" id="m-aim" class="mobile-action" aria-label="Mirar">MIRA</button>
+      <button type="button" id="m-interact" class="mobile-action" aria-label="Interagir com escada ou objetivo">USAR</button>
+      <button type="button" id="m-objective" class="mobile-action" aria-label="Interagir com objetivo">USAR</button>
+      <button type="button" id="m-sprint" class="mobile-action" aria-label="Correr">CORRER</button>
+      <button type="button" id="m-slide" class="mobile-action" aria-label="Deslizar">SLIDE</button>
+      <button type="button" id="m-grenade" class="mobile-action" aria-label="Granada">G</button>
+      <button type="button" id="m-pulse" class="mobile-action" aria-label="Pulso">Q</button>
+      <button type="button" id="m-weapon" class="mobile-action" aria-label="Trocar arma">ARMA</button>
+      <button type="button" id="m-trial" class="mobile-action" aria-label="Desafio de parkour">T</button>
+      <button type="button" id="m-more" class="mobile-action" aria-label="Mais ações" aria-expanded="false">＋</button>
+    </div>
+    <div id="mobile-tip">ESQUERDA: ANDAR · DIREITA: MIRAR LIVREMENTE · SEGURE ATIRAR</div>
+  </section>
+  <!-- Multiplayer: minimapa sempre visível, sem cobrir a área de mira nem capturar toques. -->
+  <aside id="mp-minimap" class="hidden" aria-label="Minimapa com as posições dos jogadores da sala">
+    <div class="mp-minimap-head"><strong>MINIMAPA</strong><span><b id="mp-minimap-count">1</b> ONLINE</span></div>
+    <canvas id="mp-minimap-canvas" width="240" height="240" aria-label="Mapa da cidade. Marcador verde: você; marcadores laranja: outros jogadores."></canvas>
+    <div class="mp-minimap-legend"><span><i class="mm-self"></i> VOCÊ</span><span><i class="mm-other"></i> OUTROS</span></div>
+  </aside>
+  <!-- O código da sala e o placar só aparecem quando o jogador abre o painel. -->
+  <div id="mp-hud" class="hidden"><button id="mp-room-open" type="button" aria-label="Abrir informações da sala" aria-haspopup="dialog" aria-controls="mp-room-panel">☰ SALA <b id="mp-count">1/8</b></button></div>
+  <section id="mp-room-panel" class="hidden" role="dialog" aria-modal="true" aria-labelledby="mp-panel-heading">
+    <div class="mp-room-card">
+      <header class="mp-room-header"><div><small>PARTIDA MULTIPLAYER</small><h2 id="mp-panel-heading">SUA SALA</h2></div><button type="button" id="mp-room-close" class="mp-room-x" aria-label="Fechar informações da sala">✕</button></header>
+      <div class="mp-room-main">
+        <div class="mp-room-invite"><label for="mp-room-code-input">CÓDIGO PARA SEUS AMIGOS</label><input id="mp-room-code-input" type="text" value="------" readonly spellcheck="false" aria-label="Código da sala"><p>Envie o código ou o convite. Seus amigos poderão entrar na mesma partida.</p><div class="mp-room-buttons"><button type="button" id="mp-copy">COPIAR CÓDIGO</button><button type="button" id="mp-share">COMPARTILHAR CONVITE</button></div><small id="mp-share-status" role="status" aria-live="polite"></small><button type="button" id="hud-config-mp" class="hud-config-launch">⚙ CONFIGURAR HUD</button><div class="mp-mobile-tuning"><label for="mp-touch-sensitivity">VELOCIDADE DA MIRA <b id="mp-touch-sensitivity-label">3.8×</b></label><input id="mp-touch-sensitivity" type="range" min="0.8" max="6" value="3.8" step="0.1"></div></div>
+        <div class="power-loadout"><strong>KIT DO PERSONAGEM · 3 HABILIDADES</strong><p>KIT FIXO: três habilidades gratuitas de seu personagem. PC: 1/2/3 para poderes, 4 ou F para trocar arma · Celular: PODER 1/2/3.</p><div class="power-choices"><label>PODER 1<select data-power-slot="0"><option value="push">REPULSÃO · empurra em área</option><option value="freeze">CONGELAR · 1,5 segundo</option><option value="teleport">TELEPORTE NO MAPA · retornar</option><option value="flight">VOAR · 7 segundos</option><option value="invisible">INVISIBILIDADE · 5 segundos</option><option value="phase">INTANGIBILIDADE · 7 segundos</option><option value="shield">ESCUDO ABSOLUTO · 7 s</option><option value="swap">TROCA DIMENSIONAL · troca de posição</option><option value="clones">CLONES FANTASMAS · 10 s</option><option value="clonejump">CLONE MÓVEL · corre e troca de lugar</option><option value="gravity">GRAVIDADE · lança jogadores</option><option value="chain">RAIO ELÉTRICO · até 3 alvos</option><option value="rewind">REVERTER TEMPO · volta 10 s</option><option value="blackhole">BURACO NEGRO EXTREMO · suga adversários</option><option value="copy">COPIAR · marca e rouba poderes após eliminar</option><option value="resurrection">RESSURREIÇÃO · automática após morrer, imortal 4 s</option><option value="heal">CURA · recupera vida e escudo</option><option value="morph">VIRAR OBJETO · perto de um tambor</option></select></label><label>PODER 2<select data-power-slot="1"><option value="push">REPULSÃO · empurra em área</option><option value="freeze">CONGELAR · 1,5 segundo</option><option value="teleport">TELEPORTE NO MAPA · retornar</option><option value="flight">VOAR · 7 segundos</option><option value="invisible">INVISIBILIDADE · 5 segundos</option><option value="phase">INTANGIBILIDADE · 7 segundos</option><option value="shield">ESCUDO ABSOLUTO · 7 s</option><option value="swap">TROCA DIMENSIONAL · troca de posição</option><option value="clones">CLONES FANTASMAS · 10 s</option><option value="clonejump">CLONE MÓVEL · corre e troca de lugar</option><option value="gravity">GRAVIDADE · lança jogadores</option><option value="chain">RAIO ELÉTRICO · até 3 alvos</option><option value="rewind">REVERTER TEMPO · volta 10 s</option><option value="blackhole">BURACO NEGRO EXTREMO · suga adversários</option><option value="copy">COPIAR · marca e rouba poderes após eliminar</option><option value="resurrection">RESSURREIÇÃO · automática após morrer, imortal 4 s</option><option value="heal">CURA · recupera vida e escudo</option><option value="morph">VIRAR OBJETO · perto de um tambor</option></select></label></div></div><div class="mp-room-players"><h3>JOGADORES <b id="mp-roster-count">1/8</b></h3><div id="mp-scores" role="list"></div></div>
+      </div>
+      <footer class="mp-room-footer"><button type="button" id="mp-room-resume">VOLTAR AO JOGO</button><button type="button" id="mp-room-leave">SAIR DA SALA</button></footer>
+      <small class="mp-room-note">A partida online continua enquanto este painel estiver aberto.</small><small id="mp-connection-status" aria-live="polite"></small>
+    </div>
+  </section>
+  <div id="mp-respawn" class="hidden" role="status">VOCÊ FOI ELIMINADO · REAPARECENDO...</div>
+  <section id="multiplayer-lobby" class="hidden" aria-label="Entrar no multiplayer">
+    <div class="mp-dialog">
+      <button type="button" id="mp-close" class="mp-close" aria-label="Fechar">×</button>
+      <span class="mp-kicker">TITAN NETWORK · TEMPO REAL</span>
+      <h2>MULTIPLAYER <span>ONLINE</span></h2>
+      <p>Escolha seu nome. Para <b>criar</b>, use um código de 6 caracteres ou deixe vazio para gerar automaticamente. Para <b>entrar</b>, digite o código do amigo.</p>
+      <div class="power-loadout"><strong>KIT DO PERSONAGEM · 3 HABILIDADES</strong><p>KIT FIXO: três habilidades gratuitas de seu personagem. PC: 1/2/3 para poderes, 4 ou F para trocar arma · Celular: PODER 1/2/3.</p><div class="power-choices"><label>PODER 1<select data-power-slot="0"><option value="push">REPULSÃO · empurra em área</option><option value="freeze">CONGELAR · 1,5 segundo</option><option value="teleport">TELEPORTE NO MAPA · retornar</option><option value="flight">VOAR · 7 segundos</option><option value="invisible">INVISIBILIDADE · 5 segundos</option><option value="phase">INTANGIBILIDADE · 7 segundos</option><option value="shield">ESCUDO ABSOLUTO · 7 s</option><option value="swap">TROCA DIMENSIONAL · troca de posição</option><option value="clones">CLONES FANTASMAS · 10 s</option><option value="clonejump">CLONE MÓVEL · corre e troca de lugar</option><option value="gravity">GRAVIDADE · lança jogadores</option><option value="chain">RAIO ELÉTRICO · até 3 alvos</option><option value="rewind">REVERTER TEMPO · volta 10 s</option><option value="blackhole">BURACO NEGRO EXTREMO · suga adversários</option><option value="copy">COPIAR · marca e rouba poderes após eliminar</option><option value="resurrection">RESSURREIÇÃO · automática após morrer, imortal 4 s</option><option value="heal">CURA · recupera vida e escudo</option><option value="morph">VIRAR OBJETO · perto de um tambor</option></select></label><label>PODER 2<select data-power-slot="1"><option value="push">REPULSÃO · empurra em área</option><option value="freeze">CONGELAR · 1,5 segundo</option><option value="teleport">TELEPORTE NO MAPA · retornar</option><option value="flight">VOAR · 7 segundos</option><option value="invisible">INVISIBILIDADE · 5 segundos</option><option value="phase">INTANGIBILIDADE · 7 segundos</option><option value="shield">ESCUDO ABSOLUTO · 7 s</option><option value="swap">TROCA DIMENSIONAL · troca de posição</option><option value="clones">CLONES FANTASMAS · 10 s</option><option value="clonejump">CLONE MÓVEL · corre e troca de lugar</option><option value="gravity">GRAVIDADE · lança jogadores</option><option value="chain">RAIO ELÉTRICO · até 3 alvos</option><option value="rewind">REVERTER TEMPO · volta 10 s</option><option value="blackhole">BURACO NEGRO EXTREMO · suga adversários</option><option value="copy">COPIAR · marca e rouba poderes após eliminar</option><option value="resurrection">RESSURREIÇÃO · automática após morrer, imortal 4 s</option><option value="heal">CURA · recupera vida e escudo</option><option value="morph">VIRAR OBJETO · perto de um tambor</option></select></label></div></div><label for="mp-name">NOME DO JOGADOR</label>
+      <div class="mp-input-row"><input id="mp-name" type="text" maxlength="18" value="Operador" autocomplete="nickname" spellcheck="false"><button id="mp-name-clear" type="button" aria-label="Limpar nome">LIMPAR</button></div>
+      <label for="mp-code">CÓDIGO DA SALA (OPCIONAL AO CRIAR)</label>
+      <div class="mp-input-row"><input id="mp-code" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" autocorrect="off" placeholder="EX: A1B2C3" spellcheck="false"><button id="mp-code-clear" type="button" aria-label="Limpar código">LIMPAR</button></div>
+      <small class="mp-field-help">Criar com campo vazio = código automático. Criar com 6 caracteres = código escolhido. Entrar = código obrigatório.</small>
+      <div class="mp-actions"><button type="button" id="mp-create">CRIAR SALA</button><button type="button" id="mp-join">ENTRAR NA SALA</button></div>
+      <details><summary>Configuração do servidor</summary><label for="mp-server">ENDEREÇO WEBSOCKET (WSS)</label><input id="mp-server" type="url" placeholder="wss://servidor.exemplo.com/ws"><small>Deixe vazio para usar automaticamente o multiplayer do mesmo endereço deste jogo.</small></details>
+      <p id="mp-status" role="status">Conecte-se ao servidor para jogar.</p>
+      <small>Multiplayer gratuito: servidor integrado ao mesmo site, sem Redis ou configuração de endereço.</small>
+    </div>
+  </section>
+  <section id="start-screen" class="screen" aria-label="Menu principal">
+    <div class="menu-side left-side"><div>PROTOCOLO<br>DE DEFESA<br>AUTÔNOMA</div><small>TEATRO DE OPERAÇÕES // SETOR DELTA</small></div>
+    <div class="menu-card">
+      <div class="eyebrow"><span class="live-dot"></span> OPERAÇÃO TÁTICA EM ANDAMENTO <span class="edition">BUILD 3.9.1 · CINEMATIC LAB</span></div>
+      <div class="card-topline"></div>
+      <p class="pretitle">ACESSO AUTORIZADO <span>〰</span> UNIDADE DE ELITE</p>
+      <h1>TITAN<br><span>PROTOCOL</span><b class="title-period">.</b></h1>
+      <div class="subtitle"><span></span> SQUAD · TACTICAL OPERATIONS <span></span></div>
+      <p class="menu-desc">Escolha um dos 15 heróis e lute com 3 habilidades em missões FPS de esquadrão: Frente, Suporte, Sniper e Bomber. Três aliados de IA cobrem as outras funções.</p>
+      <div class="menu-features"><div><b>03</b><span>MISSÕES</span></div><div><b>06</b><span>ALIADOS IA</span></div><div><b>04</b><span>UPGRADES</span></div><div><b>04</b><span>ARMAS</span></div></div>
+      <div class="campaign-actions">
+        <button id="campaign-continue" class="primary-btn hidden"><span>CONTINUAR CAMPANHA</span><b>↗</b></button>
+        <div class="power-loadout"><strong>KIT DO PERSONAGEM · 3 HABILIDADES</strong><p>KIT FIXO: três habilidades gratuitas de seu personagem. PC: 1/2/3 para poderes, 4 ou F para trocar arma · Celular: PODER 1/2/3.</p><div class="power-choices"><label>PODER 1<select data-power-slot="0"><option value="push">REPULSÃO · empurra em área</option><option value="freeze">CONGELAR · 1,5 segundo</option><option value="teleport">TELEPORTE NO MAPA · retornar</option><option value="flight">VOAR · 7 segundos</option><option value="invisible">INVISIBILIDADE · 5 segundos</option><option value="phase">INTANGIBILIDADE · 7 segundos</option><option value="shield">ESCUDO ABSOLUTO · 7 s</option><option value="swap">TROCA DIMENSIONAL · troca de posição</option><option value="clones">CLONES FANTASMAS · 10 s</option><option value="clonejump">CLONE MÓVEL · corre e troca de lugar</option><option value="gravity">GRAVIDADE · lança jogadores</option><option value="chain">RAIO ELÉTRICO · até 3 alvos</option><option value="rewind">REVERTER TEMPO · volta 10 s</option><option value="blackhole">BURACO NEGRO EXTREMO · suga adversários</option><option value="copy">COPIAR · marca e rouba poderes após eliminar</option><option value="resurrection">RESSURREIÇÃO · automática após morrer, imortal 4 s</option><option value="heal">CURA · recupera vida e escudo</option><option value="morph">VIRAR OBJETO · perto de um tambor</option></select></label><label>PODER 2<select data-power-slot="1"><option value="push">REPULSÃO · empurra em área</option><option value="freeze">CONGELAR · 1,5 segundo</option><option value="teleport">TELEPORTE NO MAPA · retornar</option><option value="flight">VOAR · 7 segundos</option><option value="invisible">INVISIBILIDADE · 5 segundos</option><option value="phase">INTANGIBILIDADE · 7 segundos</option><option value="shield">ESCUDO ABSOLUTO · 7 s</option><option value="swap">TROCA DIMENSIONAL · troca de posição</option><option value="clones">CLONES FANTASMAS · 10 s</option><option value="clonejump">CLONE MÓVEL · corre e troca de lugar</option><option value="gravity">GRAVIDADE · lança jogadores</option><option value="chain">RAIO ELÉTRICO · até 3 alvos</option><option value="rewind">REVERTER TEMPO · volta 10 s</option><option value="blackhole">BURACO NEGRO EXTREMO · suga adversários</option><option value="copy">COPIAR · marca e rouba poderes após eliminar</option><option value="resurrection">RESSURREIÇÃO · automática após morrer, imortal 4 s</option><option value="heal">CURA · recupera vida e escudo</option><option value="morph">VIRAR OBJETO · perto de um tambor</option></select></label></div></div><button id="start-btn" class="primary-btn"><span>INICIAR OPERAÇÃO SQUAD</span><b>↗</b></button>
+        <div class="action-pair"><button id="armory-btn" class="secondary-btn">◈ ARSENAL / UPGRADES</button><button id="survival-btn" class="secondary-btn">∞ TREINO · SOBREVIVÊNCIA</button></div>
+        <button id="hud-config-menu" type="button" class="secondary-btn hud-config-launch">⚙ CONFIGURAR HUD / CONTROLES</button>
+        <button id="mp-open" type="button" class="secondary-btn mp-trigger">◎ PVP · TODOS CONTRA TODOS · CRIAR / ENTRAR EM SALA</button>
+        <div class="save-line"><span id="menu-chapter">CHECKPOINT: PERÍMETRO ZERO</span><span>CRÉDITOS: <b id="menu-credits">0</b> CR</span></div>
+      </div>
+      <div class="mobile-menu-note">📱 CELULAR: GIRE A TELA NA HORIZONTAL · USE OS DEDOS PARA JOGAR</div><div class="menu-controls"><span><kbd>W A S D</kbd> MOVER</span><span><kbd>MOUSE</kbd> MIRAR / ATIRAR</span><span><kbd>4 / F</kbd> TROCAR ARMA</span><span><kbd>FPS</kbd> PRIMEIRA PESSOA</span><span><kbd>E / X / T</kbd> PARKOUR E DASH</span></div>
+      <div class="menu-footer"><span><i class="green-led"></i> SISTEMAS OPERACIONAIS</span><span>MELHOR PONTUAÇÃO: <b id="menu-best">000000</b></span></div>
+    </div>
+    <div class="menu-side right-side"><span>FOB DELTA</span><span>05° 11' 22.0" S</span><span>42° 48' 14.1" W</span></div>
+  </section>
+
+  <section id="armory-screen" class="screen hidden" aria-label="Arsenal de melhorias">
+    <div class="arsenal-panel"><div class="dialog-kicker">EQUIPAMENTO PERMANENTE · ARQUIVO DE OPERADOR</div><h2>ARSENAL <span>TITAN</span></h2><p>Créditos obtidos ao concluir missões desbloqueiam melhorias que permanecem entre partidas. Três níveis por equipamento.</p><div class="arsenal-cash">SALDO DISPONÍVEL <strong><span id="armory-credits">0</span> CR</strong></div><div id="armory-list" class="armory-list"></div><button id="armory-close" class="secondary-btn">VOLTAR AO MENU</button></div>
+  </section>
+
+  <section id="chapter-complete-screen" class="screen hidden" aria-label="Missão concluída"><div class="dialog chapter-panel"><div class="dialog-kicker">TRANSMISSÃO DE COMANDO // MISSÃO CONCLUÍDA</div><h2>SETOR <span>LIBERADO</span></h2><h3 id="chapter-name">SINAL PERDIDO</h3><p id="chapter-summary">ROTA SEGUINTE LIBERADA.</p><div class="chapter-reward"><small>RECOMPENSA DE OPERAÇÃO</small><strong id="chapter-reward">+300 CRÉDITOS</strong></div><button id="next-mission" class="primary-btn"><span>AVANÇAR PARA O PRÓXIMO SETOR</span><b>↗</b></button><button id="victory-finish" class="primary-btn hidden"><span>VER EPÍLOGO</span><b>↗</b></button><button id="chapter-menu" class="secondary-btn">VOLTAR AO MENU · CHECKPOINT SALVO</button></div></section>
+
+  <section id="victory-screen" class="screen hidden" aria-label="Campanha concluída"><div class="dialog ending-panel"><div class="dialog-kicker">SQUAD · TACTICAL OPERATIONS // TRANSMISSÃO RESTABELECIDA</div><h2>MISSÃO <span>CUMPRIDA</span></h2><p>Os três setores foram recuperados. O esquadrão venceu a invasão, desativou os geradores e concluiu a evacuação. O sinal da resistência continua ativo.</p><div class="epilogue">TITAN PROTOCOL 3.3 <span>— FIM DA CAMPANHA —</span></div><button id="victory-replay" class="primary-btn"><span>JOGAR NOVAMENTE</span><b>↗</b></button><button id="victory-menu" class="secondary-btn">VOLTAR AO MENU</button></div></section>
+
+  <section id="pause-screen" class="screen hidden" aria-label="Jogo pausado"><div class="dialog"><div class="dialog-kicker">SISTEMA SUSPENSO</div><h2>OPERAÇÃO<br><span>PAUSADA</span></h2><p>A simulação foi interrompida. Seus inimigos aguardam o retorno do operador.</p><button id="resume-btn" class="primary-btn"><span>RETOMAR MISSÃO</span><b>↗</b></button><button id="hud-config-pause" type="button" class="secondary-btn hud-config-launch">⚙ CONFIGURAR HUD</button><button id="restart-from-pause" class="secondary-btn">REINICIAR PARTIDA</button><div class="power-loadout"><strong>KIT DO PERSONAGEM · 3 HABILIDADES</strong><p>KIT FIXO: três habilidades gratuitas de seu personagem. PC: 1/2/3 para poderes, 4 ou F para trocar arma · Celular: PODER 1/2/3.</p><div class="power-choices"><label>PODER 1<select data-power-slot="0"><option value="push">REPULSÃO · empurra em área</option><option value="freeze">CONGELAR · 1,5 segundo</option><option value="teleport">TELEPORTE NO MAPA · retornar</option><option value="flight">VOAR · 7 segundos</option><option value="invisible">INVISIBILIDADE · 5 segundos</option><option value="phase">INTANGIBILIDADE · 7 segundos</option><option value="shield">ESCUDO ABSOLUTO · 7 s</option><option value="swap">TROCA DIMENSIONAL · troca de posição</option><option value="clones">CLONES FANTASMAS · 10 s</option><option value="clonejump">CLONE MÓVEL · corre e troca de lugar</option><option value="gravity">GRAVIDADE · lança jogadores</option><option value="chain">RAIO ELÉTRICO · até 3 alvos</option><option value="rewind">REVERTER TEMPO · volta 10 s</option><option value="blackhole">BURACO NEGRO EXTREMO · suga adversários</option><option value="copy">COPIAR · marca e rouba poderes após eliminar</option><option value="resurrection">RESSURREIÇÃO · automática após morrer, imortal 4 s</option><option value="heal">CURA · recupera vida e escudo</option><option value="morph">VIRAR OBJETO · perto de um tambor</option></select></label><label>PODER 2<select data-power-slot="1"><option value="push">REPULSÃO · empurra em área</option><option value="freeze">CONGELAR · 1,5 segundo</option><option value="teleport">TELEPORTE NO MAPA · retornar</option><option value="flight">VOAR · 7 segundos</option><option value="invisible">INVISIBILIDADE · 5 segundos</option><option value="phase">INTANGIBILIDADE · 7 segundos</option><option value="shield">ESCUDO ABSOLUTO · 7 s</option><option value="swap">TROCA DIMENSIONAL · troca de posição</option><option value="clones">CLONES FANTASMAS · 10 s</option><option value="clonejump">CLONE MÓVEL · corre e troca de lugar</option><option value="gravity">GRAVIDADE · lança jogadores</option><option value="chain">RAIO ELÉTRICO · até 3 alvos</option><option value="rewind">REVERTER TEMPO · volta 10 s</option><option value="blackhole">BURACO NEGRO EXTREMO · suga adversários</option><option value="copy">COPIAR · marca e rouba poderes após eliminar</option><option value="resurrection">RESSURREIÇÃO · automática após morrer, imortal 4 s</option><option value="heal">CURA · recupera vida e escudo</option><option value="morph">VIRAR OBJETO · perto de um tambor</option></select></label></div></div><div class="setting"><label for="sensitivity">SENSIBILIDADE DE MIRA <span id="sensitivity-value">1.0×</span></label><input id="sensitivity" type="range" min="0.4" max="2.5" value="1" step="0.1"></div><div class="setting"><label for="touch-sensitivity">VELOCIDADE DO DEDO NO CELULAR <span id="touch-sensitivity-label">3.8×</span></label><input id="touch-sensitivity" type="range" min="0.8" max="6" value="3.8" step="0.1"></div><div class="setting"><label for="invert-y" class="check-option"><input id="invert-y" type="checkbox"> INVERTER EIXO VERTICAL DO MOUSE</label></div><div class="setting"><label for="quality">QUALIDADE GRÁFICA</label><select id="quality"><option value="low">BAIXA · PERFORMANCE</option><option value="medium" selected>MÉDIA · EQUILIBRADA</option><option value="high">ALTA · PBR + SMAA</option><option value="ultra">ULTRA · AO + SOMBRAS</option><option value="cinematic">CINEMATOGRÁFICA · MÁXIMO</option></select></div><div class="advanced-settings"><div class="setting-row"><label for="render-scale">RESOLUÇÃO DE RENDERIZAÇÃO <b id="render-scale-label">100%</b></label><input id="render-scale" type="range" min="50" max="135" step="5" value="100"></div>
+<div class="setting-row"><label for="fov">CAMPO DE VISÃO <b id="fov-label">78°</b></label><input id="fov" type="range" min="65" max="105" step="1" value="78"></div>
+<div class="setting-row"><label for="draw-distance">DISTÂNCIA DE RENDERIZAÇÃO</label><select id="draw-distance"><option value="150">CURTA · 150 M</option><option value="190" selected>MÉDIA · 190 M</option><option value="250">LONGA · 250 M</option><option value="290">ULTRA · 290 M</option><option value="320">ULTRA · 320 M</option></select></div>
+<div class="setting-row"><label for="shadows">SOMBRAS</label><select id="shadows"><option value="0">DESLIGADAS</option><option value="1024" selected>BAIXAS · 1024</option><option value="2048">ALTAS · 2048</option><option value="3072">ULTRA · 3072</option><option value="4096">CINEMATOGRÁFICAS · 4096</option></select></div>
+<div class="setting-row"><label for="vegetation">VEGETAÇÃO <b id="vegetation-label">85%</b></label><input id="vegetation" type="range" min="0" max="100" step="5" value="85"></div>
+<div class="setting-row"><label for="texture-quality">FILTRAGEM DE TEXTURAS</label><select id="texture-quality"><option value="1">BAIXA · 1×</option><option value="4" selected>MÉDIA · 4×</option><option value="8">ALTA · 8×</option><option value="16">ULTRA · 16×</option></select></div>
+<div class="setting-row"><label for="fps-limit">LIMITE DE RENDERIZAÇÃO</label><select id="fps-limit"><option value="0" selected>SEM LIMITE</option><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="120">120 FPS</option></select></div>
+<div class="graphics-toggles"><label><input id="adaptive-fps" type="checkbox" checked> ESTABILIZAR FPS AUTOMATICAMENTE</label><label><input type="checkbox" id="enable-smaa"> ANTIALIASING SMAA</label><label><input type="checkbox" id="enable-ao"> OCLUSÃO DE AMBIENTE</label><label><input type="checkbox" id="enable-reflections" checked> REFLEXOS PBR</label><label><input type="checkbox" id="enable-bloom"> BLOOM SUTIL</label></div></div><p class="tiny">ESC PARA PAUSAR · CLIQUE PARA RETOMAR O CONTROLE DO MOUSE</p></div></section>
+
+  <section id="upgrade-screen" class="screen hidden" aria-label="Melhoria de equipamento"><div class="upgrade-panel"><div class="dialog-kicker">ONDA CONCLUÍDA · SUPRIMENTOS ENCONTRADOS</div><h2>ESCOLHA UMA <span>MELHORIA</span></h2><p>Uma modificação será aplicada permanentemente nesta partida.</p><div id="upgrade-choices" class="upgrade-grid"></div><p class="tiny">ESCOLHA UMA MELHORIA PARA INICIAR A PRÓXIMA ONDA</p></div></section>
+
+  <section id="death-screen" class="screen hidden" aria-label="Fim de jogo"><div class="dialog"><div class="dialog-kicker danger">SINAL VITAL PERDIDO</div><h2>MISSÃO<br><span>ENCERRADA</span></h2><p>Seu esquadrão caiu, mas os dados de combate foram recuperados.</p><div class="results"><div><small>ONDAS</small><strong id="final-wave">0</strong></div><div><small>ELIMINAÇÕES</small><strong id="final-kills">0</strong></div><div><small>PONTOS</small><strong id="final-score">0</strong></div></div><div id="new-record" class="record hidden">NOVO RECORDE PESSOAL</div><button id="retry-btn" class="primary-btn"><span>TENTAR NOVAMENTE</span><b>↗</b></button><button id="back-menu-btn" class="secondary-btn">MENU PRINCIPAL</button></div></section>
+
+  <section id="hud-editor" class="screen hidden" role="dialog" aria-modal="true" aria-label="Configurar HUD">
+    <div class="hud-editor-frame">
+      <header class="hud-editor-header"><div><small>TITAN PROTOCOL · CONFIGURAÇÃO</small><h2>CONFIGURAR <span>HUD</span></h2><p>Arraste os elementos no campo de prévia. Alterações são salvas neste dispositivo.</p></div><button id="hud-editor-close" type="button" aria-label="Fechar sem salvar">✕</button></header>
+      <div class="hud-editor-body">
+        <div class="hud-editor-preview" id="hud-editor-preview" aria-label="Prévia dos controles e indicadores"><div class="hud-editor-grid"></div><span class="hud-editor-center">⊕</span></div>
+        <aside class="hud-editor-side"><label for="hud-editor-item">ELEMENTO SELECIONADO</label><select id="hud-editor-item"></select><label for="hud-editor-size">TAMANHO <output id="hud-editor-size-value">100%</output></label><input id="hud-editor-size" type="range" min="65" max="150" step="5" value="100"><label for="hud-editor-opacity">TRANSPARÊNCIA <output id="hud-editor-opacity-value">100%</output></label><input id="hud-editor-opacity" type="range" min="35" max="100" step="5" value="100"><label class="hud-editor-visible"><input id="hud-editor-visible" type="checkbox" checked> EXIBIR ELEMENTO</label><p>Toque em um controle para selecionar. Arraste para mudar de posição. A mira permanece no centro para manter a precisão. O botão de pausa e os controles essenciais não podem ser ocultados.</p></aside>
+      </div>
+      <footer class="hud-editor-footer"><button id="hud-editor-reset" type="button">RESTAURAR PADRÃO</button><button id="hud-editor-cancel" type="button">CANCELAR</button><button id="hud-editor-save" type="button">SALVAR HUD</button></footer>
+    </div>
+  </section>
+  <div id="loading" class="loading"><div class="loading-logo">T<span>/</span>P</div><strong id="loading-status">INICIALIZANDO SISTEMA 3D...</strong><div class="loading-track"><i></i></div><small>THREE.JS · MOTOR DE COMBATE</small></div>
+  <script>
+    window.__titanBootTimer = setTimeout(() => {
+      const loading = document.getElementById('loading');
+      if (loading && !loading.classList.contains('hidden')) {
+        loading.classList.add('error');
+        document.getElementById('loading-status').textContent = 'O motor 3D não carregou. Verifique sua conexão com a internet e abra este projeto por um servidor local (veja README).';
+      }
+    }, 15000);
+  </script>
+  <div id="graphics-lab-notice" style="position:fixed;left:12px;bottom:10px;z-index:5;pointer-events:none;border:1px solid #89dfd044;background:#0b1b2788;border-radius:7px;color:#e6fdf5;padding:5px 8px;font:600 10px system-ui,sans-serif">LAB GRÁFICO 3.9 · F8 COMPARA ORIGINAL/NOVO · <a href="./comparativo-grafico.html" style="color:#8ce9ff;pointer-events:auto" target="_blank" rel="noopener">Comparar motores</a></div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

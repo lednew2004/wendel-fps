@@ -1,0 +1,156 @@
+
+/* Power HUD: touch-first; do not obscure the right-side aim and fire region. */
+.power-loadout{padding:10px;border:1px solid #587c78;background:#12242c;border-radius:9px;display:flex;flex-direction:column;gap:6px;margin:9px 0;color:#e5f2ec}
+.power-loadout>strong{font:800 12px system-ui,sans-serif;letter-spacing:1px}
+.power-loadout p{font:500 11px/1.2 system-ui,sans-serif;color:#b3c8c5;margin:0}
+.power-choices{display:flex;gap:8px;flex-wrap:wrap}
+.power-choices label{display:grid;gap:3px;flex:1 1 140px;font:700 10px system-ui,sans-serif}
+.power-choices select{width:100%;min-height:34px;padding:5px;background:#0c1b21;color:#eaf7f4;border:1px solid #587c78;border-radius:5px;font:600 12px system-ui,sans-serif}
+#power-hud{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:17;pointer-events:none}
+#power-hud.hidden{display:none!important}
+.power-slot{min-width:99px;padding:5px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#effff6;background:#10242bbd;border:1px solid #71a99f;border-radius:9px;font:800 10px system-ui,sans-serif;pointer-events:none}
+.power-slot .power-symbol{font-size:22px;color:#a3eaff}.power-slot .power-time{color:#8ff7cd}
+.power-slot.cooling .power-time{color:#f3bb7c}.power-slot.active{border-color:#9feaff;box-shadow:0 0 12px #5fafff70}
+.power-key{color:#b5b5a7;font-size:9px}
+@media(pointer:coarse) and (orientation:landscape){
+ #power-hud{left:max(135px,17vw);top:max(52px,env(safe-area-inset-top));bottom:auto;transform:none;gap:5px;pointer-events:auto}
+ .power-slot{min-width:54px;max-width:73px;height:56px;padding:3px 4px;gap:0;pointer-events:auto;background:#15343fcf;border-radius:12px;touch-action:none;font-size:8px}
+ .power-slot .power-symbol{font-size:17px}.power-slot .power-name{font-size:7px;white-space:nowrap}.power-key{display:none}.power-slot .power-time{font-size:8px}
+ .power-loadout{padding:7px;gap:4px;margin:5px 0}.power-loadout p{font-size:9px}.power-choices label{flex-basis:125px}.power-choices select{min-height:32px}
+}
+@media(pointer:coarse) and (orientation:landscape) and (max-height:355px){#power-hud{top:48px}.power-slot{height:45px;max-width:64px}.power-slot .power-symbol{font-size:14px}}
+
+.menu-card{max-height:95dvh;overflow-y:auto;overscroll-behavior:contain}
+#power-descend{display:none}
+@media(pointer:coarse) and (orientation:landscape){#power-descend.visible{display:grid;place-items:center;min-width:56px;max-height:56px;border-radius:12px;background:#395b6ee0;border:1px solid #aadbf0;color:white;font:800 9px system-ui;touch-action:none}}
+/* Keep the existing room roster beside the invitation and the equipment below. */
+.mp-room-main > .mp-room-players{grid-column:2;grid-row:1}
+.mp-room-main > .power-loadout{grid-column:1 / -1;grid-row:2;margin:0}
+@media(pointer:coarse) and (orientation:landscape){
+  .mp-room-main > .power-loadout{grid-column:1 / -1}
+}
+/* Habilidades avançadas: o seletor não ocupa a área de mira. */
+#titan-power-picker{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);z-index:19;padding:7px 13px;border:1px solid #65afa1;border-radius:10px;background:#17333bde;color:#f0fffb;font:800 11px system-ui;cursor:pointer}
+#titan-abilities-dialog{position:fixed;inset:0;z-index:140;background:#061015e8;display:grid;place-items:center;padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));touch-action:auto}
+#titan-abilities-dialog.hidden{display:none!important}
+.titan-overlay-inner{width:min(94vw,780px);max-height:94dvh;overflow:auto;background:#101f27;border:1px solid #6f9b9b;border-radius:15px;padding:12px;display:grid;gap:10px;box-shadow:0 10px 60px #0009}
+.titan-overlay-inner h2{margin:0;color:#ecfff5;font:bold 19px system-ui}
+.titan-overlay-inner p{margin:0;color:#b1d0c7;font:12px system-ui}
+.titan-map-content,.titan-wheel-content{display:none}
+.is-teleport .titan-map-content{display:grid;gap:8px}
+.is-wheel .titan-wheel-content{display:grid;gap:8px}
+#titan-teleport-map{height:min(55dvh,410px);width:min(55dvh,410px);max-width:100%;aspect-ratio:1;display:block;margin:auto;border:1px solid #829da0;border-radius:12px;touch-action:none;cursor:crosshair}
+#titan-map-feedback{color:#83ffbd;font:700 11px system-ui;text-align:center}#titan-map-feedback.invalid{color:#ff9a9e}
+.titan-map-buttons,.titan-wheel-slots{display:flex;justify-content:center;gap:10px}
+.titan-overlay-inner button{touch-action:manipulation;padding:9px 14px;border:1px solid #638e92;color:#f0fff7;background:#1c3945;border-radius:9px;font:800 12px system-ui;cursor:pointer}
+.titan-overlay-inner button:disabled{opacity:.4;cursor:not-allowed}
+.titan-overlay-inner button.selected{background:#3d7771}
+#titan-abilities-wheel{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.titan-power-option{display:flex;flex-direction:column;gap:4px;align-items:center;min-height:72px;padding:7px!important}
+.titan-power-option span{font-size:22px}.titan-power-option strong{font:800 11px system-ui}.titan-power-option small{font:10px/1.2 system-ui;color:#bfd7ce;text-align:center}
+.titan-power-option.equipped{outline:2px solid #75e8b4}
+@media(pointer:coarse) and (orientation:landscape){
+ #titan-power-picker{left:max(185px,27vw);top:max(114px,env(safe-area-inset-top));bottom:auto;transform:none;font-size:9px;padding:5px 7px}
+ .titan-overlay-inner{width:min(94vw,850px);max-height:96dvh;gap:5px;padding:8px}.titan-overlay-inner h2{font-size:15px}
+ #titan-teleport-map{height:min(57dvh,300px);width:min(57dvh,300px)}
+ #titan-abilities-wheel{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}.titan-power-option{min-height:50px}.titan-power-option small{display:none}.titan-power-option span{font-size:17px}.titan-power-option strong{font-size:9px}
+}
+
+/* v2.2: Wild Rift-inspired skill sticks, progress rings and contextual target UI */
+.power-slot{position:relative;overflow:hidden;isolation:isolate;}
+.power-slot::before{content:"";position:absolute;inset:0;background:linear-gradient(to top,#6ce9c344 var(--power-progress,100%),transparent var(--power-progress,100%));opacity:.35;z-index:-1;pointer-events:none}
+.power-slot .power-time{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:900}
+#power-aim-guide{position:fixed;left:50%;bottom:31%;transform:translateX(-50%);padding:9px 15px;z-index:90;border:1px solid #77c8eb;border-radius:12px;color:#e3fcff;background:#0d2733e8;box-shadow:0 2px 24px #0009;font:900 clamp(10px,1.7vw,14px) system-ui;text-align:center;pointer-events:none;display:none;max-width:80vw}
+#power-aim-guide.visible{display:block}#power-aim-guide.cancel{color:#ffb8bb;border-color:#ff7785;background:#491825ea}
+@media(pointer:coarse) and (orientation:landscape){
+ #power-hud{left:auto!important;top:auto!important;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 3px)!important;right:clamp(225px,56vh,305px)!important;transform:none!important;gap:8px!important;z-index:34!important;align-items:flex-end}
+ #power-hud .power-slot{height:clamp(60px,16vh,73px);min-width:clamp(61px,16vh,74px);max-width:clamp(61px,16vh,74px);border-radius:50%;border:2px solid #8bc7e6;box-shadow:0 0 0 4px #10222e7e,0 0 15px #0008;background:#193044e8;touch-action:none;pointer-events:auto;justify-content:center;gap:0}
+ #power-hud .power-slot:nth-child(2){border-color:#c89dfb;background:#332846e8}
+ #power-hud .power-slot.pressed{transform:scale(.91);background:#426882}
+ .power-slot .power-symbol{font-size:clamp(20px,5.2vh,29px)!important;line-height:1}
+ .power-slot .power-name{font-size:7px!important;line-height:1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .power-slot .power-time{font-size:9px!important;line-height:1.2}
+ #power-descend.visible{position:fixed;right:max(10px,env(safe-area-inset-right));top:clamp(95px,27vh,132px);min-width:50px;max-height:50px}
+ #power-aim-guide{bottom:35%}
+}
+
+body.power-targeting #power-aim-guide::after{content:"";position:fixed;left:50vw;top:50vh;transform:translate(-50%,-50%);width:clamp(40px,8vw,82px);height:clamp(40px,8vw,82px);border:2px dashed #8eefff;border-radius:50%;box-shadow:0 0 0 6px #84e4fe18,0 0 18px #66dce9aa;pointer-events:none}
+body.power-targeting #power-aim-guide.cancel::after{border-color:#ff7785;box-shadow:0 0 0 6px #ff77851c}
+
+/* Perfil de posição/tamanho dos dois poderes: aplicado apenas ao modo touch. */
+.power-touch-settings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:9px;border:1px solid #5a9096;border-radius:10px;background:#112b35;color:#e4faf9;margin-top:7px;font:700 11px system-ui}
+.power-touch-settings>strong{grid-column:1/-1;font-size:11px}
+.power-touch-settings label{min-width:0;display:grid;gap:2px;font-size:10px}
+.power-touch-settings input{width:100%;touch-action:auto;accent-color:#83d7e9}
+.power-touch-settings output{font-size:9px;color:#9fe8e6}
+@media (pointer:coarse) and (orientation:landscape){
+ #power-hud{right:calc(clamp(225px,56vh,305px) + var(--power-horizontal-shift,0px))!important;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 3px + var(--power-vertical-shift,0px))!important;transform:scale(var(--power-size-scale,1))!important;transform-origin:right bottom!important}
+ .power-touch-settings{gap:4px;padding:6px}.power-touch-settings label{font-size:9px}
+}
+
+/* v2.4 - GTA-style radial power wheel, eight skills per page. */
+.titan-wheel-content{justify-items:center;text-align:center}
+.titan-wheel-content p{max-width:600px}
+.titan-wheel-stage{position:relative;width:min(67dvh,380px,78vw);aspect-ratio:1;touch-action:none;overscroll-behavior:contain}
+#titan-abilities-wheel{display:block!important;position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 50%,#0e2830 0 26%,#24424f 27% 31%,#0f232e 31% 100%);box-shadow:inset 0 0 0 2px #5a8a98,0 0 30px #000a;touch-action:none}
+#titan-abilities-wheel::before{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;background:repeating-conic-gradient(from -22.5deg,#85b4c9a0 0deg 0.9deg,transparent 0.9deg 45deg)}
+#titan-abilities-wheel .titan-power-option{position:absolute!important;display:flex;gap:2px;align-items:center;justify-content:center;min-height:0!important;width:23%;height:23%;left:38.5%;top:38.5%;transform:rotate(calc(var(--sector) * 45deg)) translateY(-154%) rotate(calc(var(--sector) * -45deg));border-radius:50%!important;border:1px solid #5f879b!important;padding:3px!important;background:#234456!important;box-shadow:0 4px 11px #0007;touch-action:none;user-select:none}
+#titan-abilities-wheel .titan-power-option span{font-size:clamp(16px,4.7vh,24px);line-height:1}
+#titan-abilities-wheel .titan-power-option strong{font:bold clamp(7px,1.5vh,10px) system-ui;line-height:1.05;max-width:92%;overflow-wrap:anywhere}
+#titan-abilities-wheel .titan-power-option.hovered,#titan-abilities-wheel .titan-power-option:focus-visible{background:#42859c!important;outline:3px solid #a5f5ff;z-index:2}
+#titan-abilities-wheel .titan-power-option.equipped{border:3px solid #83e8b9!important;background:#326658!important}
+#titan-wheel-center{position:absolute;inset:40%;display:grid;place-items:center;font:800 clamp(8px,1.6vh,12px) system-ui;line-height:1.1;color:#c1f6ef;pointer-events:none}
+.titan-wheel-navigation{display:flex;align-items:center;justify-content:center;gap:14px;color:#a3e9eb;font:bold 11px system-ui}
+.titan-wheel-navigation button{font-size:11px}
+@media(pointer:coarse) and (orientation:landscape){
+ .titan-wheel-stage{width:min(72dvh,295px,46vw)}
+ #titan-abilities-wheel .titan-power-option{width:22%;height:22%;left:39%;top:39%;transform:rotate(calc(var(--sector) * 45deg)) translateY(-163%) rotate(calc(var(--sector) * -45deg))}
+ #titan-abilities-wheel .titan-power-option strong{font-size:clamp(6px,1.9vh,9px)}
+ .titan-wheel-navigation button{font-size:9px;padding:5px 8px}
+}
+/* Disguise and automatic resurrection visual indicators, without blocking aim. */
+body.titan-morphed #power-hud::after,body.titan-resurrected #power-hud::after{content:'▣ DISFARCE ATIVO';position:absolute;bottom:100%;left:0;white-space:nowrap;padding:5px 8px;border-radius:7px;background:#1d4c4fc9;color:#c2ffdc;font:800 10px system-ui;pointer-events:none}
+body.titan-resurrected #power-hud::after{content:'✚ IMORTAL TEMPORARIAMENTE';background:#4c6945cc}
+/* Keep the entire wheel visible on short landscape phones without scrolling. */
+@media(pointer:coarse) and (orientation:landscape){
+ .titan-wheel-stage{width:min(51dvh,238px,44vw)}
+ .titan-wheel-content{gap:3px}
+ .titan-wheel-content h2{font-size:13px}
+ .titan-wheel-content p{font-size:9px}
+ .titan-wheel-slots button{padding:5px 9px}
+ #titan-abilities-wheel .titan-power-option span{font-size:clamp(13px,3.6vh,19px)}
+ #titan-abilities-wheel .titan-power-option strong{font-size:clamp(6px,1.7vh,8px)}
+ .titan-wheel-navigation{gap:7px}
+ .titan-wheel-navigation button{font-size:9px;padding:5px 6px}
+ #titan-wheel-close{padding:6px 11px;font-size:9px}
+}
+
+/* TITAN 2.5 — economy readable on desktop and landscape mobile */
+#titan-economy-hud{position:fixed;top:calc(env(safe-area-inset-top,0px) + 112px);left:14px;z-index:19;padding:7px 10px;border:1px solid #7dc4b68f;border-radius:8px;background:#0b2831e9;color:#aafbd3;font:800 11px/1.2 system-ui;pointer-events:none;text-shadow:0 1px 2px #000}
+#titan-economy-hud.hidden{display:none!important}
+.titan-wheel-credits{padding:6px 10px;border:1px solid #6cb99b87;border-radius:9px;background:#10332f;color:#aaf5c9;font:800 clamp(9px,1.8vh,12px) system-ui;text-align:center}
+#titan-abilities-wheel .titan-power-option.locked{background:#322f38!important;border-color:#ba9064!important;filter:saturate(.8)}
+#titan-abilities-wheel .titan-power-option.locked small{color:#ffcd88!important;font-weight:900;font-size:clamp(7px,1.5vh,10px)}
+#power-hud .power-slot.power-empty{opacity:.62;border-style:dashed}
+@media (pointer:coarse) and (orientation:landscape){#titan-economy-hud{top:calc(env(safe-area-inset-top,0px) + 51px);left:max(9px,env(safe-area-inset-left,0px));font-size:9px;padding:5px 7px}}
+
+#titan-abilities-wheel .titan-power-option small{display:block!important;font-size:clamp(7px,1.55vh,10px);color:#b5f4d1;font-weight:900;line-height:1}
+@media (orientation:landscape) and (max-height:430px){
+ .titan-overlay-inner{max-height:97dvh;padding:6px 9px;gap:3px}
+ .titan-wheel-content{gap:2px!important}
+ .titan-wheel-content h2{font-size:13px}
+ .titan-wheel-content p{font-size:8px;line-height:1.1}
+ .titan-wheel-credits{padding:3px 7px;font-size:8px}
+ .titan-wheel-stage{width:min(43dvh,185px,40vw)!important}
+ .titan-wheel-navigation button,#titan-wheel-close{padding:5px 8px;font-size:9px}
+}
+
+/* v2.9: the hero kit replaces obsolete two-skill selectors. The selection wheel is read-only outside purchased kit. */
+.power-loadout{display:none!important}
+#power-hud .power-slot:nth-child(3){border-color:#ffcc80;background:#413023df}
+@media(pointer:coarse) and (orientation:landscape){#power-hud{gap:6px!important;right:clamp(190px,48vh,275px)!important}#power-hud .power-slot{min-width:clamp(48px,12vh,65px)!important;max-width:clamp(48px,12vh,65px)!important;height:clamp(50px,13vh,65px)!important}#titan-wheel-prev,#titan-wheel-next{display:none!important}}
+
+/* 3.6: abilities must be above the full-screen mobile-look layer (z=90). */
+html.is-touch.touch-playing #power-hud{z-index:145!important;pointer-events:none!important;isolation:isolate}
+html.is-touch.touch-playing #power-hud .power-slot{position:relative;z-index:1;pointer-events:auto!important;touch-action:none!important;min-height:56px}
+html.is-touch.touch-playing #power-aim-guide{z-index:146!important}
