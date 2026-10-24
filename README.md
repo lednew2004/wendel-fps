@@ -220,3 +220,8 @@ A pasta pode ser publicada na **Render** usando `render.yaml` e um repositório 
 - Camada de combate acima da câmera; HUD superior continua acessível.
 - Novas alterações visíveis como BUILD 3.5.3 no menu e no endpoint /health, para conferir que o deploy foi atualizado.
 - CSS/JS/HTML enviados com Cache-Control no-store pelo servidor para evitar instalações antigas.
+
+
+## Correção Render 4.2.1
+
+O Three.js 0.180.0 agora é dependência local instalada com `npm ci` e disponibilizada pelo servidor em `/vendor/three/`. Para deploy, configure Render com build `npm ci`, start `npm start`, e confira a versão de `/health`. Veja `CORRECAO_RENDER_4_2_1.md`.

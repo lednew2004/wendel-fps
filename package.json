@@ -1,7 +1,7 @@
 {
   "name": "titan-protocol-multiplayer-gratis",
   "private": true,
-  "version": "4.2.0",
+  "version": "4.2.1",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -11,5 +11,8 @@
     "test": "node --test server/tests/*.test.mjs",
     "build:colliders": "node server/build_colliders.mjs",
     "build": "npm run build:colliders && npm test"
+  },
+  "dependencies": {
+    "three": "0.180.0"
   }
 }

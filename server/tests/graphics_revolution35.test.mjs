@@ -75,6 +75,6 @@ test('3.5: classificação FPS preservada e renderizador WebGL mantém opções 
  const game=text('public/src/game.js');
  assert.match(game,/this\.mobile\?\.enabled \? 0\.55 : 0\.63/);
  for(const fragment of ['this.campaign.update(dt)','this.squad.update(dt)','this.multiplayer.update(dt)','this.weapons.update(dt'])assert.ok(game.includes(fragment));
- assert.match(JSON.parse(text('package.json')).version,/^(3\.9\.1|4\.2\.0)$/);
- assert.match(text('server/server.mjs'),/version:'(?:3\.9\.1|4\.2\.0)'/);
+ assert.match(JSON.parse(text('package.json')).version,/^(3\.9\.1|4\.2\.0|4\.2\.1)$/);
+ assert.match(text('server/server.mjs'),/version:'(?:3\.9\.1|4\.2\.0|4\.2\.1)'/);
 });
