@@ -225,3 +225,13 @@ A pasta pode ser publicada na **Render** usando `render.yaml` e um repositório 
 ## Correção Render 4.2.1
 
 O Three.js 0.180.0 agora é dependência local instalada com `npm ci` e disponibilizada pelo servidor em `/vendor/three/`. Para deploy, configure Render com build `npm ci`, start `npm start`, e confira a versão de `/health`. Veja `CORRECAO_RENDER_4_2_1.md`.
+
+## 4.3.0 — Desempenho, mira, interiores e colisões
+
+- **Renderização:** a configuração inicial do desktop usa `Médio` (sombra 1024, antialias opcional e resolução escalável) com resolução automática que diminui em quedas persistentes de FPS. Ainda é possível selecionar `Alto`, `Ultra` e `Cinemático` em Configurações.
+- **Mira:** botão direito ou `MIRA` no celular ativa o zoom óptico (rifle ~39°, sniper ~24°); mantém a direção real dos disparos. Em campanha/sobrevivência, uma correção muito discreta auxilia quando o alvo já está praticamente centralizado e visível; **não se aplica em PvP**.
+- **Portas:** oito interiores têm portas físicas acionadas com `E` próximo à entrada e sincronizadas entre participantes. A porta gira antes de liberar sua colisão. O HUD indica quando `E` pode ser utilizado.
+- **Escadas:** dois lances por edifício, com direções opostas, patamar intermediário e acesso à cobertura. Degraus renderizados com `InstancedMesh`.
+- **Colisões:** caixas, barris, barricadas, móveis e coberturas com colisores também fornecem superfície de apoio, com teste de aterrissagem descendente. Validação de posição do servidor ajustada para concordar com a do cliente.
+
+Para instalar e testar: `npm ci && npm start`. No Render: build `npm ci`, start `npm start`, branch `main` se esse for o branch onde você fez o commit. Teste com `E` perto das portas, ADS com botão direito e saltos sobre caixas antes de publicar para todos.

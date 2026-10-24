@@ -30,7 +30,7 @@ export class UrbanDoors{
   }
   setState(id,open){
     const it=this.items.get(id);if(!it)return false;
-    it.open=Boolean(open);it.collider.active=!it.open;
+    it.open=Boolean(open);
     it.target=it.open?-Math.PI*.53:0;
     return true;
   }
@@ -39,6 +39,7 @@ export class UrbanDoors{
     for(const it of this.items.values()){
       const t=Math.min(1,Math.max(0,dt)*10);
       it.pivot.rotation.y+=(it.target-it.pivot.rotation.y)*t;
+      it.collider.active=Math.abs(it.pivot.rotation.y)<1.12;
     }
   }
 }

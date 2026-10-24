@@ -10,7 +10,7 @@ const colliders=JSON.parse(fs.readFileSync(new URL('../colliders.json',import.me
 const interactive=JSON.parse(fs.readFileSync(new URL('../interactables.json',import.meta.url),'utf8'));
 test('new tactical map retains synchronized browser/server collision boundaries',()=>{
  assert.equal(WORLD_HALF,219);assert.equal(MAP_HALF,WORLD_HALF);
- assert.equal(colliders.length,SQUAD_BLOCKS.length);assert.equal(interactive.length,4);
+ assert.equal(colliders.length,SQUAD_BLOCKS.length);assert.equal(interactive.length,8);
  assert.ok(projectPlayer(-215,0).x<20&&projectPlayer(215,0).x>220);
  assert.equal(locationValid(222,0,0,colliders),false);
  assert.equal(locationValid(SQUAD_START.x,0,SQUAD_START.z,colliders),true);

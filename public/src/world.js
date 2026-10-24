@@ -623,7 +623,7 @@ export class World {
   resize(){
     const w=window.innerWidth,h=window.innerHeight;
     this.camera.aspect=w/h;this.camera.updateProjectionMatrix();
-    const ratio=Math.min(devicePixelRatio||1,1.7)*(this.profile?.ratio||1)*this.renderScale;
+    const ratio=Math.min(devicePixelRatio||1,1.4)*(this.profile?.ratio||1)*this.renderScale;
     const px=Math.min(2.2,Math.max(.45,ratio));
     this.renderer.setPixelRatio(px);this.renderer.setSize(w,h);
     if(this.composer){this.composer.setPixelRatio(px);this.composer.setSize(w,h);}

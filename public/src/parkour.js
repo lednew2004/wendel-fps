@@ -202,9 +202,13 @@ export class ParkourController {
     this.game.player.moveX=this.vx;this.game.player.moveZ=this.vz;
     this.game.positionCamera();
     const cam=this.game.world.camera;
-    const fov=this.game.world.baseFOV+Math.min(7,speed*.45)+(vaultCamera?.fovBoost||0);
-    cam.fov+=Math.min(1,dt*7)*(fov-cam.fov);
-    cam.updateProjectionMatrix();
+    // When ADS is held, Weapons exclusively controls FOV; two competing camera
+    // interpolations caused jitter and made the optic feel like it barely zoomed.
+    if(!this.game.rightDown){
+      const fov=this.game.world.baseFOV+Math.min(5,speed*.32)+(vaultCamera?.fovBoost||0);
+      const next=cam.fov+Math.min(1,dt*8)*(fov-cam.fov);
+      if(Math.abs(next-cam.fov)>.015){cam.fov=next;cam.updateProjectionMatrix();}
+    }
     this.game.world.cameraPitch.rotation.z=vaultCamera?.roll||0; // brief visual lean; LookController keeps aim
     this.hudCooldown=(this.hudCooldown||0)-dt;
     if(this.hudCooldown<=0){this.updateHud();this.hudCooldown=.095;}
@@ -282,8 +286,21 @@ export class ParkourController {
     const height=this.slide>0?1.08:CFG.characterHeight;
     const radius=CFG.characterRadius;
     const nx=this.x+this.vx*dt,nz=this.z+this.vz*dt;
-    if(phased||this.city.canOccupy(nx,this.z,this.y,height,radius))this.x=nx;else{this.vx=0;this.dashVX=0;}
-    if(phased||this.city.canOccupy(this.x,nz,this.y,height,radius))this.z=nz;else{this.vz=0;this.dashVZ=0;}
+    const advance=(tx,tz,component)=>{
+      let nextFeet=this.y;
+      if(!phased&&(this.grounded||this.vy<=0)){
+        const step=this.city.floorAt(tx,tz,this.y,CFG.stairStep);
+        if(step>this.y+.015&&step<=this.y+CFG.stairStep&&this.city.canOccupy(tx,tz,step+.01,height,radius))nextFeet=step+.01;
+      }
+      if(phased||this.city.canOccupy(tx,tz,nextFeet,height,radius)){
+        this.x=tx;this.z=tz;
+        if(nextFeet>this.y){this.y=nextFeet;if(this.vy<0)this.vy=0;this.grounded=true;}
+        return true;
+      }
+      if(component==='x'){this.vx=0;this.dashVX=0;}else{this.vz=0;this.dashVZ=0;}
+      return false;
+    };
+    advance(nx,this.z,'x');advance(this.x,nz,'z');
     if(this.dashTime>0&&Math.hypot(this.dashVX,this.dashVZ)<.1)this.dashTime=0;
     // Degraus/rampas só elevam o jogador quando ele está realmente no solo;
     // evita snap vertical através de telhados ou paredes.

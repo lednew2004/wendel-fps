@@ -75,7 +75,7 @@ test('responsive stick reacts to small thumb swipes without exceeding normalized
 });
 test('touch physics compensates low frame rates, while desktop remains unchanged',()=>{
   const game=read('public/src/game.js'),parkour=read('public/src/parkour.js');
-  assert.match(game,/Math\.min\(this\.mobile\?\.enabled \? \.09 : \.04,this\.clock\.getDelta\(\)\)/);
+  assert.match(game,/Math\.min\(this\.mobile\?\.enabled \? \.085 : \.075,this\.clock\.getDelta\(\)\)/);
   assert.match(parkour,/mobile\?\.enabled&&this\.slide<=0\?\(isSprint\?1\.10:1\.18\):1/);
   assert.match(parkour,/stickMagnitude>\.72/);
   assert.match(game,/if\(this\.mouseDown\|\|this\.mobile\?\.isFiring\(\)\)this\.tryFire\(\)/);

@@ -44,7 +44,7 @@ export class Game {
       el('draw-distance').value='150';el('shadows').value='0';
       el('vegetation').value='35';el('vegetation-label').textContent='35%';
     }
-    if(!this.mobile.enabled){this.world.setQuality('high');el('quality').value='high';}
+    if(!this.mobile.enabled){this.world.setQuality('medium');el('quality').value='medium';}
     this.bind();this.hudCustomizer.attach();this.positionCamera();el('menu-best').textContent=num(this.best);el('loading').classList.add('hidden');this.mobile.sync();this.loop();
   }
   get yaw(){return this.look.yaw;}
@@ -98,7 +98,7 @@ export class Game {
       if(e.code==='Backspace')this.parkour.resetCheckpoint();
     },true);
     window.addEventListener('keyup',e=>{if(handlePowerWheelTab(e,this.state,this.powers?.menu?.mode,document.activeElement)){this.keys.Tab=false;return;}this.keys[e.code]=false;},true);window.addEventListener('blur',()=>{if(this.state==='playing')this.pause();});
-    document.addEventListener('mousemove',e=>{if(this.state!=='playing'||document.pointerLockElement!==this.world.renderer.domElement)return;if(this.look.move(e.movementX,this.invertY?-e.movementY:e.movementY,this.sensitivity)){this.positionCamera();}});
+    document.addEventListener('mousemove',e=>{if(this.state!=='playing'||document.pointerLockElement!==this.world.renderer.domElement)return;if(this.look.move(e.movementX,this.invertY?-e.movementY:e.movementY,this.sensitivity*(this.rightDown?.64:1))){this.positionCamera();}});
     const canvas=this.world.renderer.domElement;canvas.addEventListener('mousedown',e=>{if(this.mobile?.enabled)return;if(this.state!=='playing')return;if(document.pointerLockElement!==canvas){this.requestLock();return;}if(e.button===0){if(this.powers?.targeting){this.powers.confirmTeleport();return;}this.mouseDown=true;}if(e.button===2)this.rightDown=true;});document.addEventListener('mouseup',e=>{if(e.button===0)this.mouseDown=false;if(e.button===2)this.rightDown=false;});document.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{if(this.state==='playing'){e.preventDefault();this.cycleWeapon(e.deltaY>0?1:-1);}}, {passive:false});
     document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement===canvas){this.look.onLock(performance.now());this.positionCamera();}else if(this.state==='playing'&&!this.mobile?.enabled){this.pause();}});
     document.addEventListener('visibilitychange',()=>{if(document.hidden&&this.state==='playing')this.pause();});
@@ -111,6 +111,7 @@ export class Game {
     const inGame=state!=='menu';
     document.body.classList.toggle('unified-play',inGame);
     document.body.classList.toggle('playing',state==='playing');
+    if(state!=='playing')document.body.classList.remove('aiming','sniper-aiming','near-interaction','on-target');
     document.body.classList.toggle('mode-multiplayer',inGame&&this.mode==='multiplayer');
     document.body.classList.toggle('mode-training',inGame&&this.mode==='survival');
     document.body.classList.toggle('reloading',state==='playing'&&this.weapons.reloadTime>0);
@@ -278,7 +279,7 @@ export class Game {
     if(this.fps<lowTarget){this.lowFPSTime+=interval;this.highFPSTime=0;}
     else if(this.fps>highTarget){this.highFPSTime+=interval;this.lowFPSTime=0;}
     else{this.lowFPSTime=0;this.highFPSTime=0;}
-    const floor=this.mobile?.enabled ? 0.55 : 0.63;
+    const floor=this.mobile?.enabled ? 0.52 : 0.58;
     if(this.lowFPSTime>=2.1 && this.world.renderScale>floor){
       this.world.setRenderScale(Math.max(floor,this.world.renderScale-.08));
       el('render-scale').value=Math.round(this.world.renderScale*100);
@@ -289,6 +290,44 @@ export class Game {
       el('render-scale').value=Math.round(this.world.renderScale*100);
       el('render-scale-label').textContent=Math.round(this.world.renderScale*100)+'%';
       this.highFPSTime=0;
+    }
+  }
+  updateAimFocus(dt){
+    document.body.classList.toggle('near-interaction',!!this.urban.nearestInteractable(this.parkour.x,this.parkour.z,this.parkour.y,3.0));
+    if(!this.rightDown||this.mode==='multiplayer'||this.state!=='playing'){
+      document.body.classList.remove('on-target');return;
+    }
+    // Low-frequency optical target acquisition, not an automatic wallhack.
+    this.aimScan=(this.aimScan||0)-dt;
+    if(this.aimScan<=0){
+      this.aimScan=.075;this.aimCandidate=null;
+      const eye=this.world.camera.getWorldPosition(new THREE.Vector3());
+      let best=.11;
+      for(const enemy of this.enemies.enemies){
+        const dx=enemy.x-eye.x,dz=enemy.z-eye.z,dy=(enemy.group.position.y+enemy.y)-eye.y;
+        const horizontal=Math.hypot(dx,dz),distance=Math.hypot(horizontal,dy);
+        if(distance<.5||distance>135)continue;
+        const desiredYaw=Math.atan2(-dx,-dz),desiredPitch=Math.atan2(dy,horizontal);
+        const diffYaw=Math.atan2(Math.sin(desiredYaw-this.yaw),Math.cos(desiredYaw-this.yaw));
+        const diffPitch=desiredPitch-this.pitch;
+        const angle=Math.hypot(diffYaw,diffPitch);
+        const allowance=this.weapons.index===2?.085:.068;
+        if(angle>allowance||angle>=best)continue;
+        const direction=new THREE.Vector3(dx,dy,dz).normalize();
+        if(this.world.raycastDistance(eye,direction,distance-.5)<distance-.65)continue;
+        best=angle;this.aimCandidate={diffYaw,diffPitch,distance};
+      }
+    }
+    const target=this.aimCandidate;
+    document.body.classList.toggle('on-target',!!target);
+    const opticLabel=el('aim-optic-label');
+    if(opticLabel)opticLabel.textContent=target?`ALVO EM MIRA · ${Math.round(target.distance)} M`:`MIRA TÁTICA · ${this.weapons.def.name}`;
+    if(target){
+      // Small, capped assist when already close to the enemy; never used in PvP.
+      const gain=Math.min(.19,Math.max(0,dt)*2.2);
+      this.yaw+=Math.max(-.012,Math.min(.012,target.diffYaw*gain));
+      this.pitch=Math.max(-1.43,Math.min(1.43,this.pitch+Math.max(-.012,Math.min(.012,target.diffPitch*gain))));
+      this.positionCamera();
     }
   }
   tryFire(){
@@ -302,7 +341,7 @@ export class Game {
     if(this.forge?.active)return this.forge.place();
     return this.weapons.fire();
   }
-  loop(){requestAnimationFrame(()=>this.loop());let dt=Math.min(this.mobile?.enabled ? .09 : .04,this.clock.getDelta());this.animTime+=dt;this.world.update(dt);this.urban.animateEnvironment(dt);this.forge?.update();this.mapSupplies?.update(dt);if(this.campaign)for(const a of this.campaign.artifacts)if(a.mesh.parent)a.mesh.rotation.y+=a.rotation*dt;this.dieFxUpdate(dt);this.fpsTick+=dt;if(this.fpsTick>=.7){this.fps=Math.round(this.fpsCount/this.fpsTick);el('perf-fps').textContent=this.fps+' FPS · '+this.world.renderer.info.render.calls+' DRAWS · '+Math.round(this.world.renderScale*100)+'%';this.optimizeFPS(.7);this.fpsCount=0;this.fpsTick=0;}
+  loop(){requestAnimationFrame(()=>this.loop());let dt=Math.min(this.mobile?.enabled ? .085 : .075,this.clock.getDelta());this.animTime+=dt;this.world.update(dt);this.urban.animateEnvironment(dt);this.forge?.update();this.mapSupplies?.update(dt);if(this.campaign)for(const a of this.campaign.artifacts)if(a.mesh.parent)a.mesh.rotation.y+=a.rotation*dt;this.dieFxUpdate(dt);this.fpsTick+=dt;if(this.fpsTick>=.7){this.fps=Math.round(this.fpsCount/this.fpsTick);el('perf-fps').textContent=this.fps+' FPS · '+this.world.renderer.info.render.calls+' DRAWS · '+Math.round(this.world.renderScale*100)+'%';this.optimizeFPS(.7);this.fpsCount=0;this.fpsTick=0;}
     if(this.state==='playing'){
       this.updateCombatTimers(dt);
       this.powers.update(dt);
@@ -310,8 +349,9 @@ export class Game {
       else if(this.powers.frozen())this.positionCamera();
       this.multiplayer.update(dt);
       this.cityTick-=dt;
-      if(this.cityTick<=0){this.urban.updateVisibility(this.player.x,this.player.z,this.world.quality==='low'?105:this.world.quality==='medium'?138:190);this.cityTick=.55;}
+      if(this.cityTick<=0){this.urban.updateVisibility(this.player.x,this.player.z,this.world.quality==='low'?105:this.world.quality==='medium'?145:185);this.cityTick=.55;}
       const moving=Math.hypot(this.parkour.vx,this.parkour.vz)>1;
+      this.updateAimFocus(dt);
       this.weapons.update(dt,moving,this.rightDown);
       if(this.mouseDown||this.mobile?.isFiring())this.tryFire();
       if(this.mode!=='multiplayer'){this.enemies.decoys=this.powers.decoys;this.enemies.hiddenPlayer=this.powers.isActive('invisible');this.enemies.allies=this.mode==='campaign'?this.squad.members:[];this.enemies.update(dt,this.player,this.wave);this.ordnance.update(dt);

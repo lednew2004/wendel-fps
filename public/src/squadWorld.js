@@ -43,10 +43,10 @@ export function createSquadWorld(city){
  }
  for(const [index,b] of SQUAD_BLOCKS.entries()){
    if(b.interiorPart){
-     const mat=b.interiorPart==='roof'?metal:b.interiorPart==='loft'?concrete:b.interiorPart==='cover'?obstacleMaterials.construction:facades[index%facades.length];
+     const mat=b.interiorPart==='roof'?metal:(b.interiorPart==='loft'||b.interiorPart==='landing')?concrete:b.interiorPart==='cover'?obstacleMaterials.construction:facades[index%facades.length];
      const mesh=city.box(b.x,(b.minY+b.maxY)/2,b.z,b.w,b.h,b.d,mat);
      city.rayTargets.push(mesh);city.solids.push({...b});
-     if(b.interiorPart==='roof'||b.interiorPart==='loft')city.addSurface(b.x,b.z,b.w,b.d,b.maxY);
+     if(b.interiorPart==='roof'||b.interiorPart==='loft'||b.interiorPart==='landing')city.addSurface(b.x,b.z,b.w,b.d,b.maxY);
      continue;
    }
    const isShort=b.h<3,material=b.obstacle?(obstacleMaterials[b.kind]||wall):isShort?concrete:facades[index%facades.length];
@@ -90,8 +90,9 @@ export function createSquadWorld(city){
  // No new solid AABBs here: server and client collision are shared via SQUAD_BLOCKS.
  for(const b of SQUAD_INTERIORS){
    const span=b.d-2.9,level=b.h/2;
-   city.makeStaircase({x:b.x+b.w*.28,z:b.z,from:0,to:level,length:span,width:2.4,axis:'z'});
-   city.makeStaircase({x:b.x-b.w*.27,z:b.z,from:level,to:b.h+.34,length:span,width:2.4,axis:'z'});
+   // U-shaped stairway: enter from front, turn on the shared rear landing, return to the roof.
+   city.makeStaircase({x:b.x+b.w*.28,z:b.z,from:0,to:level,length:span,width:2.25,axis:'z',reverse:true});
+   city.makeStaircase({x:b.x-b.w*.27,z:b.z,from:level,to:b.h+.34,length:span,width:2.25,axis:'z'});
    const rail=city.box(b.x-b.w*.48,level+.53,b.z+b.d*.35,.11,1.06,b.d*.26,metal,false);rail.castShadow=false;
    const balcony=city.box(b.x,level+.03,b.z+b.d/2+.65,b.w*.42,.17,1.28,concrete);
    city.addSurface(b.x,b.z+b.d/2+.65,b.w*.42,1.28,level+.12);

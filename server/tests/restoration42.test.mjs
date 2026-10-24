@@ -18,18 +18,18 @@ test('4.2: 20 personagens distintos selecionáveis, legado preservado',()=>{
   for(const id of RESERVED_HERO_IDS)assert.ok(heroById(id));
   for(const h of ACTIVE_HEROES)assert.equal(h.skills.length,3);
 });
-test('4.2: renderização e física compartilham os mesmos 84 obstáculos',()=>{
-  assert.equal(SQUAD_BLOCKS.length,84);
-  assert.equal(serverBlocks.length,84);
+test('4.3: renderização e física compartilham todos os obstáculos',()=>{
+  assert.ok(SQUAD_BLOCKS.length>100);
+  assert.equal(serverBlocks.length,SQUAD_BLOCKS.length);
   for(let i=0;i<serverBlocks.length;i++){
     for(const key of ['x','z','hx','hz','minY','maxY'])assert.equal(serverBlocks[i][key],SQUAD_BLOCKS[i][key]);
   }
   assert.match(scene,/SQUAD_INTERIORS/);
   assert.match(scene,/makeStaircase/);
 });
-test('4.2: quatro edifícios abertos com paredes laterais, fachada vazada, piso e cobertura',()=>{
-  assert.equal(SQUAD_INTERIORS.length,4);
-  assert.equal(SQUAD_DOORS.length,4);
+test('4.2: oito edifícios abertos com paredes laterais, fachada vazada, piso e cobertura',()=>{
+  assert.equal(SQUAD_INTERIORS.length,8);
+  assert.equal(SQUAD_DOORS.length,8);
   for(const b of SQUAD_INTERIORS){
     const coll=interiorColliders(b);
     assert.equal(coll.filter(c=>c.interiorPart==='wall').length,5);
@@ -41,9 +41,9 @@ test('4.2: quatro edifícios abertos com paredes laterais, fachada vazada, piso 
     assert.ok(!coll.some(c=>c.minY<=1.7&&c.maxY>=1.7&&Math.abs(c.x-door.x)<c.hx+.45&&Math.abs(c.z-(door.z-0.8))<c.hz+.45), `Espaço interno da porta desobstruído: ${b.id}`);
   }
 });
-test('4.2: quatro portas interativas mantêm índices autoritativos no servidor',()=>{
+test('4.2: oito portas interativas mantêm índices autoritativos no servidor',()=>{
   assert.deepEqual(serverDoors,SQUAD_DOORS);
-  assert.equal(new Set(serverDoors.map(x=>x.id)).size,4);
+  assert.equal(new Set(serverDoors.map(x=>x.id)).size,8);
 });
 test('4.2: dash físico reutilizado, sem reposicionamento repetitivo na habilidade',()=>{
   assert.match(movement,/startDirectedDash\(toX,toZ,duration=/);

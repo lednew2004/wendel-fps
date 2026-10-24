@@ -684,3 +684,19 @@ html.is-touch.touch-playing #hud #hud-config-top,html.is-touch.touch-playing #hu
 #grain{opacity:.18}
 @media(max-width:680px){.menu-card{border-radius:14px;padding:22px 18px 17px}.menu-card h1{font-size:clamp(66px,15vw,94px)}}
 @media(prefers-reduced-motion:reduce){.primary-btn,.hero-choice{transition:none}}
+
+/* 4.3: Tactical optics and usable doors */
+body.unified-play:not(.trial-active).near-interaction #pk-prompt{display:block;position:fixed;left:50%;top:63%;transform:translateX(-50%);width:max-content;max-width:90vw;border:1px solid #88e6cf88;border-radius:8px;background:#071b22d9;padding:10px 16px;color:#e5fff5;font-size:15px;letter-spacing:1px;z-index:15;pointer-events:none;text-shadow:0 1px 6px #000}
+body.aiming #crosshair{width:24px;height:24px;opacity:1;transition:opacity .12s}
+body.aiming #crosshair i{display:none}
+body.aiming #crosshair span{left:10px;top:10px;background:#eafdfb;box-shadow:0 0 0 8px #001820a8,0 0 0 9px #7de9edb9,0 0 15px #7de9ed}
+body.aiming.on-target #crosshair span{background:#ffbc83;box-shadow:0 0 0 8px #001820b7,0 0 0 9px #ff9879,0 0 15px #ff9879}
+#aim-optic-label{display:none;position:fixed;top:calc(50% + 25px);left:50%;transform:translateX(-50%);z-index:15;pointer-events:none;color:#e2fff6;text-shadow:0 2px 6px #06131b;font:700 12px Rajdhani,sans-serif;letter-spacing:1px}
+body.aiming #aim-optic-label{display:block}
+body.aiming #grain{opacity:.22}
+
+body.playing.sniper-aiming:after{content:"";position:fixed;z-index:12;left:50%;top:50%;width:min(76vmin,630px);height:min(76vmin,630px);transform:translate(-50%,-50%);border:2px solid #b8ede588;border-radius:50%;box-shadow:0 0 0 100vmax #02070bed,inset 0 0 24px #0008;pointer-events:none}
+body.playing.sniper-aiming #crosshair span{background:#eafff1;box-shadow:0 0 0 7px #001a1f88,0 0 0 8px #c8fff18a}
+body.playing.sniper-aiming #crosshair{z-index:14}
+body.playing.aiming #aim-optic-label{display:block}
+body:not(.playing) #aim-optic-label{display:none!important}
