@@ -54,7 +54,7 @@ export function powerSnapshot(p,now=Date.now()){
 export function within(x,z,p,range){return Math.hypot(x-p.x,z-p.z)<=range;}
 export function locationValid(x,y,z,colliders,rangeBox=219){
  if(!Number.isFinite(x)||!Number.isFinite(y)||!Number.isFinite(z)||Math.abs(x)>rangeBox-.6||Math.abs(z)>rangeBox-.6||y<0||y>38)return false;
- return !colliders.some(b=>Math.abs(x-b.x)<b.hx+.42&&Math.abs(z-b.z)<b.hz+.42&&y<b.maxY+.04&&y+1.75>b.minY);
+ return !colliders.some(b=>Math.abs(x-b.x)<b.hx+.42&&Math.abs(z-b.z)<b.hz+.42&&y<b.maxY-.09&&y+1.75>b.minY+.1);
 }
 export function isGroundedDestination(x,y,z,colliders){
  if(!locationValid(x,y,z,colliders))return false;

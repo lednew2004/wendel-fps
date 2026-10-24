@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {ENEMY_TYPES,rand} from './constants.js';
 import {createOperative,animateOperative,disposeOperative} from './characters.js';
 import {CHARACTER_STYLES} from './characterIdentity.js';
+import {SQUAD_INTERIORS,SQUAD_DOORS} from './squadLayout.js';
 const vec=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
 
 
@@ -56,15 +57,82 @@ export class EnemySystem {
 
   spawnAt(type,player,wave){const radius=ENEMY_TYPES[type].radius+.3;const safe=this.world.spawnPoints.filter(p=>this.world.canMove(p[0],p[1],radius)&&Math.hypot(p[0]-player.x,p[1]-player.z)>20);const base=safe[Math.floor(Math.random()*safe.length)]||this.world.spawnPoints[0];let target=[base[0],base[1]];for(let i=0;i<12;i++){const trial=[base[0]+rand(-3,3),base[1]+rand(-3,3)];if(this.world.canMove(trial[0],trial[1],radius)&&Math.hypot(trial[0]-player.x,trial[1]-player.z)>16){target=trial;break;}}return this.spawn(type,target,wave);}
   spawnParticles(at,color,count=10,power=1){let mat=this.particleMaterials.get(color);if(!mat){mat=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.85});this.particleMaterials.set(color,mat);}for(let i=0;i<count;i++){if(this.particles.length>=this.maxParticles){const old=this.particles.shift();this.world.scene.remove(old.mesh);}const mesh=new THREE.Mesh(this.particleGeo,mat);mesh.position.copy(at);mesh.scale.setScalar(rand(.6,1.6)*power);this.world.scene.add(mesh);const life=rand(.25,.85);this.particles.push({mesh,velocity:vec(rand(-7,7),rand(0,9),rand(-7,7)).multiplyScalar(power),life,maxLife:life,scale:mesh.scale.x});}}
-  spawnProjectile(e,player,angle=0){const start=e.group.position.clone().add(vec(0,e.y,.0));const target=vec(player.x,player.eyeY,player.z);const dir=target.sub(start).normalize().applyAxisAngle(vec(0,1,0),angle);const mesh=new THREE.Mesh(e.boss?this.projectileBossGeom:this.projectileGeom,this.projectileMat);mesh.position.copy(start);this.world.scene.add(mesh);e.fireVisual=.13;this.projectiles.push({mesh,vel:dir.multiplyScalar(e.boss?22:e.type==='sniper'?48:16),life:2.8,damage:e.cfg.damage,boss:e.boss,target:player});}
+  hearShot(x,z,loudness=1){
+    const time=this.time;
+    for(const enemy of this.enemies){
+      if(Math.hypot(enemy.x-x,enemy.z-z)>(enemy.boss?110:55)*loudness)continue;
+      // Hearing offers a SEARCH POSITION, not an invisible wallhack or hit lock.
+      enemy.targetMemory={x,z,eyeY:1.65,until:time+3.8,kind:'noise'};
+    }
+  }
+  canSee(e,target,dist){
+    if(dist>Math.max(45,e.cfg.range*1.12))return false;
+    const dx=(target.x-e.x)/Math.max(.01,dist),dz=(target.z-e.z)/Math.max(.01,dist);
+    if(e.facingX!==undefined&&dx*e.facingX+dz*e.facingZ<-.30)return false;
+    const from=vec(e.x,(e.floorY||0)+1.52,e.z);
+    const to=vec(target.x,target.eyeY??1.65,target.z);
+    const delta=to.sub(from),length=delta.length();
+    return length>0.2&&this.world.raycastDistance(from,delta.normalize(),length-.15)>=length-.30;
+  }
+  // Small shared-door navigation plan: investigate a sound inside a building,
+  // move toward the public entrance, and use the actual opening. It does not
+  // reveal the hidden player's position and never ghosts through a closed door.
+  navigateTo(e,target){
+    const city=this.world.city;
+    if(!city||!target)return target;
+    for(const b of SQUAD_INTERIORS){
+      const within=p=>Math.abs(p.x-b.x)<b.hx-.55&&Math.abs(p.z-b.z)<b.hz-.55;
+      const inMe=within(e),inTarget=within(target);
+      if(inMe===inTarget)continue;
+      const door=SQUAD_DOORS.find(d=>d.id===`${b.id}-door`);
+      if(Math.hypot(e.x-door.x,e.z-door.z)<3.4){
+        const nearby=city.nearestInteractable(e.x,e.z,e.floorY||0,3.5);
+        if(nearby?.id===door.id&&!nearby.open)city.toggleInteractable(door.id,true);
+      }
+      if(inMe)return {x:door.x,z:door.z+2.0};
+      const entryDistance=Math.hypot(e.x-door.x,e.z-(door.z+1.5));
+      // The first stage guides the bot around the rear corners when required.
+      if(e.z<b.z-b.hz-1.2&&Math.abs(e.x-b.x)<b.hx+2){
+        return {x:b.x+(e.x>b.x?1:-1)*(b.hx+2.1),z:door.z+2.7};
+      }
+      return entryDistance<2.1?{x:door.x,z:door.z-2.7}:{x:door.x,z:door.z+1.5};
+    }
+    return target;
+  }
+  spawnProjectile(e,player,angle=0){const start=e.group.position.clone().add(vec(0,e.y,.0));const target=vec(player.x,player.eyeY,player.z);const spread=e.boss?.055:e.type==='sniper'?.012:.042;const jitter=(Math.random()-.5)*spread*2;const dir=target.sub(start).normalize().applyAxisAngle(vec(0,1,0),angle+jitter);const mesh=new THREE.Mesh(e.boss?this.projectileBossGeom:this.projectileGeom,this.projectileMat);mesh.position.copy(start);this.world.scene.add(mesh);e.fireVisual=.13;this.projectiles.push({mesh,vel:dir.multiplyScalar(e.boss?22:e.type==='sniper'?48:16),life:2.8,damage:e.cfg.damage,boss:e.boss,target:player});}
   raycast(origin,dir,maxDist){let hit=null;let dist=maxDist;for(const e of this.enemies){const center=e.group.position.clone().add(vec(0,e.y,0));const radius=e.boss?2.75:e.radius*1.12;const oc=origin.clone().sub(center);const b=oc.dot(dir),c=oc.lengthSq()-radius*radius,discriminant=b*b-c;if(discriminant<0)continue;const t=-b-Math.sqrt(discriminant);if(t>0&&t<dist){dist=t;hit={enemy:e,distance:t,point:origin.clone().addScaledVector(dir,t),headshot:!e.boss&&origin.y+dir.y*t>e.y+.52};}}return hit;}
   damage(e,amount,point,source='shot'){if(!e||e.dead)return false;e.hp-=amount;e.flash=.10;if(e.boss&&e.hp>0){const stage=e.hp/e.maxHp<.25?2:e.hp/e.maxHp<.56?1:0;if(stage>e.phaseIndex){e.phaseIndex=stage;e.cfg={...e.cfg,speed:e.cfg.speed*(stage===2?1.32:1.18),fire:e.cfg.fire*(stage===2?.66:.78)};this.spawnParticles(e.group.position.clone().add(vec(0,e.y,0)),0xb1674a,38,2);if(this.currentPlayer){this.spawnAt('hunter',this.currentPlayer,this.currentWave||1);this.spawnAt('scout',this.currentPlayer,this.currentWave||1);this.hooks.onSummon?.(2);}}}this.spawnParticles(point||e.group.position.clone().add(vec(0,e.y,0)),0xd7c1a1,source==='pulse'?12:3,source==='pulse'?1.2:.5);if(e.hp<=0){e.dead=true;this.kill(e);return true;}return false;}
   kill(e){this.world.scene.remove(e.group);this.disposeEnemy(e);if(e.laser)this.world.scene.remove(e.laser);if(e.warning)this.world.scene.remove(e.warning);const ix=this.enemies.indexOf(e);if(ix!==-1)this.enemies.splice(ix,1);this.spawnParticles(e.group.position.clone().add(vec(0,e.y,0)),0xb79774,e.boss?45:17,e.boss?2.2:1.2);this.audio.play('kill');this.hooks.onKill(e);if(e.boss||Math.random()<.35)this.drop(e.group.position,e.boss?'medkit':Math.random()<.72?'ammo':'medkit');}
   drop(position,type){const mat=new THREE.MeshStandardMaterial({color:type==='medkit'?0x7ea58b:0xffc458,metalness:.13,roughness:.48,emissive:type==='medkit'?0x203829:0x8e4e17,emissiveIntensity:type==='ammo'?.82:.55});const mesh=new THREE.Group();const core=new THREE.Mesh(new THREE.BoxGeometry(.55,.3,.55),mat);mesh.add(core);const ring=new THREE.Mesh(new THREE.TorusGeometry(.52,.04,8,24),mat);ring.rotation.x=Math.PI/2;mesh.add(ring);mesh.position.set(position.x,.75,position.z);this.world.scene.add(mesh);this.pickups.push({mesh,type,life:type==='ammo'?35:18,phase:rand(0,7)});}
   update(dt,player,wave=1){this.currentPlayer=player;this.currentWave=wave;this.time+=dt;for(const e of [...this.enemies]){e.flash=Math.max(0,e.flash-dt);e.fireVisual=Math.max(0,(e.fireVisual||0)-dt);
       animateOperative(e.body,dt,{moving:e.lastMoving||0,firing:e.fireVisual>0,frozen:e.frozenUntil>Date.now(),hit:e.flash>0,distance:Math.hypot(e.x-player.x,e.z-player.z)});
-      e.phase+=dt*(e.boss?1.7:3.2);e.group.position.y=e.gravityUntil>Date.now()?2.7+Math.sin(e.phase)*.15:Math.sin(e.phase)*.04; e.bar.scale.x=Math.max(0,e.hp/e.maxHp);e.bar.position.x=-(1-e.bar.scale.x)*.925*e.cfg.scale;const camPos=new THREE.Vector3();this.world.camera.getWorldPosition(camPos);e.bar.lookAt(camPos);e.barBg.lookAt(camPos);if(e.frozenUntil>Date.now()){e.fireTimer=Math.max(.15,e.fireTimer);continue;}const decoy=this.decoys?.find(d=>d.until>Date.now()&&Math.hypot(d.mesh.position.x-e.x,d.mesh.position.z-e.z)<24);const viable=[...(this.hiddenPlayer?[]:[player]),...(this.allies||[]).filter(a=>!a.downed)];const ranked=viable.sort((a,b)=>Math.hypot(a.x-e.x,a.z-e.z)-(a.role==='front'?6:0)-Math.hypot(b.x-e.x,b.z-e.z)+(b.role==='front'?6:0));const chase=decoy?{x:decoy.mesh.position.x,z:decoy.mesh.position.z,eyeY:decoy.mesh.position.y}:ranked[0]||player;const dx=chase.x-e.x,dz=chase.z-e.z,dist=Math.max(.0001,Math.hypot(dx,dz)),nx=dx/dist,nz=dz/dist;e.group.rotation.y=Math.atan2(-nx,-nz);e.fireTimer-=dt;e.strafeChange-=dt;if(e.strafeChange<0){e.strafe*=-1;e.strafeChange=rand(1.5,4);}let fx=0,fz=0;const melee=e.type==='scout'||e.type==='tank'||e.type==='hunter';const optimal=e.boss?20:e.type==='sniper'?33:e.type==='gunner'?19:melee?e.cfg.range*.9:7;if(dist>optimal+2){fx+=nx;fz+=nz;}else if(dist<optimal-4&&!melee){fx-=nx*.65;fz-=nz*.65;}if(!melee||dist<optimal+8){fx+=(-nz)*e.strafe*(e.boss?.4:.63);fz+=nx*e.strafe*(e.boss?.4:.63);}const tries=[[fx,fz],[fx+nz*.8*e.strafe,fz-nx*.8*e.strafe],[-nz*e.strafe,nx*e.strafe]];let moved=false;for(const [ax,az] of tries){const mag=Math.hypot(ax,az);if(mag<.05)break;const mx=ax/mag*e.cfg.speed*dt,mz=az/mag*e.cfg.speed*dt;if(this.world.canMove(e.x+mx,e.z+mz,e.radius)){e.x+=mx;e.z+=mz;moved=true;break;}}if(!moved&&dist>optimal+10&&this.world.canMove(e.x+nx*e.cfg.speed*.45*dt,e.z+nz*e.cfg.speed*.45*dt,e.radius)){e.x+=nx*e.cfg.speed*.45*dt;e.z+=nz*e.cfg.speed*.45*dt;}e.group.position.x=e.x;e.group.position.z=e.z;e.lastMoving=moved?1:0; if(e.type==='sniper'&&e.laser){const from=e.group.position.clone().add(vec(0,e.y,0));const to=vec(chase.x,chase.eyeY,chase.z);const line=e.laser.geometry.attributes.position;line.setXYZ(0,from.x,from.y,from.z);line.setXYZ(1,to.x,to.y,to.z);line.needsUpdate=true;e.laser.visible=e.fireTimer<.75;}if(e.boss&&e.warning){e.warning.visible=e.blastCharge>0;e.warning.position.set(e.x,.08,e.z);e.warning.scale.setScalar(1+Math.max(0,1-e.blastCharge/1.3)*9);}if(melee){if(dist<e.cfg.range&&e.fireTimer<=0){e.fireVisual=.13;if(chase===player)this.hooks.onPlayerHit(e.cfg.damage);else if(chase?.role)this.hooks.onAllyHit?.(chase,e.cfg.damage);e.fireTimer=e.cfg.fire;this.spawnParticles(vec(chase.x,chase.eyeY,chase.z),0xf0d4c2,4,.5);}}else{if(e.boss){e.blastTimer-=dt;if(e.blastTimer<=0&&e.blastCharge<=0)e.blastCharge=1.3;if(e.blastCharge>0){e.blastCharge-=dt;if(e.blastCharge<=0){e.blastTimer=rand(7,10);if(Math.hypot(e.x-chase.x,e.z-chase.z)<7){if(chase===player)this.hooks.onPlayerHit(16);else this.hooks.onAllyHit?.(chase,16);}this.spawnParticles(vec(e.x,.1,e.z),0xc46b4a,34,1.7);}}}
-        if(e.fireTimer<=0&&dist<e.cfg.range){
+      e.phase+=dt*(e.boss?1.7:3.2);e.group.position.y=e.gravityUntil>Date.now()?2.7+Math.sin(e.phase)*.15:Math.sin(e.phase)*.04; e.bar.scale.x=Math.max(0,e.hp/e.maxHp);e.bar.position.x=-(1-e.bar.scale.x)*.925*e.cfg.scale;const camPos=new THREE.Vector3();this.world.camera.getWorldPosition(camPos);e.bar.lookAt(camPos);e.barBg.lookAt(camPos);if(e.frozenUntil>Date.now()){e.fireTimer=Math.max(.15,e.fireTimer);continue;}const decoy=this.decoys?.find(d=>d.until>Date.now()&&Math.hypot(d.mesh.position.x-e.x,d.mesh.position.z-e.z)<24);
+      const viable=[...(this.hiddenPlayer?[]:[player]),...(this.allies||[]).filter(a=>!a.downed)];
+      e.perceptionDelay=(e.perceptionDelay||0)-dt;
+      if(e.perceptionDelay<=0){
+        e.perceptionDelay=rand(.19,.34);e.visibleTarget=null;
+        const visible=viable.filter(t=>this.canSee(e,t,Math.hypot(t.x-e.x,t.z-e.z)));
+        visible.sort((a,b)=>Math.hypot(a.x-e.x,a.z-e.z)-(a.role==='front'?4:0)-Math.hypot(b.x-e.x,b.z-e.z)+(b.role==='front'?4:0));
+        if(visible.length){
+          const t=visible[0];e.visibleTarget=t;
+          e.targetMemory={x:t.x,z:t.z,eyeY:t.eyeY||1.65,until:this.time+3.2,kind:'sighted'};
+          e.alertness=Math.min(1,(e.alertness||0)+.26);
+        }else e.alertness=Math.max(0,(e.alertness||0)-.23);
+      }
+      const remembered=e.targetMemory&&e.targetMemory.until>this.time?e.targetMemory:null;
+      if(!e.patrolPoint||Math.hypot(e.x-e.patrolPoint.x,e.z-e.patrolPoint.z)<2){
+        e.patrolPoint={x:(e.homeX??e.x)+rand(-13,13),z:(e.homeZ??e.z)+rand(-13,13),eyeY:1.65};
+      }
+      e.homeX??=e.x;e.homeZ??=e.z;
+      const targetVisible=!!e.visibleTarget;
+      const chase=decoy?{x:decoy.mesh.position.x,z:decoy.mesh.position.z,eyeY:decoy.mesh.position.y}:e.visibleTarget||remembered||e.patrolPoint;
+      if(remembered&&Math.hypot(e.x-remembered.x,e.z-remembered.z)<2&&!targetVisible)e.targetMemory=null;const nav=this.navigateTo(e,chase);const dx=nav.x-e.x,dz=nav.z-e.z,dist=Math.max(.0001,Math.hypot(dx,dz)),nx=dx/dist,nz=dz/dist;e.group.rotation.y=Math.atan2(-nx,-nz);e.facingX=nx;e.facingZ=nz;e.fireTimer-=dt;e.strafeChange-=dt;if(e.strafeChange<0){e.strafe*=-1;e.strafeChange=rand(1.5,4);}let fx=0,fz=0;const melee=e.type==='scout'||e.type==='tank'||e.type==='hunter';const optimal=e.boss?20:e.type==='sniper'?33:e.type==='gunner'?19:melee?e.cfg.range*.9:7;if(targetVisible&&e.hp/e.maxHp<.3&&!e.boss){fx-=nx;fz-=nz;}else if(dist>optimal+2){fx+=nx;fz+=nz;}else if(dist<optimal-4&&!melee){fx-=nx*.65;fz-=nz*.65;}if(!melee||dist<optimal+8){fx+=(-nz)*e.strafe*(e.boss?.4:.63);fz+=nx*e.strafe*(e.boss?.4:.63);}const tries=[[fx,fz],[fx+nz*.8*e.strafe,fz-nx*.8*e.strafe],[-nz*e.strafe,nx*e.strafe]];let moved=false;for(const [ax,az] of tries){const mag=Math.hypot(ax,az);if(mag<.05)break;const mx=ax/mag*e.cfg.speed*dt,mz=az/mag*e.cfg.speed*dt;if((this.world.city?.canOccupy(e.x+mx,e.z+mz,e.floorY||0,1.8,e.radius)??this.world.canMove(e.x+mx,e.z+mz,e.radius))){e.x+=mx;e.z+=mz;moved=true;break;}}if(!moved&&dist>optimal+10&&(this.world.city?.canOccupy(e.x+nx*e.cfg.speed*.45*dt,e.z+nz*e.cfg.speed*.45*dt,e.floorY||0,1.8,e.radius)??this.world.canMove(e.x+nx*e.cfg.speed*.45*dt,e.z+nz*e.cfg.speed*.45*dt,e.radius))){e.x+=nx*e.cfg.speed*.45*dt;e.z+=nz*e.cfg.speed*.45*dt;}e.group.position.x=e.x;e.group.position.z=e.z;e.lastMoving=moved?1:0;
+      if(this.world.city){
+        const floor=this.world.city.floorAt(e.x,e.z,e.floorY||0,.46);
+        e.floorY=floor>(e.floorY||0)-.55?floor:Math.max(0,(e.floorY||0)-5*dt);
+        e.group.position.y=(e.floorY||0)+Math.sin(e.phase)*.04;
+      } if(e.type==='sniper'&&e.laser){const from=e.group.position.clone().add(vec(0,e.y,0));const to=vec(chase.x,chase.eyeY,chase.z);const line=e.laser.geometry.attributes.position;line.setXYZ(0,from.x,from.y,from.z);line.setXYZ(1,to.x,to.y,to.z);line.needsUpdate=true;e.laser.visible=e.fireTimer<.75;}if(e.boss&&e.warning){e.warning.visible=e.blastCharge>0;e.warning.position.set(e.x,.08,e.z);e.warning.scale.setScalar(1+Math.max(0,1-e.blastCharge/1.3)*9);}if(melee){if(targetVisible&&e.alertness>=.40&&dist<e.cfg.range&&e.fireTimer<=0){e.fireVisual=.13;if(chase===player)this.hooks.onPlayerHit(e.cfg.damage);else if(chase?.role)this.hooks.onAllyHit?.(chase,e.cfg.damage);e.fireTimer=e.cfg.fire;this.spawnParticles(vec(chase.x,chase.eyeY,chase.z),0xf0d4c2,4,.5);}}else{if(e.boss){e.blastTimer-=dt;if(e.blastTimer<=0&&e.blastCharge<=0)e.blastCharge=1.3;if(e.blastCharge>0){e.blastCharge-=dt;if(e.blastCharge<=0){e.blastTimer=rand(7,10);if(targetVisible&&Math.hypot(e.x-chase.x,e.z-chase.z)<7){if(chase===player)this.hooks.onPlayerHit(16);else this.hooks.onAllyHit?.(chase,16);}this.spawnParticles(vec(e.x,.1,e.z),0xc46b4a,34,1.7);}}}
+        if(targetVisible&&e.alertness>=.40&&e.fireTimer<=0&&dist<e.cfg.range){
           const from=e.group.position.clone().add(vec(0,e.y,0));
           const to=vec(chase.x,chase.eyeY,chase.z);
           const shotDir=to.sub(from),shotDistance=shotDir.length();

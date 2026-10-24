@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="screen-orientation" content="landscape">
   <meta name="theme-color" content="#070b10">
-  <meta name="description" content="TITAN PROTOCOL 3.9.1 — FPS tático de esquadrão, 4 funções, missões contra o Titã, PvP e cooperativo online">
-  <title>TITAN PROTOCOL 3.9.1 · SQUAD OPERATIONS</title>
+  <meta name="description" content="TITAN PROTOCOL 4.3.0 (RENDER) — FPS tático de esquadrão, 4 funções, missões contra o Titã, PvP e cooperativo online">
+  <title>TITAN PROTOCOL 4.3.0 · SQUAD OPERATIONS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -25,7 +25,7 @@
     })();
   </script>
   <script type="importmap">
-  {"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
+  {"imports": {"three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/", "three/webgpu": "/vendor/three/build/three.webgpu.js", "three/tsl": "/vendor/three/build/three.tsl.js", "three/core": "/vendor/three/build/three.core.js"}}
   </script>
 </head>
 <body>
@@ -44,7 +44,7 @@
   <div id="squad-status" class="hidden" aria-label="Estado dos companheiros de esquadrão"></div>
   <div id="damage-vignette" aria-hidden="true"></div>
   <div id="hitmarker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-  <div id="crosshair" aria-hidden="true"><span></span><i></i><i></i><i></i><i></i></div>
+  <div id="crosshair" aria-hidden="true"><span></span><i></i><i></i><i></i><i></i></div><div id="aim-optic-label" aria-hidden="true">MIRA TÁTICA · ZOOM</div>
   <div id="reload-msg" aria-live="polite">RECARREGANDO</div>
   <div id="wave-callout" aria-live="polite"><small>AMEAÇA DETECTADA</small><strong>ONDA 01</strong><span>ELIMINE OS HOSTIS</span></div>
   <div id="toast" aria-live="polite"></div>
@@ -65,12 +65,12 @@
       <div class="abilities"><div class="ability" id="dash-ui"><span class="ability-key">X</span><div class="ability-icon">➜</div><strong>DASH</strong><small id="dash-label">PRONTO</small><div class="ability-fill" id="dash-fill"></div></div><div class="ability" id="grenade-ui"><span class="ability-key">G</span><div class="ability-icon">◉</div><strong>GRANADA</strong><small id="grenade-label">PRONTO</small><div class="ability-fill" id="grenade-fill"></div></div><div class="ability" id="pulse-ui"><span class="ability-key">Q</span><div class="ability-icon">✦</div><strong>PULSO</strong><small id="pulse-label">PRONTO</small><div class="ability-fill" id="pulse-fill"></div></div></div>
       <div class="weapons"><div class="weapon-top"><span>ARMA EQUIPADA</span><span id="weapon-type">ASSALTO · AUTOMÁTICA</span></div><div class="weapon-main"><div><strong id="weapon-name">M4A1</strong><small id="weapon-sub">RIFLE DE ASSALTO</small></div><div class="ammo"><strong id="ammo">36</strong><span>/ <b id="reserve">216</b></span></div></div><div class="weapon-bottom"><span>1 M4A1</span><span>2 M870</span><span>3 M24</span><span>4 M249</span><span class="reload-hint">R RECARREGAR</span></div></div>
     </div>
-    <div class="ingame-hint" id="ingame-hint">WASD MOVER · MOUSE MIRAR · CLIQUE ATIRAR · F OBJETIVO · E ESCADA · SHIFT CORRER · ESPAÇO PULAR · X DASH · CTRL DESLIZAR · Q PULSO · G GRANADA · T DESAFIO · R RECARGA</div>
+    <div class="ingame-hint" id="ingame-hint">WASD MOVER · MOUSE MIRAR · CLIQUE ATIRAR · F OBJETIVO · E PORTA/ESCADA · SHIFT CORRER · ESPAÇO PULAR · X DASH · CTRL DESLIZAR · Q PULSO · G GRANADA · T DESAFIO · R RECARGA</div>
   </section>
 
   <section id="parkour-hud" class="hidden" aria-label="Parkour urbano">
     <div class="pk-top"><div class="pk-head"><small id="pk-level">NÍVEL 1</small><strong id="pk-route">TELHADOS DO DISTRITO</strong><span>CHECKPOINT <b id="pk-progress">0/4</b></span></div><div class="pk-times"><small>CRONÔMETRO</small><strong id="pk-time">0.00 s</strong><span>MELHOR TEMPO: <b id="pk-best">—</b></span></div></div>
-    <div class="pk-bottom"><div class="pk-status"><span>ALTURA <b id="pk-height">0.0 m</b></span><span>VELOCIDADE <b id="pk-speed">0 km/h</b></span></div><div class="pk-nav"><span id="pk-direction">↑</span><div>PRÓXIMO MARCADOR <b id="pk-target-dist">—</b></div></div><strong id="pk-prompt">SIGA OS MARCADORES</strong><small>WASD ANDAR · SHIFT CORRER · ESPAÇO PULAR · E ESCADA · CTRL DESLIZAR · X DASH · T DESAFIO · R RECARREGAR</small></div>
+    <div class="pk-bottom"><div class="pk-status"><span>ALTURA <b id="pk-height">0.0 m</b></span><span>VELOCIDADE <b id="pk-speed">0 km/h</b></span></div><div class="pk-nav"><span id="pk-direction">↑</span><div>PRÓXIMO MARCADOR <b id="pk-target-dist">—</b></div></div><strong id="pk-prompt">SIGA OS MARCADORES</strong><small>WASD ANDAR · SHIFT CORRER · ESPAÇO PULAR · E ESCADA · CTRL DESLIZAR · X DASH · R RECARREGAR</small></div>
   </section>
 
   <div id="titan-economy-hud" class="hidden" role="status" aria-live="polite">◈ 0 CR · 1 PODER</div>
@@ -197,15 +197,27 @@
   </section>
   <div id="loading" class="loading"><div class="loading-logo">T<span>/</span>P</div><strong id="loading-status">INICIALIZANDO SISTEMA 3D...</strong><div class="loading-track"><i></i></div><small>THREE.JS · MOTOR DE COMBATE</small></div>
   <script>
-    window.__titanBootTimer = setTimeout(() => {
+    // Mensagens de diagnostico: nenhum erro de inicializacao deve ser atribuido a internet sem evidencia.
+    window.__titanReportBootError = (message) => {
       const loading = document.getElementById('loading');
-      if (loading && !loading.classList.contains('hidden')) {
-        loading.classList.add('error');
-        document.getElementById('loading-status').textContent = 'O motor 3D não carregou. Verifique sua conexão com a internet e abra este projeto por um servidor local (veja README).';
-      }
-    }, 15000);
+      if (!loading || loading.classList.contains('hidden')) return;
+      loading.classList.add('error');
+      document.getElementById('loading-status').textContent =
+        'Falha ao iniciar motor 3D: ' + String(message || 'erro desconhecido').slice(0, 240) +
+        '. Abra F12 > Console para detalhes.';
+      clearTimeout(window.__titanBootTimer);
+    };
+    window.addEventListener('error', (event) => {
+      window.__titanReportBootError(event.message || event.error?.message || 'recurso nao carregado');
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+      window.__titanReportBootError(event.reason?.message || String(event.reason));
+    });
+    window.__titanBootTimer = setTimeout(() => {
+      window.__titanReportBootError('tempo limite de 30 segundos ao carregar os modulos ou iniciar o jogo');
+    }, 30000);
   </script>
-  <div id="graphics-lab-notice" style="position:fixed;left:12px;bottom:10px;z-index:5;pointer-events:none;border:1px solid #89dfd044;background:#0b1b2788;border-radius:7px;color:#e6fdf5;padding:5px 8px;font:600 10px system-ui,sans-serif">LAB GRÁFICO 3.9 · F8 COMPARA ORIGINAL/NOVO · <a href="./comparativo-grafico.html" style="color:#8ce9ff;pointer-events:auto" target="_blank" rel="noopener">Comparar motores</a></div>
+  <div id="graphics-lab-notice" style="position:fixed;left:12px;bottom:10px;z-index:5;pointer-events:none;border:1px solid #89dfd044;background:#0b1b2788;border-radius:7px;color:#e6fdf5;padding:5px 8px;font:600 10px system-ui,sans-serif">LAB GRÁFICO 4.3.0 · F8 COMPARA ORIGINAL/NOVO · <a href="./comparativo-grafico.html" style="color:#8ce9ff;pointer-events:auto" target="_blank" rel="noopener">Comparar motores</a></div>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

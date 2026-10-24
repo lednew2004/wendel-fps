@@ -1,8 +1,9 @@
 import {createSquadWorld} from './squadWorld.js';
 import {SQUAD_ENEMY_SPAWNS} from './squadLayout.js';
+import {UrbanDoors} from './urbanDoors.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {solidBlocksCapsule,standHeight,intersectLanding} from './parkourPhysics.js';
+import {solidBlocksCapsule,standHeight,intersectLanding,walkableVolumes} from './parkourPhysics.js';
 import {UrbanExpansion} from './urbanExpansion.js';
 import {WORLD_HALF} from './worldLayout.js';
 
@@ -14,7 +15,7 @@ export class UrbanCity {
   constructor(world){
     this.world=world;
     this.root=new THREE.Group();this.root.visible=false;world.scene.add(this.root);
-    this.solids=[];this.surfaces=[];this.ladders=[];this.lowWalls=[];this.courses=[];
+    this.solids=[];this.surfaces=[];this.walkableCache=null;this.walkableUpdatedAt=0;this.ladders=[];this.lowWalls=[];this.courses=[];
     this.rayTargets=[];this.chunks=new Map();this.currentParent=null;this.chunkTick=0;this.routeMarkerGroups=[];this.buildingMaterials=new Map();
     this.materials={
       concrete:world.mat(0xffffff,.1,.93,world.textures.concrete),
@@ -26,7 +27,7 @@ export class UrbanCity {
       road:color(0x59636b),white:color(0xfff3e4),green:color(0x67c973)
     };
     this.build();
-    this.expansion={update(){},reset(){},nearby(){return null;},setState(){return false;}};
+    this.expansion=new UrbanDoors(this);
     this.makeFuelDrums();
     this.spawnPoints=SQUAD_ENEMY_SPAWNS.map(p=>[...p]);
   }
@@ -85,19 +86,25 @@ export class UrbanCity {
     steps.instanceMatrix.needsUpdate=true;steps.castShadow=false;steps.receiveShadow=true;(this.currentParent||this.root).add(steps);
     this.box(l.x,l.top+.48,z,.98,.14,.14,this.materials.yellow,false);
   }
-  makeStaircase({x,z,from=0,to=6,length=13,width=2.5,axis='z'}){
-    const N=Math.max(8,Math.ceil((to-from)/.35));
-    const mat=this.materials.concrete;
+  makeStaircase({x,z,from=0,to=6,length=13,width=2.5,axis='z',reverse=false}){
+    const N=Math.max(8,Math.ceil(Math.abs(to-from)/.28));
+    const stair=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),this.materials.concrete,N);
+    const dummy=new THREE.Object3D();
     for(let i=0;i<N;i++){
-      const t=(i+.5)/N,h=from+(to-from)*((i+1)/N);
-      if(axis==='z')this.box(x,h/2,z-length/2+length*t,width,h,length/N+.025,mat);
-      else this.box(x-length/2+length*t,h/2,z,length/N+.025,h,width,mat);
+      const t=(i+.5)/N;
+      const level=from+(to-from)*(reverse?1-i/N:(i+1)/N);
+      const h=Math.max(.04,level);
+      if(axis==='z')dummy.position.set(x,h/2,z-length/2+length*t);
+      else dummy.position.set(x-length/2+length*t,h/2,z);
+      dummy.scale.set(axis==='z'?width:length/N+.025,h,axis==='z'?length/N+.025:width);
+      dummy.rotation.set(0,0,0);dummy.updateMatrix();stair.setMatrixAt(i,dummy.matrix);
     }
-    this.surfaces.push({x,z,hx:axis==='z'?width/2:length/2,hz:axis==='z'?length/2:width/2,ramp:true,axis,from,to});
-    if(axis==='z'){
-      this.box(x-width/2-.13,(to+1)/2,z,.18,to+1,length,this.materials.edge,false);
-      this.box(x+width/2+.13,(to+1)/2,z,.18,to+1,length,this.materials.edge,false);
-    }
+    stair.instanceMatrix.needsUpdate=true;
+    stair.castShadow=false;stair.receiveShadow=true;
+    (this.currentParent||this.root).add(stair);
+    this.surfaces.push({x,z,hx:axis==='z'?width/2:length/2,hz:axis==='z'?length/2:width/2,ramp:true,axis,from,to,reverse});
+    // Handrails do not block the walking volume.
+    if(axis==='z')for(const sign of [-1,1])this.box(x+sign*(width/2+.10),(to+1)/2,z,.12,to+1,length,this.materials.edge,false);
   }
   addInterior(x,z,w,d,h=9){
     // open front, enclosed sides and rear, usable ground and accessible second floor
@@ -188,8 +195,16 @@ export class UrbanCity {
     for(const s of this.solids)if(s.active!==false&&solidBlocksCapsule(s,x,z,y,height,r))return false;
     return true;
   }
-  floorAt(x,z,feet,step=.46){return standHeight(this.surfaces,x,z,feet,step);}
-  landingAt(x,z,oldFeet,newFeet){return intersectLanding(this.surfaces,x,z,oldFeet,newFeet);}
+  getWalkable(){
+    // Stable cached geometry between 90 Hz physics steps; refresh if props change.
+    const now=this.world.time||0;
+    if(!this.walkableCache||now-this.walkableUpdatedAt>.15||this.walkableSolidCount!==this.solids.length){
+      this.walkableCache=walkableVolumes(this.surfaces,this.solids);this.walkableSolidCount=this.solids.length;this.walkableUpdatedAt=now;
+    }
+    return this.walkableCache;
+  }
+  floorAt(x,z,feet,step=.46){return standHeight(this.getWalkable(),x,z,feet,step);}
+  landingAt(x,z,oldFeet,newFeet){return intersectLanding(this.getWalkable(),x,z,oldFeet,newFeet);}
   wallNear(x,z,y,r=1.0){
     let closest=null,best=Infinity;
     for(const s of this.solids){

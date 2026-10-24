@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {SQUAD_BLOCKS,SQUAD_POINTS} from './squadLayout.js';
+import {SQUAD_BLOCKS,SQUAD_POINTS,SQUAD_INTERIORS} from './squadLayout.js';
 import {installArchitecturalDetails} from './sceneDetails35.js';
 import {installGraphicsLab39} from './graphicsLab39.js';
 import {installCinematicWorld391} from './cinematicWorld391.js';
@@ -42,6 +42,13 @@ export function createSquadWorld(city){
    const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),concrete);m.rotation.x=-Math.PI/2;m.position.set(x,.025,z);m.receiveShadow=true;root.add(m);
  }
  for(const [index,b] of SQUAD_BLOCKS.entries()){
+   if(b.interiorPart){
+     const mat=b.interiorPart==='roof'?metal:(b.interiorPart==='loft'||b.interiorPart==='landing')?concrete:b.interiorPart==='cover'?obstacleMaterials.construction:facades[index%facades.length];
+     const mesh=city.box(b.x,(b.minY+b.maxY)/2,b.z,b.w,b.h,b.d,mat);
+     city.rayTargets.push(mesh);city.solids.push({...b});
+     if(b.interiorPart==='roof'||b.interiorPart==='loft'||b.interiorPart==='landing')city.addSurface(b.x,b.z,b.w,b.d,b.maxY);
+     continue;
+   }
    const isShort=b.h<3,material=b.obstacle?(obstacleMaterials[b.kind]||wall):isShort?concrete:facades[index%facades.length];
    const mesh=city.box(b.x,b.h/2,b.z,b.w,b.h,b.d,material);city.rayTargets.push(mesh);
    if(!b.obstacle&&!isShort)city.premiumFacadeMeshes.push({mesh,original:material,cinematic:cinematicFacades[index%cinematicFacades.length]});
@@ -79,6 +86,19 @@ export function createSquadWorld(city){
      const cap=city.box(b.x,b.h+.04,b.z,b.w+.1,.08,b.d+.1,orange,false);cap.castShadow=false;
    }
  }
+ // Two real interior stair flights per building, plus balcony rails.
+ // No new solid AABBs here: server and client collision are shared via SQUAD_BLOCKS.
+ for(const b of SQUAD_INTERIORS){
+   const span=b.d-2.9,level=b.h/2;
+   // U-shaped stairway: enter from front, turn on the shared rear landing, return to the roof.
+   city.makeStaircase({x:b.x+b.w*.28,z:b.z,from:0,to:level,length:span,width:2.25,axis:'z',reverse:true});
+   city.makeStaircase({x:b.x-b.w*.27,z:b.z,from:level,to:b.h+.34,length:span,width:2.25,axis:'z'});
+   const rail=city.box(b.x-b.w*.48,level+.53,b.z+b.d*.35,.11,1.06,b.d*.26,metal,false);rail.castShadow=false;
+   const balcony=city.box(b.x,level+.03,b.z+b.d/2+.65,b.w*.42,.17,1.28,concrete);
+   city.addSurface(b.x,b.z+b.d/2+.65,b.w*.42,1.28,level+.12);
+   const ledge=city.box(b.x,level+.60,b.z+b.d/2+1.23,b.w*.42,1.10,.16,metal,false);
+   const sign=city.box(b.x,b.h-.67,b.z+b.d/2+.10,3.7,.46,.14,panel,false);sign.castShadow=false;
+ }
  obstaclePosts.count=obstaclePostCount;obstaclePosts.instanceMatrix.needsUpdate=true;
  obstacleStripes.count=obstacleStripeCount;obstacleStripes.instanceMatrix.needsUpdate=true;
  obstaclePosts.castShadow=false;obstacleStripes.castShadow=false;
@@ -96,7 +116,7 @@ export function createSquadWorld(city){
  const rooftop=new THREE.InstancedMesh(new THREE.BoxGeometry(1.1,.65,1.1),darkMetal,72);
  const dummy=new THREE.Object3D();let windows=[0,0],nr=0,nt=0;
  for(const [i,b] of SQUAD_BLOCKS.entries()){
-   if(b.h<3||b.obstacle)continue;
+   if(b.h<3||b.obstacle||b.interiorPart)continue;
    const side=(i%2===0?1:-1),count=Math.min(6,Math.floor((b.w-1)/2.1)),floors=Math.min(3,Math.floor((b.h-1.4)/2.6));
    for(let floor=0;floor<floors;floor++)for(let j=0;j<count;j++){
      const which=(j+i+floor)%2;const k=windows[which];if(k>=350)continue;
@@ -177,7 +197,7 @@ export function createSquadWorld(city){
  const arches=new THREE.InstancedMesh(new THREE.TorusGeometry(1.3,.12,7,18,Math.PI),archMat,45);
  let p=0,a=0;
  for(const b of SQUAD_BLOCKS){
-   if(b.h<3||b.obstacle)continue;
+   if(b.h<3||b.obstacle||b.interiorPart)continue;
    for(let n=0;n<6;n++){
      const k=n%3;
      dummy.position.set(b.x+(k-1)*b.w*.33,b.h+.65,b.z+(n<3?-.26:.26)*b.d);

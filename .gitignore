@@ -1,0 +1,22 @@
+# Dependencias e arquivos gerados localmente
+node_modules/
+coverage/
+dist/
+build/
+.cache/
+.tmp/
+*.log
+*.pid
+
+# Segredos e configuracoes locais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Arquivos do sistema e editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

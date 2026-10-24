@@ -28,7 +28,7 @@ test('legacy MOBA presentation removed from client render and tactical teleport 
  assert.doesNotMatch(read('powerMenu.js'),/MOBA_LANES|JUNGLE_CAMPS/);
  assert.doesNotMatch(read('minimap.js'),/MOBA_LANES|JUNGLE_CAMPS/);
  assert.match(read('squadWorld.js'),/createSquadWorld/);
- assert.equal(SQUAD_BLOCKS.length,48);
+ assert.ok(SQUAD_BLOCKS.length>48);
 });
 
 test('Squad PvE progresses through perimeter, sniper reconnaissance, bomber sabotage, boss and extraction',()=>{

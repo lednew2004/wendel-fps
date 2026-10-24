@@ -15,8 +15,9 @@ export function solidBlocksCapsule(s,x,z,feet,height,r){
 export function standHeight(surfaces,x,z,feet,step=.45){
   let best=0;
   for(const s of surfaces){
-    if(x<s.x-s.hx||x>s.x+s.hx||z<s.z-s.hz||z>s.z+s.hz)continue;
-    const h=s.ramp?s.from+(s.to-s.from)*Math.max(0,Math.min(1,(s.axis==='x'?(x-(s.x-s.hx))/(2*s.hx):(z-(s.z-s.hz))/(2*s.hz)))):s.y;
+    if(s.active===false||x<s.x-s.hx||x>s.x+s.hx||z<s.z-s.hz||z>s.z+s.hz)continue;
+    const fraction=Math.max(0,Math.min(1,(s.axis==='x'?(x-(s.x-s.hx))/(2*s.hx):(z-(s.z-s.hz))/(2*s.hz))));
+    const h=s.ramp?s.from+(s.to-s.from)*(s.reverse?1-fraction:fraction):s.y;
     if(h>best && h<=feet+step)best=h;
   }
   return best;
@@ -24,10 +25,17 @@ export function standHeight(surfaces,x,z,feet,step=.45){
 export function intersectLanding(surfaces,x,z,oldFeet,nextFeet){
   let best=nextFeet<=0 && oldFeet>=-.1?0:-Infinity;
   for(const s of surfaces){
-    if(x<s.x-s.hx||x>s.x+s.hx||z<s.z-s.hz||z>s.z+s.hz)continue;
-    const h=s.ramp?s.from+(s.to-s.from)*Math.max(0,Math.min(1,(s.axis==='x'?(x-(s.x-s.hx))/(2*s.hx):(z-(s.z-s.hz))/(2*s.hz)))):s.y;
+    if(s.active===false||x<s.x-s.hx||x>s.x+s.hx||z<s.z-s.hz||z>s.z+s.hz)continue;
+    const fraction=Math.max(0,Math.min(1,(s.axis==='x'?(x-(s.x-s.hx))/(2*s.hx):(z-(s.z-s.hz))/(2*s.hz))));
+    const h=s.ramp?s.from+(s.to-s.from)*(s.reverse?1-fraction:fraction):s.y;
     if(oldFeet>=h-.08 && nextFeet<=h && h>best)best=h;
   }
   return best;
 }
 export function jumpDistance(v=13.1,j=10.9,g=23.5){return 2*v*j/g;}
+
+/** Static collision volumes are also real platforms. This prevents walking through
+ * a crate, barrel or obstacle after jumping over its top. Door panels excluded. */
+export function walkableVolumes(surfaces,solids){
+  return [...surfaces,...solids.filter(s=>s.active!==false && s.kind!=='door' && s.kind!=='window' && !s.interactable && Number.isFinite(s.maxY) && Number.isFinite(s.hx) && Number.isFinite(s.hz) && s.hx>.13 && s.hz>.13).map(s=>({x:s.x,z:s.z,hx:s.hx,hz:s.hz,y:s.maxY}))];
+}

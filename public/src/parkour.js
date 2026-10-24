@@ -25,7 +25,7 @@ export class ParkourController {
   startCombat(x=0,z=18){
     this.combat=true;this.trialActive=false;this.running=false;this.progress=0;
     this.city.toggle(true);this.city.setRouteActive?.(-1);this.spawn(x,0,z);
-    this.prompt='COMBATE + PARKOUR · E ESCADAS · ESPAÇO PULAR · T DESAFIO';
+    this.prompt='COMBATE TÁTICO · E PARA ABRIR PORTAS · USE ESCADAS · ESPAÇO PULAR';
     this.updateHud();
   }
   toggleTrial(){
@@ -150,10 +150,23 @@ export class ParkourController {
   crouch(){
     if(this.grounded&&Math.hypot(this.vx,this.vz)>5.5){this.slide=CFG.slideTime;this.prompt='DESLIZAMENTO';}
   }
+  // Both the ordinary dash and hero skills use the same velocity + collider controller.
+  // Never spawn/teleport every frame: that zeroes inertia and causes camera snapping.
+  startDirectedDash(toX,toZ,duration=.34){
+    if(this.vault||this.ladder||this.hanging)return false;
+    const dx=toX-this.x,dz=toZ-this.z,dist=Math.hypot(dx,dz);
+    if(!Number.isFinite(dist)||dist<.15)return false;
+    const span=Math.max(.14,Math.min(.65,duration));
+    this.dashTime=span;this.dashTotal=span;
+    const speed=Math.min(33,dist/span);
+    this.dashVX=dx/dist*speed;this.dashVZ=dz/dist*speed;
+    // Do not stop completely at the end; current speed is decelerated by walk physics.
+    return true;
+  }
   tacticalDash(){
     const dir=this.dashDirection(),yaw=this.game.yaw;
     const x=Math.hypot(dir.x,dir.z)>.12?dir.x:-Math.sin(yaw),z=Math.hypot(dir.x,dir.z)>.12?dir.z:-Math.cos(yaw);
-    this.dashTime=.22;this.dashVX=x*25;this.dashVZ=z*25;
+    return this.startDirectedDash(this.x+x*5.5,this.z+z*5.5,.22);
   }
   dashDirection(){return directionForDash(this.direction(),{x:this.vx,z:this.vz});}
   direction(){
@@ -189,9 +202,13 @@ export class ParkourController {
     this.game.player.moveX=this.vx;this.game.player.moveZ=this.vz;
     this.game.positionCamera();
     const cam=this.game.world.camera;
-    const fov=this.game.world.baseFOV+Math.min(7,speed*.45)+(vaultCamera?.fovBoost||0);
-    cam.fov+=Math.min(1,dt*7)*(fov-cam.fov);
-    cam.updateProjectionMatrix();
+    // When ADS is held, Weapons exclusively controls FOV; two competing camera
+    // interpolations caused jitter and made the optic feel like it barely zoomed.
+    if(!this.game.rightDown){
+      const fov=this.game.world.baseFOV+Math.min(5,speed*.32)+(vaultCamera?.fovBoost||0);
+      const next=cam.fov+Math.min(1,dt*8)*(fov-cam.fov);
+      if(Math.abs(next-cam.fov)>.015){cam.fov=next;cam.updateProjectionMatrix();}
+    }
     this.game.world.cameraPitch.rotation.z=vaultCamera?.roll||0; // brief visual lean; LookController keeps aim
     this.hudCooldown=(this.hudCooldown||0)-dt;
     if(this.hudCooldown<=0){this.updateHud();this.hudCooldown=.095;}
@@ -228,7 +245,13 @@ export class ParkourController {
     const speed=(this.slide>0?CFG.slideSpeed:isSprint?CFG.sprintSpeed:CFG.walkSpeed)*touchPace*vexBoost*(this.game.player.speedBonus||1);
     const ax=dir.x*speed,az=dir.z*speed;
     const accel=(this.grounded?CFG.accelGround:CFG.accelAir)*dt;
-    if(this.dashTime>0){this.dashTime=Math.max(0,this.dashTime-dt);this.vx=this.dashVX;this.vz=this.dashVZ;}
+    if(this.dashTime>0){
+      this.dashTime=Math.max(0,this.dashTime-dt);
+      // Retain at least normal run velocity at the tail of a dash.
+      const tail=Math.min(1,this.dashTime/Math.max(.07,(this.dashTotal||.22)*.38));
+      const retained=.46+.54*tail;
+      this.vx=this.dashVX*retained;this.vz=this.dashVZ*retained;
+    }
     else {this.vx=approach(this.vx,ax,accel);this.vz=approach(this.vz,az,accel);}
     if(!dir.mag && this.dashTime<=0){
       const fric=(this.grounded?CFG.frictionGround:CFG.frictionAir)*dt;
@@ -263,8 +286,22 @@ export class ParkourController {
     const height=this.slide>0?1.08:CFG.characterHeight;
     const radius=CFG.characterRadius;
     const nx=this.x+this.vx*dt,nz=this.z+this.vz*dt;
-    if(phased||this.city.canOccupy(nx,this.z,this.y,height,radius))this.x=nx;else this.vx=0;
-    if(phased||this.city.canOccupy(this.x,nz,this.y,height,radius))this.z=nz;else this.vz=0;
+    const advance=(tx,tz,component)=>{
+      let nextFeet=this.y;
+      if(!phased&&(this.grounded||this.vy<=0)){
+        const step=this.city.floorAt(tx,tz,this.y,CFG.stairStep);
+        if(step>this.y+.015&&step<=this.y+CFG.stairStep&&this.city.canOccupy(tx,tz,step+.01,height,radius))nextFeet=step+.01;
+      }
+      if(phased||this.city.canOccupy(tx,tz,nextFeet,height,radius)){
+        this.x=tx;this.z=tz;
+        if(nextFeet>this.y){this.y=nextFeet;if(this.vy<0)this.vy=0;this.grounded=true;}
+        return true;
+      }
+      if(component==='x'){this.vx=0;this.dashVX=0;}else{this.vz=0;this.dashVZ=0;}
+      return false;
+    };
+    advance(nx,this.z,'x');advance(this.x,nz,'z');
+    if(this.dashTime>0&&Math.hypot(this.dashVX,this.dashVZ)<.1)this.dashTime=0;
     // Degraus/rampas só elevam o jogador quando ele está realmente no solo;
     // evita snap vertical através de telhados ou paredes.
     if(this.grounded && this.vy<=0&&!flying){

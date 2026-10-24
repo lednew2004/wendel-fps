@@ -18,6 +18,7 @@ import {newCoop,advanceCoop,coopSnapshot,coopFire,coopAbility,coopSupportPulse} 
 import {POWER_RULES,sanitizeLoadout,freshPowerState,powerSnapshot,canCast,locationValid,isGroundedDestination,within,nearbyMorphObject,canAutoResurrect,criticalPowerPenalty} from './powers.mjs';
 
 const root=path.resolve(fileURLToPath(new URL('../public/',import.meta.url)));
+const threeRoot=path.resolve(fileURLToPath(new URL('../node_modules/three/',import.meta.url)));
 const port=Number(process.env.PORT||3000);
 const maxPlayers=8;
 const RECONNECT_GRACE_MS=90000;
@@ -774,12 +775,19 @@ function setupSocket(ws){
 }
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webp':'image/webp','.glb':'model/gltf-binary','.json':'application/json; charset=utf-8','.png':'image/png','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'3.9.1'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'4.3.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';
-  const abs=path.resolve(root,'.'+relative);
-  if(!abs.startsWith(root+path.sep)||relative.split('/').some(s=>s.startsWith('.')&&s.length>1)||abs.includes(path.sep+'server'+path.sep)||abs.includes(path.sep+'tests'+path.sep)){
+  // Serve a instalacao do Three.js pela mesma origem HTTPS do jogo, sem depender de CDN.
+  // So esta dependencia pode ser exposta; nunca disponibilize o node_modules inteiro.
+  const isThree=relative.startsWith('/vendor/three/');
+  const targetRoot=isThree?threeRoot:root;
+  const suffix=isThree?relative.slice('/vendor/three/'.length):relative.slice(1);
+  const abs=path.resolve(targetRoot,suffix);
+  if(!suffix || !abs.startsWith(targetRoot+path.sep)
+    ||relative.split('/').some(s=>s.startsWith('.')&&s.length>1)
+    ||(!isThree && (abs.includes(path.sep+'server'+path.sep)||abs.includes(path.sep+'tests'+path.sep)))){
     res.writeHead(403);res.end('Forbidden');return;
   }
   fs.stat(abs,(err,st)=>{
