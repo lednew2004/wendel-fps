@@ -35,7 +35,7 @@ const num=n=>String(Math.floor(n)).padStart(6,'0');
 
 export class Game {
   constructor(){
-    this.world=new World(el('viewport'));this.audio=new AudioEngine();this.clock=new THREE.Clock();this.look=new LookController();this.state='menu';this.keys={};this.mouseDown=false;this.rightDown=false;this.yaw=0;this.pitch=0;this.sensitivity=1;this.invertY=false;this.grenadeCd=0;this.meleeCd=0;this.fps=60;this.fpsTick=0;this.fpsCount=0;this.damageFlash=0;this.hitmarkTimer=0;this.toastTimer=0;this.calloutTimer=0;this.uiTick=0;this.radarTick=0;this.animTime=0;this.fx=[];this.pendingSpawns=[];this.spawnTimer=0;this.waveCount=0;this.waveKilled=0;this.wave=0;this.score=0;this.kills=0;this.combo=0;this.comboTimer=0;this.best=this.loadBest();this.league=new LeagueProgress();this.leagueRound=null;this.player={x:0,z:13,eyeY:PLAYER_HEIGHT,radius:.48,health:100,maxHealth:100,shield:60,maxShield:60,lastDamage:0,velY:0,jump:0,moveX:0,moveZ:0,dashCd:0,pulseCd:0,dashDuration:0,slideDuration:0,invulnerable:0,speedBonus:1,killsHeal:0,dashFactor:1};
+    this.world=new World(el('viewport'));this.audio=new AudioEngine();this.clock=new THREE.Clock();this.look=new LookController();this.state='menu';this.keys={};this.mouseDown=false;this.rightDown=false;this.yaw=0;this.pitch=0;this.sensitivity=1;this.invertY=false;this.grenadeCd=0;this.meleeCd=0;this.fps=60;this.fpsTick=0;this.fpsCount=0;this.damageFlash=0;this.hitmarkTimer=0;this.toastTimer=0;this.calloutTimer=0;this.uiTick=0;this.radarTick=0;this.animTime=0;this.fx=[];this.pendingSpawns=[];this.spawnTimer=0;this.spawnFailureTime=0;this.spawnFailureCount=0;this.waveCount=0;this.waveKilled=0;this.wave=0;this.score=0;this.kills=0;this.combo=0;this.comboTimer=0;this.best=this.loadBest();this.league=new LeagueProgress();this.leagueRound=null;this.player={x:0,z:13,eyeY:PLAYER_HEIGHT,radius:.48,health:100,maxHealth:100,shield:60,maxShield:60,lastDamage:0,velY:0,jump:0,moveX:0,moveZ:0,dashCd:0,pulseCd:0,dashDuration:0,slideDuration:0,invulnerable:0,speedBonus:1,killsHeal:0,dashFactor:1};
     this.enemies=new EnemySystem(this.world,this.audio,{onKill:e=>this.onEnemyKill(e),onPlayerHit:(d,p)=>this.takeDamage(d,p),onAllyHit:(ally,damage)=>this.squad?.damage(ally,damage),onPickup:t=>this.pickup(t),onSummon:n=>{this.waveCount+=n;this.toast('REFORÇOS HOSTIS!');},onBossWarning:(name,attack)=>this.toast(name?`ALERTA: ${name} · ${attack}!`:'ALERTA: ONDA DE CHOQUE — AFASTE-SE!')});
     this.ordnance=new Ordnance(this.world,this.audio,this.enemies);
     this.weapons=new Weapons(this.world,this.audio,{onRay:(origin,dir,damage,range,weapon)=>this.shootRay(origin,dir,damage,range,weapon),onHitmarker:k=>this.hitmarker(k),onFire:()=>{if(this.mode==='multiplayer')this.multiplayer?.fire();else this.enemies?.hearShot(this.player.x,this.player.z);},onWeaponChanged:()=>this.updateHud()});
@@ -338,7 +338,7 @@ export class Game {
     this.fx.forEach(f=>this.world.scene.remove(f.mesh));this.fx=[];
     this.keys={};this.mouseDown=false;this.rightDown=false;this.look.reset();
     this.grenadeCd=0;this.meleeCd=0;this.wave=0;this.score=0;this.kills=0;this.combo=0;this.comboTimer=0;
-    this.pendingSpawns=[];this.spawnTimer=0;this.animTime=0;this.leagueRound=null;
+    this.pendingSpawns=[];this.spawnTimer=0;this.spawnFailureTime=0;this.spawnFailureCount=0;this.animTime=0;this.leagueRound=null;
     Object.assign(this.player,{x:SQUAD_START.x,z:SQUAD_START.z,eyeY:PLAYER_HEIGHT,health:100,maxHealth:100,shield:60,maxShield:60,lastDamage:-100,velY:0,jump:0,moveX:0,moveZ:0,dashCd:0,pulseCd:0,dashDuration:0,slideDuration:0,invulnerable:0,speedBonus:1,killsHeal:0,dashFactor:1});
     this.world.setUrbanMode(true);
     this.world.spawnPoints=this.urban.spawnPoints;
@@ -370,7 +370,9 @@ export class Game {
       this.leagueRound=leagueWave(this.wave);
       this.pendingSpawns=this.leagueRound.spawns.slice();
       this.waveCount=this.pendingSpawns.length;
-      this.spawnTimer=.08;
+      this.spawnTimer=.08;this.spawnFailureTime=0;this.spawnFailureCount=0;
+      // Place opponents as the first round starts, not several frames later.
+      this.releaseQueuedBots(2);
       const champ=this.leagueRound.champion;
       const callout=el('wave-callout');
       callout.querySelector('small').textContent=champ?'LIGA DOS TITÃS · CAMPEÃO':'LIGA DOS TITÃS · CLASSIFICATÓRIA';
@@ -384,6 +386,26 @@ export class Game {
     this.wave++;this.waveKilled=0;const bossWave=this.wave%2===0;this.waveCount=4+Math.min(7,this.wave)+(bossWave?1:0);this.pendingSpawns=[];if(bossWave){this.pendingSpawns.push('boss');this.audio.play('boss');}
     for(let i=this.pendingSpawns.length;i<this.waveCount;i++){const roll=Math.random();let type='scout';if(this.wave>=1&&roll>.40)type='gunner';if(this.wave>=2&&roll>.78)type='tank';if(this.wave>=3&&roll>.60&&roll<=.78)type='sniper';if(this.wave>=4&&roll>.28&&roll<=.40)type='hunter';this.pendingSpawns.push(type);}
     this.spawnTimer=.05;el('wave-callout').querySelector('small').textContent=bossWave?'ALERTA · ASSINATURA TITAN':'AMEAÇA DETECTADA';el('wave-callout').querySelector('strong').textContent='ONDA '+fmt(this.wave);el('wave-callout').querySelector('span').textContent=bossWave?'BOSS NO SETOR':'ELIMINE OS HOSTIS';el('wave-callout').classList.add('active');this.calloutTimer=2.1;this.toast(bossWave?'CONTATO COM BOSS':'SINAIS HOSTIS DETECTADOS');this.updateHud();}
+  releaseQueuedBots(max=1){
+    let spawned=0;
+    while(spawned<max&&this.pendingSpawns.length&&this.enemies.count()<BOT_LIMIT){
+      const next=this.pendingSpawns[0];
+      try{
+        const id=typeof next==='string'?next:next.type;
+        const enemy=this.enemies.spawnAt(id,this.player,this.wave,
+          typeof next==='object'&&id==='boss'?this.leagueRound?.champion:null);
+        if(!enemy)break;
+        this.pendingSpawns.shift();spawned++;
+      }catch(error){
+        console.error('[TITAN] Falha ao gerar bot:',error);
+        this.spawnFailureCount++;
+        if(this.spawnFailureCount===1)this.toast('ERRO AO GERAR INIMIGO · VERIFIQUE O CONSOLE');
+        break;
+      }
+    }
+    if(spawned){this.spawnFailureTime=0;this.spawnFailureCount=0;this.spawnTimer=spawnInterval(this.wave);}
+    return spawned;
+  }
   waveComplete(){if(this.state!=='playing')return;this.setState('upgrade');this.mouseDown=false;this.rightDown=false;if(document.pointerLockElement)document.exitPointerLock();const options=[...UPGRADES].sort(()=>Math.random()-.5).slice(0,3);el('upgrade-choices').replaceChildren();const kicker=el('upgrade-screen').querySelector('.dialog-kicker');if(kicker)kicker.textContent=this.mode==='survival'?(this.leagueRound?.champion?'CAMPEÃO DERROTADO · RECOMPENSA DA LIGA':'CLASSIFICATÓRIA VENCIDA · RECOMPENSA'):'ONDA CONCLUÍDA · SUPRIMENTOS ENCONTRADOS';for(const opt of options){const b=document.createElement('button');b.type='button';b.className='upgrade-choice';b.innerHTML=`<span class="upgrade-icon">${opt.icon}</span><small>${opt.tag}</small><strong>${opt.name}</strong><p>${opt.desc}</p>`;b.addEventListener('click',()=>this.applyUpgrade(opt.id));el('upgrade-choices').appendChild(b);}el('upgrade-screen').classList.remove('hidden');this.audio.play('pickup');}
   applyUpgrade(id){const p=this.player,w=this.weapons;if(id==='damage')w.damageMultiplier*=1.25;if(id==='speed')p.speedBonus*=1.17;if(id==='health'){p.maxHealth+=25;p.health=p.maxHealth;}if(id==='shield'){p.maxShield+=25;p.shield=p.maxShield;}if(id==='rapid')w.fireMultiplier*=1.14;if(id==='heal')p.killsHeal+=8;if(id==='ammo')for(const [i,s] of w.state.entries())s.reserve+=Math.ceil(WEAPONS[i].reserve*.5);if(id==='dash')p.dashFactor*=.7;if(id==='grenade')this.ordnance.damageMultiplier*=1.28;
     this.hideScreens();this.setState('playing');this.beginWave();this.requestLock();}
@@ -601,7 +623,15 @@ export class Game {
         if(this.weapons.ammo.reserve<this.weapons.def.clip&&this.ammoSpawnTimer>3)this.ammoSpawnTimer=3;
         if(this.ammoSpawnTimer<=0){this.spawnMapAmmo();this.ammoSpawnTimer=16;}}
       if(this.mode==='campaign'&&!this.deployment.active){this.squad.update(dt);this.campaign.update(dt);}
-      if(this.state==='playing'&&this.mode!=='multiplayer'&&!this.deployment.active){if(this.pendingSpawns.length){this.spawnTimer-=dt;if(this.spawnTimer<=0&&this.enemies.count()<BOT_LIMIT){const nextType=this.pendingSpawns[0];const enemy=this.enemies.spawnAt(typeof nextType==='string'?nextType:nextType.type,this.player,this.wave,typeof nextType==='object'?this.leagueRound?.champion:null);if(enemy)this.pendingSpawns.shift();this.spawnTimer=enemy?spawnInterval(this.wave):.38;}}else if(this.enemies.count()===0){if(this.mode==='campaign'){if(this.campaign.phase==='clear'||this.campaign.phase==='boss')this.campaign.onCleared();}else this.waveComplete();}
+      if(this.state==='playing'&&this.mode!=='multiplayer'&&!this.deployment.active){if(this.pendingSpawns.length){this.spawnTimer-=dt;if(this.spawnTimer<=0&&this.enemies.count()<BOT_LIMIT){
+        const added=this.releaseQueuedBots(this.enemies.count()===0?2:1);
+        if(!added){this.spawnFailureTime+=Math.max(dt,.15);this.spawnTimer=.18;
+          if(this.spawnFailureTime>2.8){
+            this.spawnFailureTime=0;console.warn('[TITAN] Tentando recuperar surgimento de bots no setor');
+            this.toast('LOCALIZANDO INIMIGOS · RECONFIGURANDO SPAWNS');
+          }
+        }
+      }}else if(this.enemies.count()===0){if(this.mode==='campaign'){if(this.campaign.phase==='clear'||this.campaign.phase==='boss')this.campaign.onCleared();}else this.waveComplete();}
         this.uiTick-=dt;if(this.uiTick<=0){this.updateHud();this.uiTick=.095;}this.radarTick-=dt;if(this.radarTick<=0){this.updateRadar();this.radarTick=.12;}}
       else if(this.state==='playing'){this.uiTick-=dt;if(this.uiTick<=0){this.updateHud();this.uiTick=.15;}this.radarTick-=dt;if(this.radarTick<=0){this.updateRadar();this.radarTick=.2;}}
     }else if(this.mode==='multiplayer'&&this.state==='paused'){this.multiplayer.update(dt);this.mouseDown=false;}else if(this.state==='menu'){const t=this.animTime*.095;this.world.setMenuCamera(t);this.weapons.model.visible=false;}else if(this.state==='paused'||this.state==='upgrade'||this.state==='dead'){/* Keep last camera frame and scene. */}

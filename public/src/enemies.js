@@ -5,6 +5,7 @@ import {CHARACTER_STYLES} from './characterIdentity.js';
 import {SQUAD_INTERIORS,SQUAD_DOORS} from './squadLayout.js';
 import {PROJECTILE_LIMIT,SPAWN_RADIUS,fireInterval,segmentSphereHit,steerVelocity} from './combatTactics.js';
 import {CHAMPIONS} from './titanLeague.js';
+import {botNextWaypoint} from './botNavigation.js';
 import {createChampionModel,animateChampionModel,disposeChampionModel} from './championModels.js';
 const vec=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
 
@@ -64,49 +65,52 @@ export class EnemySystem {
     this.enemies.push(enemy); return enemy;
   }
 
-  /** Place reinforcements within fighting range without materializing inside walls or on top of the player. */
+  /** Spawn near the combatant on a collision-checked position. Never rely solely on distant scripted pads. */
   spawnAt(type,player,wave,championId=null){
-    const champRadius=typeof championId==='object'?championId?.radius:CHAMPIONS.find(c=>c.id===championId)?.radius;
-    const radius=(champRadius??ENEMY_TYPES[type].radius)+.30,city=this.world.city;
-    const clear=(x,z)=>city?.canOccupy(x,z,0,1.9,radius)??this.world.canMove(x,z,radius);
-    const taken=(x,z)=>this.enemies.some(e=>Math.hypot(e.x-x,e.z-z)<5.5);
-    const minRange=Math.max(14,SPAWN_RADIUS.min-(championId?4:2));
-    const maxRange=Math.max(minRange+12,SPAWN_RADIUS.max+(championId?8:0));
-    const valid=(x,z,min=minRange)=>Number.isFinite(x)&&Number.isFinite(z)&&clear(x,z)&&Math.hypot(x-player.x,z-player.z)>min;
-    const pushCandidate=(spots,x,z,min=minRange)=>{
-      const offsets=[[0,0],[2.2,0],[-2.2,0],[0,2.2],[0,-2.2],[3.2,3.2],[-3.2,3.2],[3.2,-3.2],[-3.2,-3.2]];
-      for(const [ox,oz] of offsets){
-        const px=x+ox,pz=z+oz;
-        if(valid(px,pz,min)&&!taken(px,pz))spots.push([px,pz]);
-      }
+    const champ=typeof championId==='object'?championId:CHAMPIONS.find(c=>c.id===championId);
+    const radius=(champ?.radius??ENEMY_TYPES[type].radius)+.16,city=this.world.city;
+    const clear=(x,z,r=radius)=>city?.canOccupy(x,z,0,1.9,r)??this.world.canMove(x,z,r);
+    const occupied=(x,z)=>this.enemies.some(e=>Math.hypot(e.x-x,e.z-z)<4.6+e.radius);
+    const eye=vec(player.x,player.eyeY??1.75,player.z);
+    const facing=vec(0,0,-1);this.world.camera?.getWorldDirection?.(facing);facing.y=0;facing.normalize();
+    const options=[];
+    const offer=(x,z)=>{
+      if(!Number.isFinite(x)||!Number.isFinite(z)||!clear(x,z)||occupied(x,z))return;
+      const dx=x-player.x,dz=z-player.z,d=Math.hypot(dx,dz);
+      if(d<13.5||d>65)return;
+      const ray=vec(x,1.45,z).sub(eye),len=ray.length();
+      const visible=len>1&&this.world.raycastDistance(eye,ray.normalize(),Math.max(.1,len-.35))>=len-.50;
+      const facingDot=(dx*facing.x+dz*facing.z)/d;
+      // Most enemies enter a player's actual combat space, instead of spending
+      // the entire wave 70-150 metres away behind solid buildings.
+      const score=Math.abs(d-(champ?25:21))+(visible?0:13)+(facingDot<-.3?8:0)+Math.random()*3;
+      options.push({x,z,score,visible});
     };
-    const spots=[];
-    // Prefer authored spawn nodes first, because the new arena is more enclosed.
-    for(const [x,z] of this.world.spawnPoints||[])pushCandidate(spots,x,z,minRange);
-    for(let i=0;i<24;i++){
-      const a=Math.random()*Math.PI*2,dist=rand(minRange,maxRange);
-      pushCandidate(spots,player.x+Math.cos(a)*dist,player.z+Math.sin(a)*dist,minRange);
+    for(const d of [17,21,25,29,35,42]){
+      for(let i=0;i<20;i++){
+        const a=(i/20)*Math.PI*2+Math.random()*.16;
+        offer(player.x+Math.cos(a)*d,player.z+Math.sin(a)*d);
+      }
     }
-    // Dense neighborhoods can have very little free ground: widen the search instead of stalling the wave.
-    if(!spots.length)for(let i=0;i<90;i++){
-      const angle=rand(-Math.PI,Math.PI),r=rand(10,110);
-      pushCandidate(spots,player.x+Math.cos(angle)*r,player.z+Math.sin(angle)*r,10);
+    for(const [x,z] of this.world.spawnPoints||[]){
+      offer(x,z);
+      for(const [dx,dz] of [[3,0],[-3,0],[0,3],[0,-3]])offer(x+dx,z+dz);
     }
-    if(!spots.length)return null;
-    const preferredDistance=championId?24:28;
-    spots.sort((a,b)=>Math.abs(Math.hypot(a[0]-player.x,a[1]-player.z)-preferredDistance)-Math.abs(Math.hypot(b[0]-player.x,b[1]-player.z)-preferredDistance));
-    const eligible=spots.slice(0,Math.min(spots.length,18));
-    // Prefer cover between the spawn and the player: enemies advance into view naturally.
-    const sheltered=eligible.filter(([x,z])=>{
-      const eye=vec(player.x,player.eyeY||1.7,player.z),delta=vec(x,1.5,z).sub(eye),d=delta.length();
-      return d>0.1&&this.world.raycastDistance(eye,delta.normalize(),Math.max(.01,d-.12))<d-.25;
-    });
-    const choices=(sheltered.length?sheltered:eligible).slice(0,Math.min(10,(sheltered.length?sheltered:eligible).length));
-    const pick=choices[Math.floor(Math.random()*choices.length)]||eligible[0];
-    const enemy=this.spawn(type,pick,wave,championId);
-    // Radio alert contains the last reported player location, not an updating through-wall lock.
-    enemy.targetMemory={x:player.x,z:player.z,eyeY:player.eyeY??1.65,until:this.time+4.6,kind:'alert'};
-    enemy.alertness=.24;
+    // Guaranteed deterministic sweep when random candidates are obstructed.
+    if(!options.length)for(let d=9;d<=65;d+=3)for(let a=0;a<32;a++){
+      const ang=a/32*Math.PI*2;
+      const x=player.x+Math.cos(ang)*d,z=player.z+Math.sin(ang)*d;
+      if(d<13.5)continue;
+      offer(x,z);
+    }
+    if(!options.length)return null; // Diagnostic in Game handles the stalled wave.
+    options.sort((a,b)=>a.score-b.score);
+    // Keep at least one immediately visible opponent; randomize close contenders.
+    const selected=options[Math.floor(Math.random()*Math.min(4,options.length))];
+    const enemy=this.spawn(type,[selected.x,selected.z],wave,champ||null);
+    enemy.homeX=selected.x;enemy.homeZ=selected.z;
+    enemy.targetMemory={x:player.x,z:player.z,eyeY:player.eyeY??1.65,until:this.time+18,kind:'alert'};
+    enemy.alertness=.66;
     return enemy;
   }
   spawnParticles(at,color,count=10,power=1){let mat=this.particleMaterials.get(color);if(!mat){mat=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.85});this.particleMaterials.set(color,mat);}for(let i=0;i<count;i++){if(this.particles.length>=this.maxParticles){const old=this.particles.shift();this.world.scene.remove(old.mesh);}const mesh=new THREE.Mesh(this.particleGeo,mat);mesh.position.copy(at);mesh.scale.setScalar(rand(.6,1.6)*power);this.world.scene.add(mesh);const life=rand(.25,.85);this.particles.push({mesh,velocity:vec(rand(-7,7),rand(0,9),rand(-7,7)).multiplyScalar(power),life,maxLife:life,scale:mesh.scale.x});}}
@@ -250,6 +254,10 @@ export class EnemySystem {
           e.alertness=Math.min(1,(e.alertness||0)+.43);
         }else e.alertness=Math.max(0,(e.alertness||0)-.23);
       }
+      // Footsteps reveal an approximate search point nearby, never an aim lock.
+      if(!e.visibleTarget&&Math.hypot(e.x-player.x,e.z-player.z)<42&&(!e.targetMemory||e.targetMemory.until<this.time)){
+        e.targetMemory={x:player.x,z:player.z,eyeY:player.eyeY??1.65,until:this.time+5,kind:'footstep'};
+      }
       const remembered=e.targetMemory&&e.targetMemory.until>this.time?e.targetMemory:null;
       if(!e.patrolPoint||Math.hypot(e.x-e.patrolPoint.x,e.z-e.patrolPoint.z)<2){
         e.patrolPoint={x:(e.homeX??e.x)+rand(-13,13),z:(e.homeZ??e.z)+rand(-13,13),eyeY:1.65};
@@ -270,7 +278,7 @@ export class EnemySystem {
       }
       if(e.coverSpot&&Math.hypot(e.x-e.coverSpot.x,e.z-e.coverSpot.z)<1.55){e.coverSpot=null;e.coverHold=rand(.65,1.3);}
       e.coverHold=Math.max(0,(e.coverHold||0)-dt);
-      const nav=this.navigateTo(e,e.coverSpot||chase);const dx=nav.x-e.x,dz=nav.z-e.z,dist=Math.max(.0001,Math.hypot(dx,dz)),nx=dx/dist,nz=dz/dist;const faceX=(targetVisible?chase.x:nav.x)-e.x,faceZ=(targetVisible?chase.z:nav.z)-e.z,faceLen=Math.max(.001,Math.hypot(faceX,faceZ));e.group.rotation.y=Math.atan2(-faceX,-faceZ);e.facingX=faceX/faceLen;e.facingZ=faceZ/faceLen;e.fireTimer-=dt;e.strafeChange-=dt;if(e.strafeChange<0){e.strafe*=-1;e.strafeChange=rand(.75,2.2);}let fx=0,fz=0;const melee=e.type==='scout'||e.type==='tank'||e.type==='hunter';const optimal=e.champion?(e.championId==='arachnex'?2.5:e.championId==='colossus'?4.0:11):e.boss?20:e.type==='sniper'?33:e.type==='gunner'?19:melee?e.cfg.range*.9:7;if(e.coverSpot){fx+=nx;fz+=nz;}else if(e.coverHold>0){fx=0;fz=0;}else if(targetVisible&&e.hp/e.maxHp<.3&&!e.boss){fx-=nx;fz-=nz;}else if(dist>optimal+2){fx+=nx;fz+=nz;}else if(dist<optimal-4&&!melee){fx-=nx*.65;fz-=nz*.65;}if(!e.coverSpot&&(!melee||dist<optimal+8)){const flank=e.coverHold>0?0:e.dodgeTime>0?1.6:(e.boss?.7:.82);fx+=(-nz)*e.strafe*flank;fz+=nx*e.strafe*flank;}e.dodgeTime=Math.max(0,(e.dodgeTime||0)-dt);if(e.champion){
+      const navGoal=this.navigateTo(e,e.coverSpot||chase);const nav=botNextWaypoint(e,navGoal,this.world.city,this.time);const dx=nav.x-e.x,dz=nav.z-e.z,dist=Math.max(.0001,Math.hypot(dx,dz)),nx=dx/dist,nz=dz/dist;const faceX=(targetVisible?chase.x:nav.x)-e.x,faceZ=(targetVisible?chase.z:nav.z)-e.z,faceLen=Math.max(.001,Math.hypot(faceX,faceZ));e.group.rotation.y=Math.atan2(-faceX,-faceZ);e.facingX=faceX/faceLen;e.facingZ=faceZ/faceLen;e.fireTimer-=dt;e.strafeChange-=dt;if(e.strafeChange<0){e.strafe*=-1;e.strafeChange=rand(.75,2.2);}let fx=0,fz=0;const melee=e.type==='scout'||e.type==='tank'||e.type==='hunter';const optimal=e.champion?(e.championId==='arachnex'?2.5:e.championId==='colossus'?4.0:11):e.boss?20:e.type==='sniper'?33:e.type==='gunner'?19:melee?e.cfg.range*.9:7;if(e.coverSpot){fx+=nx;fz+=nz;}else if(e.coverHold>0){fx=0;fz=0;}else if(targetVisible&&e.hp/e.maxHp<.3&&!e.boss){fx-=nx;fz-=nz;}else if(dist>optimal+2){fx+=nx;fz+=nz;}else if(dist<optimal-4&&!melee){fx-=nx*.65;fz-=nz*.65;}if(!e.coverSpot&&(!melee||dist<optimal+8)){const flank=e.coverHold>0?0:e.dodgeTime>0?1.6:(e.boss?.7:.82);fx+=(-nz)*e.strafe*flank;fz+=nx*e.strafe*flank;}e.dodgeTime=Math.max(0,(e.dodgeTime||0)-dt);if(e.champion){
         this.updateChampionAttack(e,chase,Math.hypot(e.x-chase.x,e.z-chase.z),targetVisible,dt,player);
         if(e.championId==='arachnex'&&e.specialRush>0){
           e.specialRush=Math.max(0,e.specialRush-dt);

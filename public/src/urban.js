@@ -1,5 +1,5 @@
 import {createSquadWorld} from './squadWorld.js';
-import {SQUAD_ENEMY_SPAWNS} from './squadLayout.js';
+import {SQUAD_ENEMY_SPAWNS,ARENA_BOUNDS} from './squadLayout.js';
 import {UrbanDoors} from './urbanDoors.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
@@ -190,7 +190,10 @@ export class UrbanCity {
   }
   setRouteActive(index=-1){for(let i=0;i<this.routeMarkerGroups.length;i++)this.routeMarkerGroups[i].visible=i===index;}
   canOccupy(x,z,y,height=1.77,r=.42){
-    if(Math.abs(x)>WORLD_HALF-r||Math.abs(z)>WORLD_HALF-r||y<-.3)return false;
+    // Bounds are those of the *playable FPS arena*, not the older 512m city.
+    // The old check let enemies spawn behind the perimeter, where they could
+    // never reach the player even though the NPC counter was nonzero.
+    if(Math.abs(x)>ARENA_BOUNDS.halfX-2-r||Math.abs(z)>ARENA_BOUNDS.halfZ-2-r||y<-.3)return false;
     for(const s of this.solids)if(s.active!==false&&solidBlocksCapsule(s,x,z,y,height,r))return false;
     return true;
   }
