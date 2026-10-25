@@ -9,23 +9,30 @@ const CLIPS={
  pickup:['pickup.wav',.5],boss:['boss.wav',.72],click:['click.wav',.38],door:['door.wav',.5]
 };
 export class AudioEngine{
-  constructor(){this.ctx=null;this.enabled=true;this.samples=new Map();this.loading=null;this.voices=0;this.last=new Map();this.volume=.83;}
+  constructor(){this.ctx=null;this.enabled=true;this.samples=new Map();this.pending=new Map();this.last=new Map();this.volume=.83;}
   getContext(){try{if(!this.ctx)this.ctx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});return this.ctx;}catch(e){console.warn('Áudio indisponível:',e);return null;}}
-  preload(){
-    if(this.loading)return this.loading;const ctx=this.getContext();if(!ctx)return Promise.resolve();
-    this.loading=Promise.all(Object.entries(CLIPS).map(async([name,[file]])=>{
-      try{const response=await fetch('/assets/sfx/'+file,{cache:'force-cache'});if(!response.ok)throw new Error('HTTP '+response.status);
-        const bytes=await response.arrayBuffer();const buffer=await ctx.decodeAudioData(bytes);this.samples.set(name,buffer);
-      }catch(e){console.warn('Sem amostra sonora de',name,e.message);}
-    }));return this.loading;
+  load(name){
+    if(this.samples.has(name))return Promise.resolve(this.samples.get(name));
+    if(this.pending.has(name))return this.pending.get(name);
+    const spec=CLIPS[name],ctx=this.getContext();if(!spec||!ctx)return Promise.resolve(null);
+    const task=(async()=>{
+      try{const response=await fetch('/assets/sfx/'+spec[0],{cache:'force-cache'});if(!response.ok)throw new Error('HTTP '+response.status);
+        const buffer=await ctx.decodeAudioData(await response.arrayBuffer());this.samples.set(name,buffer);return buffer;
+      }catch(e){console.warn('Sem amostra sonora de',name,e.message);return null;}
+      finally{this.pending.delete(name);}
+    })();
+    this.pending.set(name,task);return task;
   }
-  unlock(){const ctx=this.getContext();if(!ctx)return;ctx.resume().catch(()=>{});void this.preload();}
+  preload(names=Object.keys(CLIPS)){return Promise.all(names.filter(name=>CLIPS[name]).map(name=>this.load(name)));}
+  unlock(){const ctx=this.getContext();if(!ctx)return;ctx.resume().catch(()=>{});void this.load('click');}
   play(type){
-    if(!this.enabled)return;const ctx=this.getContext();if(!ctx)return;if(ctx.state==='suspended')void ctx.resume().catch(()=>{});
-    if(!this.loading)void this.preload();const spec=CLIPS[type]||CLIPS.click,buf=this.samples.get(type)||this.samples.get('click');
+    if(!this.enabled)return;
+    const ctx=this.getContext();if(!ctx)return;if(ctx.state==='suspended')void ctx.resume().catch(()=>{});
+    const spec=CLIPS[type]||CLIPS.click;
+    let buf=this.samples.get(type);
+    if(!buf){void this.load(type in CLIPS?type:'click');buf=this.samples.get('click');}
     if(!buf)return;
-    // Caps extreme spam (overlapping bullets / impact particles), without throttling rifle fire-rate.
-    const now=ctx.currentTime,last=this.last.get(type)||-1;
+    const now=ctx.currentTime,last=this.last.get(type)??-1;
     if(type==='hit'&&now-last<.032)return;
     if(type==='click'&&now-last<.05)return;
     this.last.set(type,now);

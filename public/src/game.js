@@ -653,7 +653,27 @@ export class Game {
     if(this.forge?.active)return this.forge.place();
     return this.weapons.fire();
   }
-  loop(){requestAnimationFrame(()=>this.loop());let dt=Math.min(this.mobile?.enabled ? .085 : .075,this.clock.getDelta());this.animTime+=dt;this.world.update(dt);this.urban.animateEnvironment(dt);this.forge?.update();this.mapSupplies?.update(dt);this.weaponLoot?.update(dt);if(this.campaign)for(const a of this.campaign.artifacts)if(a.mesh.parent)a.mesh.rotation.y+=a.rotation*dt;this.dieFxUpdate(dt);this.fpsTick+=dt;if(this.fpsTick>=.7){this.fps=Math.round(this.fpsCount/this.fpsTick);el('perf-fps').textContent=this.fps+' FPS · '+this.world.renderer.info.render.calls+' DRAWS · '+Math.round(this.world.renderScale*100)+'%';this.optimizeFPS(.7);this.fpsCount=0;this.fpsTick=0;}
+  loop(){
+    requestAnimationFrame(()=>this.loop());
+    // The full-viewport menu already covers the entire game. Drawing the city,
+    // processing world animations and updating HUD at 60+ FPS behind it wastes
+    // most of the GPU/CPU budget and makes operator cards feel unresponsive.
+    if(this.state==='menu' && this.entryFlow){
+      const dt=Math.min(.075,this.clock.getDelta()); // Discard idle time; avoid gameplay time jumps.
+      if(this.entryFlow.isCoveringGame()) return; // 0 world draw calls in the menu flow.
+      // Other menu overlays (armory / online lobby) may expose the background.
+      // Draw it at <=8 FPS without running the combat/world update pipeline.
+      const now=performance.now();
+      if(now-(this._lastMenuRender||0)>=125){
+        this._lastMenuRender=now;
+        this.animTime+=dt;
+        this.world.setMenuCamera(this.animTime*.095);
+        this.weapons.model.visible=false;
+        this.world.render();
+      }
+      return;
+    }
+    let dt=Math.min(this.mobile?.enabled ? .085 : .075,this.clock.getDelta());this.animTime+=dt;this.world.update(dt);this.urban.animateEnvironment(dt);this.forge?.update();this.mapSupplies?.update(dt);this.weaponLoot?.update(dt);if(this.campaign)for(const a of this.campaign.artifacts)if(a.mesh.parent)a.mesh.rotation.y+=a.rotation*dt;this.dieFxUpdate(dt);this.fpsTick+=dt;if(this.fpsTick>=.7){this.fps=Math.round(this.fpsCount/this.fpsTick);el('perf-fps').textContent=this.fps+' FPS · '+this.world.renderer.info.render.calls+' DRAWS · '+Math.round(this.world.renderScale*100)+'%';this.optimizeFPS(.7);this.fpsCount=0;this.fpsTick=0;}
     if(this.state==='playing'){
       this.updateCombatTimers(dt);
       this.powers.update(dt);
