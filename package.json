@@ -1,7 +1,7 @@
 {
   "name": "titan-protocol-multiplayer-gratis",
   "private": true,
-  "version": "4.8.5",
+  "version": "4.8.6",
   "type": "module",
   "engines": {
     "node": ">=22"

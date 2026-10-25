@@ -53,7 +53,7 @@ export class Game {
       el('vegetation').value='35';el('vegetation-label').textContent='35%';
     }
     if(!this.mobile.enabled){this.world.setQuality('medium');el('quality').value='medium';}
-    this.world.gameInstance=this;this.photoreal=null;this.photoConfig=null;this.geoCity=null;this.baseUrban=this.urban;this.locationPromise=null;this.geoData=null;this.geoUser=null;this.geoLoadPromise=null;this.bind();this.geoStatus('ESCOLHA MINHA CIDADE PARA LOCALIZAR SEU MAPA');this.hudCustomizer.attach();this.positionCamera();el('menu-best').textContent=num(this.best);el('loading').classList.add('hidden');this.mobile.sync();this.loop();
+    this.world.gameInstance=this;this.photoreal=null;this.photoConfig=null;this.geoCity=null;this.baseUrban=this.urban;this.locationPromise=null;this.geoData=null;this.geoUser=null;this.geoLoadPromise=null;this.bind();this.hudCustomizer.attach();this.positionCamera();el('menu-best').textContent=num(this.best);el('loading').classList.add('hidden');this.mobile.sync();this.loop();
   }
   get yaw(){return this.look.yaw;}
   set yaw(v){this.look.yaw=v;}
@@ -226,8 +226,6 @@ export class Game {
     }
   }
   bind(){
-    el('geo-start')?.addEventListener('click',()=>{void this.startGeo();});
-    el('geo-retry')?.addEventListener('click',()=>{this.geoUser=null;this.geoData=null;this.locationPromise=null;this.geoLoadPromise=null;void this.autoLocate();});
     el('start-btn').addEventListener('click',()=>this.start('survival'));el('retry-btn').addEventListener('click',()=>this.start(this.mode,this.campaign.index));el('back-menu-btn').addEventListener('click',()=>this.menu());el('resume-btn').addEventListener('click',()=>this.resume());el('hud-pause').addEventListener('click',()=>this.pause());el('restart-from-pause').addEventListener('click',()=>this.start(this.mode,this.campaign.index));el('survival-btn').addEventListener('click',()=>this.campaign.confirmNew());
     this.setupTrainingSwitcher();
     el('adaptive-fps').addEventListener('change',e=>{this.adaptiveFPS=e.target.checked;this.lowFPSTime=0;this.highFPSTime=0;});
@@ -325,7 +323,7 @@ export class Game {
       if(this.urban.canOccupy(x,z,0,1.7,.7)){this.enemies.drop(new THREE.Vector3(x,0,z),'ammo');return;}}
   }
   start(mode='campaign',index=this.campaign.index){
-    if(mode==='geocity'){void this.startGeo();return;}
+    if(mode==='geocity')return; // Modo Minha Cidade temporariamente desativado.
     this.restoreGeoCity();
     this.mode=mode;
     this.powers.reset();

@@ -3,8 +3,7 @@ import {heroById} from './heroRoster.js';
 const modes = Object.freeze([
   {id:'league',icon:'⚔',number:'01',name:'LIGA DOS TITÃS',subtitle:'PVP CONTRA BOTS',description:'Enfrente classificatórias sucessivas, derrote campeões e domine a arena.',tag:'COMBATE CONTÍNUO'},
   {id:'campaign',icon:'◈',number:'02',name:'TREINO TÁTICO',subtitle:'TREINAMENTO CONTRA IA',description:'Teste armas e poderes em missões contra IA e avance pelos setores.',tag:'TREINO / CAMPANHA'},
-  {id:'geocity',icon:'⌖',number:'03',name:'MINHA CIDADE',subtitle:'MAPA GEOGRÁFICO',description:'Autorize a localização e explore ruas mapeadas da sua região.',tag:'REQUER LOCALIZAÇÃO'},
-  {id:'online',icon:'◎',number:'04',name:'MULTIJOGADOR',subtitle:'SALAS ONLINE',description:'Crie uma sala ou use o código de um amigo para jogar online.',tag:'CONEXÃO NECESSÁRIA'}
+  {id:'online',icon:'◎',number:'03',name:'MULTIJOGADOR',subtitle:'SALAS ONLINE',description:'Crie uma sala ou use o código de um amigo para jogar online.',tag:'CONEXÃO NECESSÁRIA'}
 ]);
 
 /** Fullscreen boot / mode / operator flow, integrated without changing any match rules. */
@@ -14,7 +13,7 @@ export class EntryFlow {
     const root=document.createElement('div');root.id='titan-entry';root.className='titan-entry';root.setAttribute('aria-label','Início do Titan Protocol');
     root.innerHTML=`
       <div class="entry-ambient" aria-hidden="true"><div class="entry-skyline"></div><div class="entry-light-beam"></div><div class="entry-noise"></div></div>
-      <header class="entry-header"><div class="entry-brand">T<span> / </span>P <small>TITAN PROTOCOL</small></div><div class="entry-server"><span></span> BUILD 4.8.5 · SISTEMAS ONLINE</div><button id="entry-fullscreen" type="button" title="Alternar tela cheia">⛶ <span>TELA CHEIA</span></button></header>
+      <header class="entry-header"><div class="entry-brand">T<span> / </span>P <small>TITAN PROTOCOL</small></div><div class="entry-server"><span></span> BUILD 4.8.6 · SISTEMAS ONLINE</div><button id="entry-fullscreen" type="button" title="Alternar tela cheia">⛶ <span>TELA CHEIA</span></button></header>
       <section data-stage="intro" class="entry-stage entry-intro" aria-label="Introdução cinematográfica">
         <div class="intro-reveal"><div class="intro-overline">UNIDADE TÁTICA / PROTOCOLO DE DEFESA</div><h1>TITAN<br><em>PROTOCOL</em><i>.</i></h1><p>O CONFLITO NÃO ESPERA.</p><div class="intro-subtitle">ESCOLHA SUA MISSÃO. DEFINA SEU OPERADOR.</div></div>
         <div class="intro-loading"><div class="intro-loading-row"><span id="entry-boot-status">SINCRONIZANDO SISTEMAS...</span><span id="entry-boot-pct">0%</span></div><div class="intro-progress"><div id="entry-progress-bar"></div></div><small>BOOT SEQUENCE / TACTICAL ENGINE</small></div>
@@ -90,7 +89,7 @@ export class EntryFlow {
       if(p===100){clearInterval(this.introTimer);this.introTimer=null;setTimeout(()=>{if(this.currentStage==='intro')this.showModes();},350);}
     },55);
   }
-  showModes(){clearInterval(this.introTimer);this.introTimer=null;this.game.audio?.play('click');this.launching=false;this.root.classList.remove('cinematic-running');this.stage('modes');this.root.querySelector('#entry-mode-footer').textContent='04 MODOS DISPONÍVEIS';}
+  showModes(){clearInterval(this.introTimer);this.introTimer=null;this.game.audio?.play('click');this.launching=false;this.root.classList.remove('cinematic-running');this.stage('modes');this.root.querySelector('#entry-mode-footer').textContent='03 MODOS DISPONÍVEIS';}
   chooseMode(id){if(!modes.some(m=>m.id===id))return;this.game.audio.unlock();this.game.audio.play('click');this.mode=id;const m=modes.find(x=>x.id===id);this.root.querySelector('#entry-mode-recap').textContent=`${m.name} / ${m.subtitle}`;this.showOperators();}
   showOperators(){this.launching=false;this.stage('operators');this.root.querySelector('#entry-mode-footer').textContent='08 OPERADORES · 03 HABILIDADES CADA';this.syncHero();}
   syncHero(){
@@ -108,10 +107,7 @@ export class EntryFlow {
     if(!document.fullscreenElement&&this.game.mobile?.enabled){try{void document.documentElement.requestFullscreen?.();}catch{}}
     try{
       if(mode==='online') {this.hide();this.game.multiplayer.openLobby();return;}
-      if(mode==='geocity'){
-        await this.game.startGeo();
-        if(this.game.state!=='playing'||this.game.mode!=='geocity')throw new Error(document.getElementById('geo-status')?.textContent||'Não foi possível carregar a cidade. Verifique localização e internet.');
-      }else if(mode==='campaign')this.game.start('campaign',0);
+      if(mode==='campaign')this.game.start('campaign',0);
       else this.game.start('survival');
       this.hide();
     }catch(error){console.error('Falha ao iniciar operação',error);this.root.querySelector('#entry-launch-status').textContent='FALHA NA OPERAÇÃO';this.root.querySelector('#entry-launch-error').textContent=error?.message||'Não foi possível iniciar.';this.root.querySelector('#entry-launch-back').classList.remove('hidden');this.launching=false;}
