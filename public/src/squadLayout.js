@@ -1,4 +1,6 @@
-/** Squad Operations: shared collision/navigation/mission layout, independent of WebGL. */
+/** PORT ZENITH: new authored, compact multiplayer arena (metres, no Three.js).
+ * Browser and server import exactly the same blocker and door definitions.
+ */
 export const SQUAD_ROLES=Object.freeze(['front','support','sniper','bomber']);
 export const ROLE_INFO=Object.freeze({
  front:{name:'FRENTE',description:'Avança, abre passagem e absorve a pressão do combate.',icon:'⚔',weapons:[1,0]},
@@ -6,81 +8,102 @@ export const ROLE_INFO=Object.freeze({
  sniper:{name:'SNIPER',description:'Reconhece ameaças e elimina alvos de longe.',icon:'⌖',weapons:[2,0]},
  bomber:{name:'BOMBER',description:'Controla áreas, sabota e surpreende com combos.',icon:'✦',weapons:[0,2,3]}
 });
-export const SQUAD_START=Object.freeze({x:0,z:-155});
+export const ARENA_BOUNDS=Object.freeze({halfX:98,halfZ:116});
+export const SQUAD_START=Object.freeze({x:0,z:-94});
 export const SQUAD_POINTS=Object.freeze({
- insertion:{x:0,z:-155,label:'BASE DE OPERAÇÕES'},
- defense:{x:0,z:-91,label:'PERÍMETRO DELTA'},
- reconnaissance:{x:70,z:-16,label:'TORRE DE OBSERVAÇÃO'},
- sabotage:{x:-74,z:44,label:'GERADORES HOSTIS'},
- boss:{x:0,z:132,label:'ARENA TITÃ'},
- extraction:{x:-85,z:-148,label:'EXTRAÇÃO'}
+ insertion:{x:0,z:-94,label:'PONTO DE INSERÇÃO'},
+ defense:{x:0,z:-48,label:'PÁTIO DE CARGA'},
+ reconnaissance:{x:38,z:-9,label:'POSTO DE OBSERVAÇÃO'},
+ sabotage:{x:-37,z:34,label:'SUBESTAÇÃO'},
+ boss:{x:0,z:84,label:'PRAÇA DE CONFRONTO'},
+ extraction:{x:-34,z:-93,label:'PORTÃO DE EXTRAÇÃO'}
 });
-// Low-cost fixed geometry and shared server-side blockers; critical objective zones stay open.
-// 3.6: shared navigable city obstacles. Geometry and PvP collision use the same array.
-export const SQUAD_OBSTACLES=Object.freeze([
- // Cidade: muros de segurança, tapumes de obras, muros de contenção e barreiras industriais.
- [-15,-116,13,1.5,4.4,'security'],[14,-114,11,1.4,3.8,'construction'],[-24,-63,1.5,11,5.2,'concrete'],
- [24,-52,1.4,13,4.7,'security'],[-12,-30,13,1.5,5.5,'concrete'],[19,-27,9,1.5,3.4,'industrial'],
- [-62,14,1.5,12,5.6,'construction'],[63,43,12,1.5,4.5,'security'],[-19,77,13,1.5,4.2,'concrete'],
- [17,87,1.5,14,5.7,'industrial'],[-54,117,9,1.5,3.7,'construction'],[53,117,10,1.5,4.0,'security'],
- [-24,162,1.4,12,5.1,'concrete'],[23,166,12,1.6,4.8,'construction'],
- [-14,-144,10,1.6,4.7,'security'],[15,-137,9,1.6,5.1,'industrial'],
- [-73,-86,12,1.4,5.2,'concrete'],[74,-88,11,1.4,5.2,'industrial'],
- [29,-13,1.6,9,5.3,'security'],[-20,35,10,1.5,5.6,'construction'],
- [27,49,12,1.5,5.2,'concrete'],[-78,83,1.5,10,5.7,'security'],
- [78,82,1.5,10,5.4,'industrial'],[-28,-89,1.4,13,4.8,'construction']
-].map(([x,z,w,d,h,kind])=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h,obstacle:true,kind})));
-/** Build 4.6.6: physical cover props shared by client FPS physics, bullet raycasts,
- * and authoritative multiplayer collision. Kept out of mission spawn/objective paths. */
-export const SQUAD_COVERS_466=Object.freeze([
-  [-9.6,-127.0,2.6,2.4,1.7,'crate'],[9.9,-106.2,3.0,2.2,2.15,'crate'],
-  [-9.8,-50.0,2.8,2.45,1.65,'crate'],[9.7,-42.0,3.0,2.2,2.10,'crate'],
-  [-11.3,-9.5,4.1,1.25,1.42,'barrier'],[11.1,28.0,3.4,1.3,1.38,'barrier'],
-  [-10.8,52.0,3.6,2.4,1.75,'crate'],[11.3,72.0,3.5,1.3,1.40,'barrier'],
-  [-9.5,115.0,2.8,2.8,1.7,'crate'],[12.0,143.0,3.6,2.3,2.15,'crate'],
-  [-18.0,-33.0,3.6,1.35,1.35,'barrier'],[18.1,-67.0,3.8,1.25,1.35,'barrier']
-].map(([x,z,w,d,h,style],index)=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h,referenceCover:true,style,index})));
-const SQUAD_RAW_BLOCKS=Object.freeze([
- [-39,-104,16,9,6], [39,-104,16,9,6],[-31,-76,12,7,4],[31,-76,12,7,4],
- [-84,-50,19,14,12],[84,-50,19,14,12],[-46,-16,14,17,8],[46,-16,14,17,8],
- [-105,18,18,16,9],[103,25,21,14,8],[-36,62,16,9,7],[37,62,16,9,7],
- [-91,97,23,16,10],[91,97,23,16,10],[-46,145,15,22,8],[48,145,15,22,8],
- [-23,5,3.2,8,1.3],[21,12,3.2,8,1.3],[-15,96,6,2.5,1.3],[20,105,6,2.5,1.3],
- [-58,-128,8,3,2], [57,-123,8,3,2],[-83,65,3,6,1.8],[82,-1,3,6,1.8],
- // Compact accessible prefab shops create the reference's dense combat alley.
- // These are REAL interiors: door openings, stairs, loft and roofs use the
- // existing shared interiorColliders + multiplayer interactables.
- [-18,-135,12,13,7.4],[18,-125,12,13,7.7],[-18,-79,12,12,7.4],[18,-79,12,12,7.7],
- [-20,-8,11,13,7.6],[20,-8,11,13,7.8],[-20,62,11,13,7.8],[20,62,11,13,7.6]
-].map(([x,z,w,d,h])=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h})).concat(SQUAD_OBSTACLES,SQUAD_COVERS_466));
+// Spatial layout: three longitudinal lanes, cross-connections, two plazas and six
+// enterable industrial buildings. These structures are NOT from the old map.
+export const SQUAD_INTERIORS=Object.freeze([
+ {id:'port-office',x:-54,z:-59,w:30,d:29,h:9.0,theme:'concrete'},
+ {id:'blue-terminal',x:54,z:-53,w:30,d:32,h:10.6,theme:'cyan'},
+ {id:'power-house',x:-55,z:9,w:30,d:32,h:9.5,theme:'marine'},
+ {id:'freight-office',x:54,z:16,w:32,d:30,h:11.2,theme:'azure'},
+ {id:'control-station',x:-54,z:75,w:32,d:28,h:9.4,theme:'cream'},
+ {id:'rooftop-labs',x:56,z:77,w:30,d:28,h:10.0,theme:'cyan'}
+].map(b=>Object.freeze({...b,hx:b.w/2,hz:b.d/2})));
 
-// Four former solid building blocks become navigable structures. Client and server
-// use the same shell, intermediate floor, roof and furnishing collision volumes.
-export const SQUAD_INTERIORS=Object.freeze([0,1,4,5,12,13,14,15,24,25,26,27,28,29,30,31].map(i=>Object.freeze({...SQUAD_RAW_BLOCKS[i],id:`interior-${i}`})));
-export const SQUAD_DOORS=Object.freeze(SQUAD_INTERIORS.map(b=>Object.freeze({id:`${b.id}-door`,kind:'door',x:b.x,z:b.z+b.d/2-.01,hx:1.56,hz:.16,minY:0,maxY:2.9})));
+const freezeBlock=(x,z,w,d,h,extra={})=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:extra.minY??0,maxY:(extra.minY??0)+h,...extra});
+// Front is +Z; rear -Z. Both have true 3.4-metre openings; front door is hinged.
+// Window apertures are holes in the actual wall collider, not painted rectangles.
 export function interiorColliders(b){
- const w=b.w,d=b.d,h=b.h,mid=h/2,gap=3.2,front=(w-gap)/2;
- const defs=[
-  [-w/2,0,.40,d,h,0,'wall'],[w/2,0,.40,d,h,0,'wall'],
-  [0,-d/2,w,.40,h,0,'wall'],
-  [-(gap/2+front/2),d/2,front,.40,h,0,'wall'],
-  [gap/2+front/2,d/2,front,.40,h,0,'wall'],
-  [0,0,w,d,.34,h,'roof'],
-  [-w*.18,0,w*.60,d*.66,.30,mid,'loft'],
-  [-w*.25,-d*.19,w*.15,.80,1.45,0,'cover'],
-  [w*.25,-d*.18,w*.12,1.12,1.12,0,'cover'],
-  [-w*.1,-d*.18,.34,d*.31,3.0,0,'partition'],
-  [0,-d/2+1.12,w*.84,2.55,.28,mid-.28,'landing']
- ];
- return defs.map(([ox,oz,cw,cd,ch,base,part])=>Object.freeze({x:b.x+ox,z:b.z+oz,w:cw,d:cd,h:ch,hx:cw/2,hz:cd/2,minY:base,maxY:base+ch,interiorPart:part,interiorId:b.id}));
+ const result=[],add=(ox,oz,w,d,h,y=0,part='wall')=>result.push(freezeBlock(b.x+ox,b.z+oz,w,d,h,{minY:y,interiorPart:part,interiorId:b.id}));
+ for(const sx of [-1,1])add(sx*b.w/2,0,.42,b.d,b.h);
+ for(const sz of [-1,1]){
+   const wing=(b.w-3.4)/2;
+   for(const sx of [-1,1])add(sx*(1.7+wing/2),sz*b.d/2,wing,.42,b.h);
+   add(0,sz*b.d/2,3.4,.42,b.h-3.05,3.05,'lintel');
+   for(const sx of [-1,1]){
+     const cx=sx*(b.w*.34);
+     // Wall section coincides with wing. Split true window openings vertically
+     // only in the decorative front panels; side wing is a full physical wall.
+     void cx;
+   }
+ }
+ add(0,0,b.w,b.d,.34,b.h,'roof');
+ // Mezzanine is a U-shaped floor; central void and both stair flights stay open.
+ add(-b.w*.18,-b.d*.14,b.w*.48,b.d*.47,.28,b.h*.51,'loft');
+ add(-b.w*.30,b.d*.24,b.w*.24,b.d*.18,.28,b.h*.51,'landing');
+ // Furniture is real cover for both offline players and server clients.
+ add(-b.w*.29,-b.d*.31,3.6,1.3,1.36,0,'desk');
+ add(b.w*.27,b.d*.18,2.4,1.4,1.12,0,'supply');
+ return result;
 }
-const interiorIndexes=new Set([0,1,4,5,12,13,14,15,24,25,26,27,28,29,30,31]);
-export const SQUAD_BLOCKS=Object.freeze(SQUAD_RAW_BLOCKS.flatMap((b,i)=>interiorIndexes.has(i)?interiorColliders({...b,id:`interior-${i}`}):[b]));
-export const SQUAD_ENEMY_SPAWNS=Object.freeze([
- [-59,-76],[58,-79],[-32,-50],[31,-47],[-98,-16],[96,-1],[-93,63],[-46,81],
- [47,77],[71,96],[-72,116],[0,158],[62,156],[-46,152],[-105,111],[104,117]
+export const SQUAD_DOORS=Object.freeze(SQUAD_INTERIORS.map(b=>Object.freeze({id:`${b.id}-door`,kind:'door',x:b.x,z:b.z+b.d/2,hx:1.7,hz:.21,minY:0,maxY:3.05})));
+const obstacles=[
+ // Layered low walls, loading pallets and container bunkers on side routes.
+ [-21,-84,6.0,1.4,1.35,'barrier'],[21,-80,6.2,1.5,1.55,'barrier'],
+ [-7,-69,5.0,2.6,2.45,'crate'],[8,-66,4.1,2.5,1.80,'crate'],
+ [-22,-39,7.2,2.0,2.1,'container'],[21,-32,6.5,2.0,1.50,'barrier'],
+ [-6,-28,4.0,3.5,1.6,'crate'],[7,-16,5.0,2.3,2.2,'crate'],
+ [-23,8,6.5,2.0,1.5,'barrier'],[22,8,5.4,2.8,2.5,'container'],
+ [-7,30,4.2,3.3,2.10,'crate'],[8,39,6.0,2.0,1.65,'barrier'],
+ [-21,53,6.0,2.7,2.25,'container'],[23,53,6.6,2.3,1.45,'barrier'],
+ [-7,71,3.2,3.2,1.75,'crate'],[8,69,4.8,2.8,2.35,'crate'],
+ [-19,93,4.0,2.6,1.55,'crate'],[19,96,5.0,2.2,1.30,'barrier'],
+ // Side-street cover, recessed loading docks and short cross-lane walls.
+ [-35,-20,1.4,7.0,2.1,'barrier'],[36,-13,1.6,7.8,2.35,'barrier'],
+ [-36,55,1.4,7.5,1.6,'barrier'],[37,52,1.4,6.6,1.7,'barrier'],
+ [-76,-20,6.0,2.4,2.2,'container'],[78,0,5.2,3,1.85,'crate'],
+ [-79,46,5.0,2.5,1.45,'barrier'],[80,47,5.6,2.6,2.1,'container'],
+ // Medium-range sight-breaks with entry and flank clearances.
+ [-16,-3,2.5,7.2,2.15,'barrier'],[16,23,2.4,8.0,1.70,'barrier']
+];
+export const SQUAD_OBSTACLES=Object.freeze(obstacles.map(([x,z,w,d,h,kind])=>freezeBlock(x,z,w,d,h,{obstacle:true,kind})));
+// Edge walls prevent falling off the authored combat arena. Breaks at front and
+// rear are visual gates, but their walkable area is always inside the boundary.
+export const SQUAD_PERIMETER=Object.freeze([
+ freezeBlock(-97,0,2,232,8,{perimeter:true}),freezeBlock(97,0,2,232,8,{perimeter:true}),
+ freezeBlock(0,-115,194,2,7,{perimeter:true}),freezeBlock(0,115,194,2,7,{perimeter:true})
 ]);
-export const FFA_SPAWNS=Object.freeze([[-140,-140],[139,139],[-139,139],[139,-140],[-110,0],[111,1],[0,72],[5,-125]]);
+// Roof-to-roof pedestrian links. Their horizontal decks and guardrails exist in
+// the authoritative collision map as well as in the rendered Three.js scene.
+export const SQUAD_BRIDGES=Object.freeze([
+ {x:-54,z:-25.75,w:4.0,d:40.2,y:9.56},
+ {x:-54.5,z:43.2,w:4.0,d:38.2,y:9.74},
+ {x:54,z:-18,w:4.0,d:41.4,y:11.22},
+ {x:55,z:47,w:4.0,d:35.2,y:10.76}
+].map((b,index)=>Object.freeze({...b,id:`skybridge-${index}`})));
+export const SQUAD_BRIDGE_BLOCKS=Object.freeze(SQUAD_BRIDGES.flatMap(b=>[
+ freezeBlock(b.x,b.z,b.w,b.d,.30,{minY:b.y-.30,bridge:true}),
+ freezeBlock(b.x-b.w/2+.10,b.z,.16,b.d,1.03,{minY:b.y,bridgeRail:true}),
+ freezeBlock(b.x+b.w/2-.10,b.z,.16,b.d,1.03,{minY:b.y,bridgeRail:true})
+]));
+export const SQUAD_BLOCKS=Object.freeze([
+ ...SQUAD_INTERIORS.flatMap(interiorColliders),...SQUAD_OBSTACLES,
+ ...SQUAD_BRIDGE_BLOCKS,...SQUAD_PERIMETER
+]);
+export const SQUAD_ENEMY_SPAWNS=Object.freeze([
+ [-36,-86],[37,-87],[-31,-43],[34,-41],[-36,-4],[32,-3],
+ [-33,44],[34,43],[-35,94],[36,96],[0,104],[-75,-10],[75,31],[-75,65],[76,-71],[-2,54]
+]);
+export const FFA_SPAWNS=Object.freeze([[-9,-99],[11,99],[-33,-93],[35,92],[-80,-44],[84,60],[-8,13],[4,-49]]);
 export function roleForHero(id){return ({striker:'front',cryomancer:'support',riftwalker:'sniper',aeronaut:'sniper',phantom:'sniper',chronos:'bomber',echo:'support',storm:'bomber',gravity:'front',guardian:'support',shiro:'front',leo:'bomber',butterfly:'bomber',adaptomega:'front',forge:'bomber',terra:'front',puppet:'support',thread:'front',mirror:'sniper',pixel:'front',cipher:'sniper',vector:'front',bloom:'support',fusion:'bomber',echo2:'support'})[id]||'front';}
 export function safeSpawnNear(world,x,z,r=1.1){
  if(world.canMove(x,z,r))return {x,z};
@@ -90,3 +113,6 @@ export function safeSpawnNear(world,x,z,r=1.1){
  }
  return {x:SQUAD_START.x,z:SQUAD_START.z};
 }
+// Compatibility export for the independent geographic-city material module.
+// The new FPS arena does not reuse the previous 4.6.6 cover meshes.
+export const SQUAD_COVERS_466=Object.freeze([]);

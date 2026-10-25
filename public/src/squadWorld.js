@@ -1,228 +1,232 @@
 import * as THREE from 'three';
-import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {SQUAD_BLOCKS,SQUAD_POINTS,SQUAD_INTERIORS} from './squadLayout.js';
-import {installArchitecturalDetails} from './sceneDetails35.js';
-import {installGraphicsLab39} from './graphicsLab39.js';
-import {installCinematicWorld391} from './cinematicWorld391.js';
-import {makeReferenceMaterials466,installReferenceDistrict466} from './referenceDistrict466.js';
-/** Linear FPS mission environment. No lanes, towers, jungle camps or MOBA bases. */
+import {ARENA_BOUNDS,SQUAD_BLOCKS,SQUAD_INTERIORS,SQUAD_OBSTACLES,SQUAD_POINTS,SQUAD_BRIDGES,SQUAD_BRIDGE_BLOCKS} from './squadLayout.js';
+
+/** TITAN PROTOCOL 4.7 – PORT ZENITH.
+ * A NEW authored arena; it never invokes the old city/graphics-lab/466 renderers.
+ * Collision volumes are authored in squadLayout.js and shared with the server.
+ */
+const palette={azure:0x2792c5,cyan:0x3aaab7,marine:0x335a7a,cream:0xddd0b6,concrete:0xaebfca};
+const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
+const hash=(x,y=0)=>{const v=Math.sin(x*127.1+y*311.7)*43758.5453;return v-Math.floor(v);};
+function paintedTexture(base='#62bbdf',accent='#9dd2df',seed=7){
+ const c=document.createElement('canvas');c.width=c.height=512;
+ const q=c.getContext('2d');q.fillStyle=base;q.fillRect(0,0,512,512);
+ for(let i=0;i<2600;i++){
+  const x=hash(i+seed,1)*512,y=hash(i+seed,2)*512,grey=hash(i+seed,3)*255|0;
+  q.fillStyle=`rgba(${grey},${grey},${grey},${.012+hash(i,4)*.045})`;
+  q.fillRect(x,y,1+hash(i,5)*6,1+hash(i,6)*4);
+ }
+ for(let y=0;y<512;y+=26){
+  q.fillStyle='rgba(255,255,255,.072)';q.fillRect(0,y,512,2);
+  q.fillStyle='rgba(8,30,39,.085)';q.fillRect(0,y+23,512,2);
+ }
+ for(let x=22;x<512;x+=125){q.strokeStyle='rgba(7,38,52,.20)';q.lineWidth=2;q.strokeRect(x,10,107,484);}
+ q.fillStyle=accent;q.globalAlpha=.06;q.fillRect(15,30,482,220);q.globalAlpha=1;
+ const texture=new THREE.CanvasTexture(c);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4;return texture;
+}
+function concreteTexture(){
+ const c=document.createElement('canvas');c.width=c.height=512;const g=c.getContext('2d');
+ g.fillStyle='#bec6c6';g.fillRect(0,0,512,512);
+ for(let i=0;i<8600;i++){const h=hash(i,19);g.fillStyle=h>.5?'rgba(45,66,76,.055)':'rgba(255,255,255,.063)';g.fillRect(hash(i,17)*512,hash(i,18)*512,1+h*5,1+h*3);}
+ g.strokeStyle='rgba(57,72,75,.18)';g.lineWidth=2;for(let i=0;i<512;i+=128){g.beginPath();g.moveTo(i,0);g.lineTo(i,512);g.stroke();}
+ const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.anisotropy=4;return tex;
+}
+function makeSign(text,color='#f6e5bb'){
+ const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=256;const c=canvas.getContext('2d');
+ c.fillStyle='#263c49';c.fillRect(0,0,1024,256);c.fillStyle=color;c.fillRect(0,0,15,256);
+ c.fillStyle='rgba(255,255,255,.1)';c.fillRect(28,19,970,7);
+ c.font='bold 108px Arial';c.textAlign='center';c.textBaseline='middle';c.fillStyle='#f4f2df';c.fillText(text,512,134,958);
+ const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;
+ return new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide});
+}
+function graffitiTexture(){
+ const c=document.createElement('canvas');c.width=1024;c.height=512;const g=c.getContext('2d');
+ g.clearRect(0,0,1024,512);g.lineCap='round';g.lineJoin='round';
+ const colors=['#31b3b3','#6ab66d','#b5d156','#e7a5aa','#a27ddd','#267aa2'];
+ for(let k=0;k<29;k++){
+  const x=110+hash(k,2)*830,y=90+hash(k,8)*300;
+  g.strokeStyle=colors[k%colors.length];g.globalAlpha=.68;g.lineWidth=6+hash(k,3)*28;
+  g.beginPath();g.moveTo(x-60,y+30);g.bezierCurveTo(x+90,y-160,x-85,y+120,x+90,y-15);g.stroke();
+ }
+ g.globalAlpha=.9;g.font='italic 900 130px Arial';g.fillStyle='#77c871';g.rotate(-.07);g.fillText('ZENITH',195,315);
+ const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
+ return new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:.83,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2});
+}
 export function createSquadWorld(city){
  const root=city.root;
- const visual466=makeReferenceMaterials466();
- const metal=new THREE.MeshStandardMaterial({color:0x47779c,metalness:.28,roughness:.59});
- const wall=new THREE.MeshStandardMaterial({color:0x95c9eb,metalness:.08,roughness:.76});
- // Distinct bright districts stay readable without bloom or dynamic light sources.
- const facades=[visual466.blue,visual466.warm,visual466.cyan,visual466.cream,visual466.marine,visual466.orange];
- // Both quality palette choices retain real PBR textures, not flat fallback cubes.
- const cinematicFacades=[visual466.blue,visual466.cream,visual466.cyan,visual466.warm,visual466.marine,visual466.orange];
- city.premiumFacadeMeshes=[];
- const concrete=visual466.paving;
- const road=visual466.asphalt;
- const panel=new THREE.MeshStandardMaterial({color:0x72e8db,emissive:0x238d86,emissiveIntensity:.22});
- const orange=new THREE.MeshStandardMaterial({color:0xffc05f,emissive:0xb96920,emissiveIntensity:.12});
- city.cinematicPalette={road,concrete,panel,orange};
- const obstacleMaterials={
-  concrete:visual466.cream,
-  security:visual466.marine,
-  industrial:visual466.orange,
-  construction:visual466.warm
+ const std=(color,metalness=0,roughness=.7,more={})=>new THREE.MeshStandardMaterial({color,metalness,roughness,...more});
+ const m={
+  floor:std(0xe1d7c5,.06,.94,{map:concreteTexture()}),
+  asphalt:city.world.mat(0x9d9f9d,.04,.93,city.world.textures.asphalt),
+  blue:std(0xcce9ff,.30,.52,{map:paintedTexture('#397fa9','#75c8e0',1)}),
+  cyan:std(0xe9f9ff,.27,.55,{map:paintedTexture('#5dbacc','#b8eeeb',6)}),
+  marine:std(0xb4d5ee,.36,.56,{map:paintedTexture('#335a7e','#72b5d8',12)}),
+  cream:std(0xfff2dd,.04,.85,{map:paintedTexture('#d4c6b0','#f5e9d0',16)}),
+  trim:std(0x375b72,.66,.43),steel:std(0x546777,.71,.39),dark:std(0x293943,.55,.5),
+  orange:std(0xda8a38,.24,.54),wood:std(0xd5b587,.02,.85,{map:city.world.textures.wood}),
+  glass:new THREE.MeshPhysicalMaterial({color:0xb5e8f7,metalness:.2,roughness:.18,transparent:true,opacity:.58,depthWrite:false,side:THREE.DoubleSide}),
+  white:std(0xf9e8c5,.02,.82),mark:std(0xebd8a2,0,.87),green:std(0x5c805a,.05,.89),
+  lamp:new THREE.MeshBasicMaterial({color:0xffd08a,toneMapped:false})
  };
- const obstaclePaint=new THREE.MeshStandardMaterial({color:0xf7d66c,roughness:.75});
- const obstacleStripes=new THREE.InstancedMesh(new THREE.BoxGeometry(1,.14,.06),obstaclePaint,240);
- const obstaclePosts=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),metal,48);
- let obstacleStripeCount=0,obstaclePostCount=0;
- const decorativeMatrix=new THREE.Object3D();
- // Static ground AO is baked offline; zero dynamic light or shadow cost.
- const groundMap=new THREE.TextureLoader().load('./assets/baked/mission_ground_baked.webp');
- groundMap.colorSpace=THREE.SRGBColorSpace;groundMap.anisotropy=2;
- const ground=new THREE.Mesh(new THREE.PlaneGeometry(435,435),new THREE.MeshStandardMaterial({map:groundMap,color:0xcad4c9,metalness:0,roughness:1}));
- ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;root.add(ground);
- // Vehicle road, service roads and open plazas, no colored team lanes.
- const roadGeo=new THREE.PlaneGeometry(17,340);
- const strip=new THREE.Mesh(roadGeo,road);strip.rotation.x=-Math.PI/2;strip.position.set(0,.012,-8);strip.receiveShadow=true;root.add(strip);
- for(const [x,z,w,d] of [[0,-155,58,45],[0,-91,64,52],[70,-16,46,43],[-74,44,50,47],[0,132,99,77],[-85,-148,31,31]]){
-   const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),concrete);m.rotation.x=-Math.PI/2;m.position.set(x,.025,z);m.receiveShadow=true;root.add(m);
+ const solid=(x,y,z,w,h,d,material,shadow=true)=>{const mesh=city.box(x,y,z,w,h,d,material,shadow);mesh.castShadow=shadow;mesh.receiveShadow=true;city.rayTargets.push(mesh);return mesh;};
+ const deco=(x,y,z,w,h,d,material)=>{const mesh=city.box(x,y,z,w,h,d,material,false);mesh.castShadow=false;return mesh;};
+ const batches=new Map();
+ const inst=(key,material,x,y,z,w,h,d,rotation=0)=>{
+  if(!batches.has(key))batches.set(key,{mat:material,poses:[]});
+  batches.get(key).poses.push({x,y,z,w,h,d,rotation});
+ };
+ const floor=new THREE.Mesh(new THREE.PlaneGeometry(ARENA_BOUNDS.halfX*2,ARENA_BOUNDS.halfZ*2),m.floor);
+ floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;root.add(floor);
+ // Asphalt is a connected, deliberately designed street system. All walkable.
+ for(const [x,z,w,d] of [[0,0,32,224],[-77,0,18,210],[77,0,18,210],[0,-28,194,20],[0,43,194,18],[0,-94,194,18],[0,100,194,16]]){
+  const road=new THREE.Mesh(new THREE.PlaneGeometry(w,d),m.asphalt);road.rotation.x=-Math.PI/2;road.position.set(x,.022,z);road.receiveShadow=true;root.add(road);
+  const edgeX=w<d;
+  if(edgeX)for(const sx of [-1,1])inst('curb',m.white,x+sx*(w/2+.55),.13,z,.75,.25,d);
+  else for(const sz of [-1,1])inst('curb',m.white,x,.13,z+sz*(d/2+.55),w,.25,.65);
  }
- for(const [index,b] of SQUAD_BLOCKS.entries()){
-   if(b.referenceCover){ city.solids.push({...b});continue; }
-   if(b.interiorPart){
-     const mat=b.interiorPart==='roof'?metal:(b.interiorPart==='loft'||b.interiorPart==='landing')?concrete:b.interiorPart==='cover'?obstacleMaterials.construction:facades[index%facades.length];
-     const mesh=city.box(b.x,(b.minY+b.maxY)/2,b.z,b.w,b.h,b.d,mat);
-     city.rayTargets.push(mesh);city.solids.push({...b});
-     if(b.interiorPart==='roof'||b.interiorPart==='loft'||b.interiorPart==='landing')city.addSurface(b.x,b.z,b.w,b.d,b.maxY);
-     continue;
-   }
-   const isShort=b.h<3,material=b.obstacle?(obstacleMaterials[b.kind]||wall):isShort?concrete:facades[index%facades.length];
-   const mesh=city.box(b.x,b.h/2,b.z,b.w,b.h,b.d,material);city.rayTargets.push(mesh);
-   if(!b.obstacle&&!isShort)city.premiumFacadeMeshes.push({mesh,original:material,cinematic:cinematicFacades[index%cinematicFacades.length]});
-   city.solids.push({...b});
-   if(b.obstacle){
-     const top=city.box(b.x,b.h+.07,b.z,b.w+.08,.14,b.d+.08,b.kind==='industrial'?orange:metal,false);
-     city.rayTargets.push(top);city.addSurface(b.x,b.z,b.w,b.d,b.h+.14);
-     // A face along the longest wall axis gains painted warning lines and
-     // reinforced columns. Instancing keeps decoration cheap on phones.
-     const longX=b.w>=b.d,length=longX?b.w:b.d;
-     for(const side of [-1,1]){
-       decorativeMatrix.position.set(b.x+(longX?side*(b.hx-.23):0),b.h*.5,b.z+(longX?0:side*(b.hz-.23)));
-       decorativeMatrix.scale.set(longX?.46:b.w,b.h,longX?b.d:.46);
-       decorativeMatrix.rotation.set(0,0,0);decorativeMatrix.updateMatrix();
-       obstaclePosts.setMatrixAt(obstaclePostCount++,decorativeMatrix.matrix);
-     }
-     for(let j=0;j<Math.min(8,Math.floor(length/1.8));j++){
-       const longitudinal=-length/2+(j+.5)*length/Math.min(8,Math.floor(length/1.8));
-       decorativeMatrix.position.set(b.x+(longX?longitudinal:0),b.h*.68,b.z+(longX?b.hz+.04:longitudinal));
-       decorativeMatrix.scale.set(longX?Math.min(1.35,length/10):.075,.9,longX?.075:Math.min(1.35,length/10));
-       decorativeMatrix.rotation.set(0,0,0);decorativeMatrix.updateMatrix();
-       obstacleStripes.setMatrixAt(obstacleStripeCount++,decorativeMatrix.matrix);
-     }
-     continue;
-   }
-   if(!isShort){
-     const roof=city.box(b.x,b.h+.16,b.z,b.w+.45,.32,b.d+.45,metal);city.rayTargets.push(roof);
-     city.addSurface(b.x,b.z,b.w,b.d,b.h+.32);
-     for(let j=0;j<Math.min(4,Math.floor(b.w/3));j++){
-       const win=city.box(b.x-b.w*.32+j*2.3,b.h*.54,b.z+b.d/2+.04,1.0,1.35,.09,panel,false);
-       win.castShadow=false;
-     }
-     if(index%3===0){const ladder={x:b.x,z:b.z+b.d/2+.5,toX:b.x,toZ:b.z+b.d/2-.9,top:b.h+.33,base:0};city.ladders.push(ladder);city.buildLadder(ladder);}
-   }else{
-     const cap=city.box(b.x,b.h+.04,b.z,b.w+.1,.08,b.d+.1,orange,false);cap.castShadow=false;
-   }
- }
- // Two real interior stair flights per building, plus balcony rails.
- // No new solid AABBs here: server and client collision are shared via SQUAD_BLOCKS.
+ // Broken centre lines, drainage slots, crossings and patchwork.
+ for(let z=-103;z<109;z+=12)if(![-28,43,-94,100].some(k=>Math.abs(z-k)<9))inst('roadmark',m.mark,0,.039,z,.18,.015,5);
+ for(let z of [-28,43,-94,100])for(let x=-12;x<=12;x+=3.4)inst('roadmark',m.mark,x,.043,z,1.65,.012,3.2);
+ for(let z=-105;z<110;z+=17){inst('drain',m.dark,-13,.046,z,1.4,.018,.22);inst('drain',m.dark,13,.046,z,1.4,.018,.22);}
+ // Physical buildings are assembled from authored wall/floor COLLIDER segments,
+ // not opaque building boxes. This creates real rooms, doorways and roof decks.
+ const themes={concrete:m.cream,azure:m.blue,cyan:m.cyan,marine:m.marine,cream:m.cream};
  for(const b of SQUAD_INTERIORS){
-   const span=b.d-2.9,level=b.h/2;
-   // U-shaped stairway: enter from front, turn on the shared rear landing, return to the roof.
-   city.makeStaircase({x:b.x+b.w*.28,z:b.z,from:0,to:level,length:span,width:2.25,axis:'z',reverse:true});
-   city.makeStaircase({x:b.x-b.w*.27,z:b.z,from:level,to:b.h+.34,length:span,width:2.25,axis:'z'});
-   const rail=city.box(b.x-b.w*.48,level+.53,b.z+b.d*.35,.11,1.06,b.d*.26,metal,false);rail.castShadow=false;
-   const balcony=city.box(b.x,level+.03,b.z+b.d/2+.65,b.w*.42,.17,1.28,concrete);
-   city.addSurface(b.x,b.z+b.d/2+.65,b.w*.42,1.28,level+.12);
-   const ledge=city.box(b.x,level+.60,b.z+b.d/2+1.23,b.w*.42,1.10,.16,metal,false);
-   const sign=city.box(b.x,b.h-.67,b.z+b.d/2+.10,3.7,.46,.14,panel,false);sign.castShadow=false;
- }
- obstaclePosts.count=obstaclePostCount;obstaclePosts.instanceMatrix.needsUpdate=true;
- obstacleStripes.count=obstacleStripeCount;obstacleStripes.instanceMatrix.needsUpdate=true;
- obstaclePosts.castShadow=false;obstacleStripes.castShadow=false;
- root.add(obstaclePosts,obstacleStripes);
- // Visual-only city enhancement: shared geometries + InstancedMesh, avoiding hundreds of draw calls,
- // new dynamic lights or extra collision volumes. These details remain visible on LOW.
- const glass=new THREE.MeshStandardMaterial({color:0xffffff,metalness:.43,roughness:.33,emissive:0x173749,emissiveIntensity:.23});
- const trim=new THREE.MeshStandardMaterial({color:0x80f8df,metalness:.56,roughness:.38,emissive:0x123c53,emissiveIntensity:.14});
- const darkMetal=new THREE.MeshStandardMaterial({color:0x334251,metalness:.7,roughness:.44});
- const markMaterial=new THREE.MeshStandardMaterial({color:0xffd49e,roughness:.83});
- const glassGeo=new THREE.BoxGeometry(1.10,1.28,.055);
- const glassMeshes=[new THREE.InstancedMesh(glassGeo,glass,350),new THREE.InstancedMesh(glassGeo,glass,350)];
- const trimGeo=new THREE.BoxGeometry(1,.09,.12);
- const trims=new THREE.InstancedMesh(trimGeo,trim,180);
- const rooftop=new THREE.InstancedMesh(new THREE.BoxGeometry(1.1,.65,1.1),darkMetal,72);
- const dummy=new THREE.Object3D();let windows=[0,0],nr=0,nt=0;
- for(const [i,b] of SQUAD_BLOCKS.entries()){
-   if(b.h<3||b.obstacle||b.interiorPart)continue;
-   const side=(i%2===0?1:-1),count=Math.min(6,Math.floor((b.w-1)/2.1)),floors=Math.min(3,Math.floor((b.h-1.4)/2.6));
-   for(let floor=0;floor<floors;floor++)for(let j=0;j<count;j++){
-     const which=(j+i+floor)%2;const k=windows[which];if(k>=350)continue;
-     dummy.position.set(b.x+(j-(count-1)/2)*2.1,1.7+floor*2.6,b.z+side*(b.d/2+.045));
-     dummy.rotation.set(0,0,0);dummy.scale.set(1,1,1);dummy.updateMatrix();glassMeshes[which].setMatrixAt(k,dummy.matrix);
-     glassMeshes[which].setColorAt(k,new THREE.Color(which?0xffdf9c:0x9bdfff));windows[which]++;
+  const wall=themes[b.theme]||m.blue;
+  const pieces=SQUAD_BLOCKS.filter(p=>p.interiorId===b.id);
+  for(const p of pieces){
+   const mat=p.interiorPart==='roof'?m.steel:p.interiorPart==='loft'||p.interiorPart==='landing'?m.floor:p.interiorPart==='desk'?m.wood:p.interiorPart==='supply'?m.orange:p.interiorPart==='lintel'?m.trim:wall;
+   solid(p.x,(p.minY+p.maxY)/2,p.z,p.w,p.h,p.d,mat,p.interiorPart==='wall'||p.interiorPart==='roof');
+   city.solids.push({...p});
+   if(['loft','landing','roof'].includes(p.interiorPart))city.addSurface(p.x,p.z,p.w,p.d,p.maxY);
+  }
+  // Real two-flight indoor access: first to loft, second to the accessible roof.
+  const mezz=b.h*.51,roof=b.h+.35;
+  city.makeStaircase({x:b.x+b.w*.28,z:b.z,from:0,to:mezz,length:b.d-6.6,width:2.45,axis:'z'});
+  city.makeStaircase({x:b.x-b.w*.30,z:b.z,from:mezz,to:roof,length:b.d-6.6,width:2.45,axis:'z',reverse:true});
+  // Additional exterior ladder reachable from rear service alley.
+  const ladder={x:b.x,z:b.z-b.d/2-.6,toX:b.x,toZ:b.z-b.d/2+1,top:roof,base:0};
+  city.ladders.push(ladder);city.buildLadder(ladder);
+  // The original reference has folded steel cladding, girders and warm soffits.
+  for(const side of [-1,1]){
+   const fx=b.x+side*b.w/2;
+   for(let z=b.z-b.d/2+1.6;z<b.z+b.d/2-1.0;z+=2.0){
+    inst('corrugation',m.trim,fx+side*.26,b.h*.54,z,.14,b.h*.92,.11);
+    for(let level=0;level<2;level++){
+     inst('seam',m.white,fx+side*.25,level?b.h*.72:b.h*.28,z,.12,.035,1.65);
+    }
    }
-   if(nr<180){dummy.position.set(b.x,b.h+.26,b.z+b.d/2+.06);dummy.rotation.set(0,0,0);dummy.scale.set(Math.max(2,b.w-.7),1,1);dummy.updateMatrix();trims.setMatrixAt(nr++,dummy.matrix);}
-   for(let j=0;j<2;j++)if(nt<72){dummy.position.set(b.x+(j?-.21:.25)*b.w,b.h+.58,b.z+(j?.18:-.2)*b.d);dummy.rotation.set(0,j*.5,0);dummy.scale.set(1+j*.45,1,1+j*.24);dummy.updateMatrix();rooftop.setMatrixAt(nt++,dummy.matrix);}
+   for(let y=2.2;y<b.h-1;y+=2.8){
+    const pipe=solid(fx+side*.30,y,b.z,b.d*.0+.09,.11,b.d*.85,m.steel,false);
+    pipe.visible=true; // pipe is visual; no extra collider
+   }
+  }
+  for(const sz of [-1,1]){
+   const fz=b.z+sz*(b.d/2+.28);
+   for(let x=b.x-b.w/2+2;x<b.x+b.w/2-1;x+=3){
+    if(Math.abs(x-b.x)<2.7)continue; // clear the real door opening
+    const rect=deco(x,b.h*.68,fz,1.85,1.18,.065,m.glass);
+    rect.rotation.y=sz===1?0:Math.PI;
+    inst('windowframe',m.dark,x,b.h*.68,fz+sz*.045,2.06,.10,.15);
+    inst('windowframe',m.dark,x,b.h*.68+ .62,fz+sz*.045,2.08,.09,.15);
+    inst('windowframe',m.dark,x-1,b.h*.68,fz+sz*.045,.12,1.26,.15);
+    inst('windowframe',m.dark,x+1,b.h*.68,fz+sz*.045,.12,1.26,.15);
+   }
+   // Massive doorway frames; raised sign, emergency light and awning.
+   const doorZ=b.z+sz*b.d/2;
+   inst('doorframe',m.orange,b.x-1.9,1.55,doorZ+sz*.24,.22,3.18,.36);
+   inst('doorframe',m.orange,b.x+1.9,1.55,doorZ+sz*.24,.22,3.18,.36);
+   inst('doorframe',m.orange,b.x,3.18,doorZ+sz*.24,4.1,.18,.38);
+   deco(b.x,3.48,doorZ+sz*.60,5.9,.20,1.45,m.trim);
+   inst('lamp',m.lamp,b.x,3.28,doorZ+sz*.70,.62,.1,.40);
+  }
+  // Rooftop HVAC, safety rails and structural bracing.
+  for(const sign of [-1,1]){
+   inst('roofrail',m.trim,b.x+sign*(b.w/2-.34),b.h+1.05,b.z,.11,1.38,b.d-2.3);
+   for(let j=-1;j<=1;j++)inst('roofpost',m.dark,b.x+sign*(b.w/2-.34),b.h+.78,b.z+j*(b.d/2-1.8),.16,1.38,.16);
+   inst('roofrail',m.trim,b.x,b.h+1.05,b.z+sign*(b.d/2-.35),b.w-2.5,1.38,.10);
+  }
+  inst('hvac',m.steel,b.x-b.w*.22,b.h+.8,b.z-b.d*.19,3.1,.9,2.3);
+  inst('hvac',m.dark,b.x+b.w*.17,b.h+.63,b.z+b.d*.19,2.5,.55,2.2);
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(8.8,2.0),makeSign(b.id.toUpperCase().replaceAll('-',' ')));
+  sign.position.set(b.x,b.h-.90,b.z+b.d/2+.33);root.add(sign);
+  // Vertical reinforcement and translucent interior windows.
+  for(let j=-2;j<=2;j++)for(const sz of [-1,1]){
+   inst('girders',m.trim,b.x+j*b.w*.18,b.h*.53,b.z+sz*(b.d/2+.12),.21,b.h,.26);
+  }
  }
- for(let k=0;k<2;k++){const mesh=glassMeshes[k];mesh.count=windows[k];mesh.instanceMatrix.needsUpdate=true;
-   if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;mesh.castShadow=false;mesh.receiveShadow=false;root.add(mesh);}
- trims.count=nr;trims.instanceMatrix.needsUpdate=true;trims.castShadow=false;root.add(trims);
- rooftop.count=nt;rooftop.instanceMatrix.needsUpdate=true;rooftop.castShadow=false;root.add(rooftop);
- // Painted pedestrian crossings and roadside markings improve navigation readability.
- const paint=new THREE.InstancedMesh(new THREE.PlaneGeometry(1.1,4.2),markMaterial,80);let stripes=0;
- for(const zz of [-116,-65,36,84,158])for(let j=-5;j<=5;j++){
-   dummy.position.set(j*1.65,.052,zz);dummy.rotation.set(-Math.PI/2,0,0);dummy.scale.set(1,1,1);dummy.updateMatrix();paint.setMatrixAt(stripes++,dummy.matrix);
+ // Traversable overhead passages link rooftops and create alternate routes.
+ // Every deck/rail corresponds to the collision shapes used by the server.
+ for(const b of SQUAD_BRIDGE_BLOCKS){
+  const mat=b.bridgeRail?m.trim:m.steel;
+  solid(b.x,(b.minY+b.maxY)/2,b.z,b.w,b.h,b.d,mat,!b.bridgeRail);
+  city.solids.push({...b});
+  if(b.bridge)city.addSurface(b.x,b.z,b.w,b.d,b.maxY);
  }
- paint.count=stripes;paint.instanceMatrix.needsUpdate=true;paint.castShadow=false;root.add(paint);
- // Rounded trees/vegetation for a lived-in city, instanced without per-tree lights or shadows.
- const treeTrunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.13,.22,2.1,7),new THREE.MeshStandardMaterial({color:0x967344,roughness:1}),48);
- const treeCrowns=new THREE.InstancedMesh(new THREE.SphereGeometry(1.2,9,6),new THREE.MeshStandardMaterial({color:0x4ed567,roughness:.9}),48);
- let trees=0;
- for(let i=0;i<56&&trees<48;i++){
-   const x=(i%2?1:-1)*(139+(i*7%51));const z=-183+(i*61%367);
-   if(SQUAD_BLOCKS.some(b=>Math.abs(x-b.x)<b.hx+4&&Math.abs(z-b.z)<b.hz+4))continue;
-   dummy.rotation.set(0,0,0);dummy.scale.set(1,1,1);dummy.position.set(x,1.05,z);dummy.updateMatrix();treeTrunks.setMatrixAt(trees,dummy.matrix);
-   dummy.position.set(x,2.85,z);dummy.scale.set(1.1+(i%3)*.16,.8+(i%4)*.08,1.1+(i%3)*.16);dummy.updateMatrix();treeCrowns.setMatrixAt(trees,dummy.matrix);trees++;
+ for(const bridge of SQUAD_BRIDGES){
+  for(let z=bridge.z-bridge.d/2+1;z<bridge.z+bridge.d/2;z+=2.2){
+   inst('gantryfloor',m.dark,bridge.x,bridge.y+.05,z,bridge.w+.06,.07,.13);
+   inst('roofpost',m.orange,bridge.x-bridge.w/2+.11,bridge.y+.65,z,.14,1.35,.14);
+   inst('roofpost',m.orange,bridge.x+bridge.w/2-.11,bridge.y+.65,z,.14,1.35,.14);
+  }
  }
- for(const mesh of [treeTrunks,treeCrowns]){mesh.count=trees;mesh.castShadow=false;mesh.instanceMatrix.needsUpdate=true;root.add(mesh);}
- // Four graphic identity signs use canvas textures; no GLB downloads, no real-time light sources.
- for(const [x,z,label,accent] of [[-84,-50,'SETOR BRAVO','#64d8ff'],[84,-50,'TORRE ZENITH','#ffce74'],[-91,97,'ZONA HOSTIL','#ffa46d'],[91,97,'TITAN LABS','#a3e5ab']]){
-   const c=document.createElement('canvas');c.width=512;c.height=112;
-   const ctx=c.getContext('2d');ctx.fillStyle='#1e3040';ctx.fillRect(0,0,512,112);
-   ctx.fillStyle=accent;ctx.fillRect(0,0,9,112);ctx.fillRect(0,104,512,8);
-   ctx.textAlign='center';ctx.fillStyle='#f2f9f9';ctx.font='bold 56px Arial';ctx.fillText(label,260,76,480);
-   const texture=new THREE.CanvasTexture(c);texture.colorSpace=THREE.SRGBColorSpace;
-   const sign=new THREE.Mesh(new THREE.PlaneGeometry(6.8,1.5),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}));
-   sign.position.set(x,7.0,z+11);root.add(sign);
+ // The screenshot's recognizable narrow tactical corridor: towering azure
+ // steel walls, cross-beams, warm overhead light and stacks of wooden cargo.
+ for(const z of [-71,-39,-7,26,61,92]){
+  const y=15+(Math.abs(z)%3)*1.2;
+  inst('gantry',m.trim,0,y,z,37,1.15,1.35);
+  inst('gantry',m.orange,0,y-.85,z,14,.18,1.22);
+  for(const x of [-17.5,17.5])inst('gantry',m.steel,x,y-4.8,z,.34,9.0,.34);
+  for(let x=-12;x<=12;x+=4){inst('lamp',m.lamp,x,y-.96,z,.8,.095,.62);}
  }
- // Landmark rings and readable objective names. No physical invisible walls.
- const rings=[];
+ // 3D obstacle geometry is driven ONLY by the shared authoritative blockers.
+ for(const p of [...SQUAD_OBSTACLES,...SQUAD_BLOCKS.filter(b=>b.perimeter)]){
+  let mat=p.perimeter?m.marine:p.kind==='barrier'?m.cream:p.kind==='crate'?m.wood:m.blue;
+  const mesh=solid(p.x,p.h/2,p.z,p.w,p.h,p.d,mat,true);city.solids.push({...p});
+  if(p.perimeter){
+   // Segmented perimeter metal panels and vertical bracing.
+   if(p.w>p.d)for(let x=-92;x<94;x+=8)inst('girders',m.trim,x,3.9,p.z+(p.z>0?-.4:.4),.25,7.0,.24);
+   else for(let z=-108;z<109;z+=8)inst('girders',m.trim,p.x+(p.x>0?-.4:.4),3.9,z,.24,7.0,.25);
+  }else if(p.kind==='crate'){
+   for(let sz of [-1,1])for(const sx of [-1,1])inst('crateedge',m.dark,p.x+sx*(p.w/2-.12),p.h/2,p.z+sz*(p.d/2-.08),.22,p.h,.17);
+   inst('crateedge',m.wood,p.x,p.h-.08,p.z,p.w,.17,p.d);
+  }else if(p.kind==='container'){
+   for(let i=0;i<p.w/1.2;i++)inst('containerdetail',m.trim,p.x-p.w/2+.6+i*1.2,p.h/2,p.z+p.d/2+.045,.07,p.h-.16,.08);
+   inst('containerdetail',m.orange,p.x,p.h-.14,p.z,p.w,.16,p.d);
+  }else{
+   inst('warning',m.orange,p.x,p.h-.14,p.z,p.w+.02,.10,p.d+.02);
+  }
+ }
+ // Urban props kept sparse and useful: service lights, drainage and loading bays.
+ const lampPositions=[[-17,-102],[18,-99],[-17,-15],[18,45],[-16,106],[16,102],[-86,1],[84,-24]];
+ for(const [x,z] of lampPositions){
+  inst('lightpost',m.steel,x,3.3,z,.17,6.6,.17);
+  inst('lightpost',m.lamp,x,6.62,z,.75,.17,1.8);
+ }
+ const canvas=document.createElement('canvas');canvas.width=256;canvas.height=256;
+ const ctx=canvas.getContext('2d');ctx.fillStyle='#c2a985';ctx.fillRect(0,0,256,256);
+ const graffiti=new THREE.Mesh(new THREE.PlaneGeometry(19,9),graffitiTexture());
+ // The west boundary stands in for the bright painted mural in the reference.
+ graffiti.position.set(-95.85,5.2,-5);graffiti.rotation.y=Math.PI/2;root.add(graffiti);
+ // The industrial district uses a few local lights; no shadow-casting pointlights.
+ for(const [x,z] of [[-14,-7],[13,27],[0,93]]){
+  const bulb=new THREE.PointLight(0xffc484,.9,18,2);bulb.position.set(x,9,z);root.add(bulb);
+ }
+ // Batched decorations: one draw call per material/geometry class.
+ const unit=new THREE.BoxGeometry(1,1,1);const tmp=new THREE.Object3D();
+ for(const batch of batches.values()){
+  const im=new THREE.InstancedMesh(unit,batch.mat,batch.poses.length);
+  for(let i=0;i<batch.poses.length;i++){
+   const p=batch.poses[i];tmp.position.set(p.x,p.y,p.z);tmp.scale.set(p.w,p.h,p.d);tmp.rotation.set(0,p.rotation,0);tmp.updateMatrix();im.setMatrixAt(i,tmp.matrix);
+  }
+  im.instanceMatrix.needsUpdate=true;im.frustumCulled=false;im.castShadow=false;im.receiveShadow=true;root.add(im);
+ }
+ // Restrained mission markers, no giant neon beacons.
  for(const [key,point] of Object.entries(SQUAD_POINTS)){
-   const isBoss=key==='boss';const tint=isBoss?orange:panel;
-   const ring=new THREE.Mesh(new THREE.RingGeometry(key==='boss'?27:8,key==='boss'?27.5:8.35,48),tint);
-   ring.rotation.x=-Math.PI/2;ring.position.set(point.x,.09,point.z);root.add(ring);rings.push(ring);
-   const canvas=document.createElement('canvas');canvas.width=512;canvas.height=88;
-   const ctx=canvas.getContext('2d');ctx.fillStyle='rgba(7,17,25,.88)';ctx.fillRect(0,0,512,88);ctx.fillStyle='#c8f4f5';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(point.label,256,59,492);
-   const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;
-   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));s.position.set(point.x,6.9,point.z);s.scale.set(11,1.9,1);root.add(s);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(3.8,4.0,36),new THREE.MeshBasicMaterial({color:key==='boss'?0xe1b168:0xa0d4d2,side:THREE.DoubleSide,transparent:true,opacity:.42}));
+  ring.rotation.x=-Math.PI/2;ring.position.set(point.x,.09,point.z);root.add(ring);
  }
- // Modular authored GLB landmarks: textured/painted geometry in only three
- // unique files. Placed on existing collision rooftops; no extra colliders.
- const models=new GLTFLoader();
- const roofProps=new THREE.Group();roofProps.name='MODULAR_ARCHITECTURE_GLB';
- root.add(roofProps);city.squadDetailRoot=roofProps;
- roofProps.visible=city.world.quality!=='low';
- for(const [file,spots] of [
-   ['relay_tower', [[-84,-50,12],[84,-50,12],[91,97,10]]],
-   ['field_station',[[-39,-104,6],[39,-104,6],[-46,145,8]]],
-   ['power_generator',[[-91,97,10],[91,97,10],[-105,18,9]]],
- ]){
-   models.load(`./assets/models/environment/${file}.glb`,gltf=>{
-     for(const [x,z,y] of spots){
-       const model=gltf.scene.clone(true);
-       model.position.set(x,y+.34,z);
-       model.traverse(obj=>{if(obj.isMesh){obj.castShadow=false;obj.receiveShadow=true;}});
-       roofProps.add(model);
-     }
-   },undefined,error=>console.warn('Detalhe GLB indisponível:',file,error));
- }
- // Instance rounded roof ducts, arches and chamfer-like decorative edges.
- // Shared buffers keep repeated geometry at a constant number of draw calls.
- const copingMat=new THREE.MeshStandardMaterial({color:0xb3c2c8,metalness:.34,roughness:.63});
- const cylinders=new THREE.InstancedMesh(new THREE.CylinderGeometry(.30,.30,1,10),copingMat,144);
- const archMat=new THREE.MeshStandardMaterial({color:0x556f80,metalness:.48,roughness:.46});
- const arches=new THREE.InstancedMesh(new THREE.TorusGeometry(1.3,.12,7,18,Math.PI),archMat,45);
- let p=0,a=0;
- for(const b of SQUAD_BLOCKS){
-   if(b.h<3||b.obstacle||b.interiorPart)continue;
-   for(let n=0;n<6;n++){
-     const k=n%3;
-     dummy.position.set(b.x+(k-1)*b.w*.33,b.h+.65,b.z+(n<3?-.26:.26)*b.d);
-     dummy.rotation.set(0,0,0);dummy.scale.set(1,1.0+(n%2)*.8,1);dummy.updateMatrix();cylinders.setMatrixAt(p++,dummy.matrix);
-   }
-   if(a<45){dummy.position.set(b.x,b.h+.28,b.z+b.d/2+.10);dummy.rotation.set(0,0,0);dummy.scale.set(Math.min(2,b.w/8),1,1);dummy.updateMatrix();arches.setMatrixAt(a++,dummy.matrix);}
- }
- cylinders.count=p;cylinders.instanceMatrix.needsUpdate=true;
- arches.count=a;arches.instanceMatrix.needsUpdate=true;
- for(const m of [cylinders,arches]){m.castShadow=false;m.receiveShadow=true;roofProps.add(m);}
- // Titan extraction craft and radio masts identify the operation site even on LOW.
- for(const [x,z] of [[-85,-148],[0,-155],[70,-16]]){
-   const mast=new THREE.Mesh(new THREE.CylinderGeometry(.15,.2,8,8),metal);mast.position.set(x+10,4,z+7);root.add(mast);
-   const beacon=new THREE.Mesh(new THREE.SphereGeometry(.46,10,8),orange);beacon.position.set(x+10,8,z+7);root.add(beacon);
- }
- const craft=new THREE.Group();craft.position.set(-85,2.0,-148);root.add(craft);
- const cabin=new THREE.Mesh(new THREE.CapsuleGeometry(2.0,3.7,5,12),metal);cabin.rotation.z=Math.PI/2;craft.add(cabin);
- for(const sign of [-1,1]){const wing=new THREE.Mesh(new THREE.BoxGeometry(4,.2,1.6),panel);wing.position.set(0,-.3,sign*3);craft.add(wing);}
- installArchitecturalDetails(city);
- installGraphicsLab39(city);
- installCinematicWorld391(city);
- installReferenceDistrict466(city,visual466);
- city.squadLandmarks={rings,craft};
+ city.cinematicPalette=null;city.premiumFacadeMeshes=[];city.squadDetailRoot=null;
+ root.name='PORT_ZENITH_NEW_ARENA';
  return SQUAD_POINTS;
 }

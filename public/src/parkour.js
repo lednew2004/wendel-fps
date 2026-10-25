@@ -12,7 +12,7 @@ export class ParkourController {
     this.game=game;this.city=city;this.accumulator=0;
     this.current=0;this.progress=0;this.elapsed=0;this.running=false;this.combat=false;this.trialActive=false;
     this.x=-100;this.z=-85;this.y=0;this.vx=0;this.vz=0;this.vy=0;
-    this.grounded=true;this.coyote=0;this.buffer=0;this.slide=0;this.wallRun=0;this.dashTime=0;this.dashVX=0;this.dashVZ=0;
+    this.grounded=true;this.coyote=0;this.buffer=0;this.slide=0;this.impactKick=0;this.wallRun=0;this.dashTime=0;this.dashVX=0;this.dashVZ=0;
     this.ladder=null;this.hanging=null;this.vault=null;this.lastGroundedY=0;this.checkpoint=null;this.combo=0;
     this.prompt='APROXIME-SE DA ESCADA AMARELA E PRESSIONE E';
     this.updateHud();
@@ -53,7 +53,7 @@ export class ParkourController {
     this.updateHud();return true;
   }
   spawn(x,y,z){
-    this.vault=null;this.x=x;this.z=z;this.y=y;this.vexDoubleUsed=false;this.vx=0;this.vz=0;this.vy=0;this.grounded=true;
+    this.vault=null;this.impactKick=0;this.x=x;this.z=z;this.y=y;this.vexDoubleUsed=false;this.vx=0;this.vz=0;this.vy=0;this.grounded=true;
     this.coyote=0;this.buffer=0;this.wallRun=0;this.slide=0;this.dashTime=0;this.ladder=null;this.hanging=null;
     this.game.player.x=x;this.game.player.z=z;this.game.player.eyeY=y+1.75;
     this.game.positionCamera();
@@ -195,11 +195,12 @@ export class ParkourController {
     }
     this.game.player.x=this.x;
     this.game.player.z=this.z;
+    this.impactKick=Math.max(0,(this.impactKick||0)-dt*2.5);
     const head=1.72-(this.slide>0?.54:0);
     const speed=Math.hypot(this.vx,this.vz);
     const bob=this.grounded&&speed>.4?Math.sin(this.game.animTime*12)*Math.min(.035,speed*.0025):0;
     const vaultCamera=vaultProgress===null?null:vaultCameraMotion(vaultProgress);
-    this.game.player.eyeY=this.y+head+bob-(vaultCamera?.headDip||0);
+    this.game.player.eyeY=this.y+head+bob-this.impactKick*.11-(vaultCamera?.headDip||0);
     if(this.game.weapons)this.game.weapons.vaultAnim=vaultProgress===null?0:Math.sin(Math.PI*vaultProgress);
     this.game.player.moveX=this.vx;this.game.player.moveZ=this.vz;
     this.game.positionCamera();
@@ -211,7 +212,8 @@ export class ParkourController {
       const next=cam.fov+Math.min(1,dt*8)*(fov-cam.fov);
       if(Math.abs(next-cam.fov)>.015){cam.fov=next;cam.updateProjectionMatrix();}
     }
-    this.game.world.cameraPitch.rotation.z=vaultCamera?.roll||0; // brief visual lean; LookController keeps aim
+    const strafe=(this.vx*Math.cos(this.game.yaw)-this.vz*Math.sin(this.game.yaw));
+    this.game.world.cameraPitch.rotation.z=(vaultCamera?.roll||0)-Math.max(-.018,Math.min(.018,strafe*.0016)); // brief visual lean; LookController keeps aim
     this.hudCooldown=(this.hudCooldown||0)-dt;
     if(this.hudCooldown<=0){this.updateHud();this.hudCooldown=.095;}
   }
@@ -318,6 +320,7 @@ export class ParkourController {
     const landed=!flying&&this.vy<=0?this.city.landingAt(this.x,this.z,prevY,nextY):-Infinity;
     if(landed!==-Infinity){
       this.y=landed;this.vy=0;this.grounded=true;this.wallRun=0;this.coyote=CFG.coyote;
+      this.impactKick=Math.min(1,Math.max(0,(prevY-landed)*.45));
       if(prevY-landed>2.0)this.prompt='ATERRISSAGEM — SEGURE CTRL PARA DESLIZAR';
       if((k.ControlLeft||k.ControlRight)&&this.slide<=0)this.slide=.34;
     }else{

@@ -1,10 +1,10 @@
 /** Física cinemática de parkour em passos fixos. Sem dependência de Three.js. */
 export const PARKOUR_TUNING=Object.freeze({
-  fixedStep:1/90,gravity:23.5,jumpSpeed:11.5,walkSpeed:7.9,sprintSpeed:13.1,
-  accelGround:34,accelAir:11,frictionGround:9.5,frictionAir:.7,
+  fixedStep:1/90,gravity:25.0,jumpSpeed:11.35,walkSpeed:7.7,sprintSpeed:12.8,
+  accelGround:39,accelAir:13.5,frictionGround:15,frictionAir:1.4,
   coyote:.15,jumpBuffer:.18,characterRadius:.42,characterHeight:1.77,
-  stairStep:.48,wallRunTime:.78,wallRunGravity:5.6,ledgeReach:1.72,
-  ladderSpeed:5.4,slideTime:.70,slideSpeed:15.1
+  stairStep:.51,wallRunTime:.78,wallRunGravity:5.6,ledgeReach:1.72,
+  ladderSpeed:5.4,slideTime:.65,slideSpeed:14.7
 });
 export const approach=(v,target,maxDelta)=>v<target?Math.min(v+maxDelta,target):Math.max(v-maxDelta,target);
 export const sphereIntersectsXZ=(x,z,r,s)=>Math.max(Math.abs(x-s.x)-s.hx,0)**2+Math.max(Math.abs(z-s.z)-s.hz,0)**2<r*r;

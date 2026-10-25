@@ -170,8 +170,7 @@ export class UrbanCity {
   }
   build(){
     this.squad=createSquadWorld(this);
-    // Modest procedural props keep the map alive without hundreds of urban chunks.
-    this.loadProps();
+    // Port Zenith is a completely new arena. Do not load legacy visual props.
   }
   makeFuelDrums(){
     const steel=new THREE.MeshStandardMaterial({color:0x48535b,metalness:.68,roughness:.52});

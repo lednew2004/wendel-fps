@@ -28,7 +28,7 @@ const WS_DEAD_MS=75000;
 const rooms=new Map();
 const players=new Map();
 const SPAWNS=FFA_SPAWNS;
-const AMMO_LOCATIONS=[...FFA_SPAWNS,...SQUAD_OBSTACLES.slice(0,8).map(b=>[b.x+8,b.z+8]),[-8,-155],[10,-150],[-5,-90],[60,-15],[-70,48],[0,130]];
+const AMMO_LOCATIONS=[...FFA_SPAWNS,...SQUAD_OBSTACLES.slice(0,8).map(b=>[b.x+8,b.z+8]),[-8,-94],[10,-90],[-5,-48],[37,-9],[-37,34],[0,84]];
 const WEAPONS=[{id:0,damage:21,interval:.12,range:140},{id:1,damage:55,interval:.85,range:34},{id:2,damage:80,interval:1.24,range:180},{id:3,damage:17,interval:.095,range:130}];
 const colliders=JSON.parse(fs.readFileSync(new URL('colliders.json',import.meta.url),'utf8'));
 const interactions=JSON.parse(fs.readFileSync(new URL('interactables.json',import.meta.url),'utf8'));
@@ -783,7 +783,7 @@ const server=http.createServer((req,res)=>{
     res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
     res.end(JSON.stringify({enabled:!!key,key}));return;
   }
-  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'4.6.6'}));return;}
+  if(['/health','/api/health'].includes(req.url?.split('?')[0])){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({ok:true,rooms:rooms.size,players:players.size,uptimeSeconds:Math.floor(process.uptime()),version:'4.7.0'}));return;}
   let relative;
   try{relative=decodeURIComponent((req.url||'/').split('?')[0]);}catch{res.writeHead(400);res.end();return;}
   if(relative==='/')relative='/index.html';
