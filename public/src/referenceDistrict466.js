@@ -59,12 +59,15 @@ export function installReferenceDistrict466(city,mats){
     mesh.frustumCulled=false;parent.add(mesh);
     const batch={mesh,n:0,max};batches.push(batch);return batch;
   };
+  // A missing material batch must never prevent the entire FPS engine from booting.
+  // City coordinates can be negative, so palette indices are normalized below.
   const put=(b,x,y,z,w,h,d,ry=0,rx=0,rz=0)=>{
-    if(b.n>=b.max||Math.min(w,h,d)<=0)return;
+    if(!b || !b.mesh || b.n>=b.max || ![x,y,z,w,h,d].every(Number.isFinite) || Math.min(w,h,d)<=0)return;
     unit.position.set(x,y,z);unit.rotation.set(rx,ry,rz);unit.scale.set(w,h,d);unit.updateMatrix();b.mesh.setMatrixAt(b.n++,unit.matrix);
   };
   const panels=[mats.cyan,mats.marine,mats.blue,mats.cream,mats.warm,mats.orange]
     .map((m,i)=>newBatch(`ACTUAL_PBR_FACADE_PANEL_${i}`,m,380));
+  const panelAt=(index)=>panels[((index % panels.length) + panels.length) % panels.length];
   const ridges=newBatch('CORRUGATED_SHEET_RIBS',mats.trim,1600,detail);
   const support=newBatch('STRUCTURAL_METAL_FRAMES',mats.frame,900);
   const lintels=newBatch('CONCRETE_SPANDRELS',mats.cream,500);
@@ -195,7 +198,7 @@ export function installReferenceDistrict466(city,mats){
         if(hh<.15)continue;
         for(let bay=0;bay<3;bay++){
           const zz=b.z+(bay-1)*(b.d/3.15);
-          put(panels[(Math.floor(b.x+b.z)+bay+2*layer+10)%panels.length],xx,layer*2.4+hh/2+.08,zz,.14,hh,b.d/3.25);
+          put(panelAt(Math.floor(b.x+b.z)+bay+2*layer+10),xx,layer*2.4+hh/2+.08,zz,.14,hh,b.d/3.25);
         }
       }
       for(let zf=-1;zf<=1;zf++){
