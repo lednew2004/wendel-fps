@@ -1,5 +1,6 @@
 import {HERO_COMBOS,dashVector,orbitLocation,segmentDistance2D} from './heroCombos.js';
 import {CombatMotion,DASH_DURATION_MS,COMBO_WINDOW_MS} from './combatMotion.js';
+import {VexMobility} from './vexMobility.js';
 import * as THREE from 'three';
 import {POWER_VARIANTS,heroAllows,heroLoadout} from './heroRoster.js';
 import {WORLD_HALF} from './worldLayout.js';
@@ -21,9 +22,9 @@ export const POWER_DATA={
  rewind:{label:'REWIND 10S',icon:'↶',cool:32,help:'Reverte posição e vida de 10 segundos'},
  chain:{label:'RAIO',icon:'ϟ',cool:13,help:'Raio fortalecido até 42 m'},
  gravity:{label:'GRAVIDADE',icon:'↟',cool:20,help:'Área de 13 m; suspende 2,7 s'},
- vault:{label:'SALTO ABSOLUTO',icon:'↥',cool:12,help:'Super salto cinematográfico até telhados e estruturas a 17 m de distância'},
- wallrun_boost:{label:'PROPULSOR INFINITO',icon:'↗',cool:16,duration:8000,help:'Impulso aéreo + corrida vertical ampliada por 8 s'},
- vex_ultimate:{label:'SEM LIMITES',icon:'✦',cool:48,duration:18000,help:'18 s de parkour extremo, saltos aéreos e impulsos gigantes'},
+ vault:{label:'GARRAS DE TRAVESSIA',icon:'⌁',cool:8.5,help:'3 cargas. Dispare em prédios, faça balanços com inércia e troque a âncora no ar. W encurta, S alonga; ESPAÇO solta.'},
+ wallrun_boost:{label:'ESCALADA PREDATÓRIA',icon:'⇈',cool:0,duration:5300,help:'Agarre uma parede por até 5,3 s. W sobe, S desce, A/D deslocam e ESPAÇO salta.'},
+ vex_ultimate:{label:'LÂMINAS PREDADORAS',icon:'⚔',cool:40,help:'Mire em inimigos até 28m e avance com lâminas. Acertou: reativa imediatamente. Errou: perde e espera 40s.'},
  forge_build:{label:'MODO CRIATIVO',icon:'▦',cool:23,duration:12000,help:'12 s colocando blocos pela mira com o botão de atirar'},
  forge_redstone:{label:'REDSTONE EXPLOSIVA',icon:'✹',cool:26,help:'Arma seus blocos, detone ao atirar e crie reações em cadeia'},
  forge_ultimate:{label:'DOMÍNIO VOXEL',icon:'▩',cool:55,duration:16000,help:'16 s de construção acelerada e até 60 blocos ativos'},
@@ -45,7 +46,7 @@ const now=()=>Date.now();
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export class PowerSystem {
  constructor(game){
-  this.game=game;this.motion=new CombatMotion(game);this.comboStages={};this.comboVisual=null;this.economy=new CasualEconomy();this.loadout=['push','teleport','heal'];this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;
+  this.game=game;this.motion=new CombatMotion(game);this.vex=new VexMobility(game);this.comboStages={};this.comboVisual=null;this.economy=new CasualEconomy();this.loadout=['push','teleport','heal'];this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;
   this.lastSafe={x:0,y:0,z:18};this.teleportMarker=null;this.effects=[];this.flightBefore=false;this.uiTick=0;this.history=[];this.localHazards=[];this.decoys=[];this.cloneTargets=[];this.cloneJumpUsed=false;this.aimTouch=null;this.prevGravity=null;this.copyMark=null;this.copyBuff=null;this.propLabel=null;this.adaptive={};this.novelScale=1;this.novelScaleUntil=0;this.fusionSample=null;this.recordedRoute=[];
   try{const val=JSON.parse(localStorage.getItem('titan-power-loadout')||'null');if(Array.isArray(val)&&POWER_DATA[val[0]]&&POWER_DATA[val[1]]&&val[0]!==val[1])this.loadout=val;}catch{}
   this.menuLoadout=[...this.loadout];
@@ -180,9 +181,9 @@ export class PowerSystem {
   }
   apply();
  }
- reset(){this.motion.clear();this.comboStages={};this.clearComboVisual();if(this.copyBuff?.original){this.loadout=[...this.copyBuff.original];this.refreshSelects();this.refreshButtons();}this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;this.cleanupMarker();for(const e of this.effects){this.game.world.scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();}this.effects=[];this.lastSafe={x:0,y:0,z:18};this.history=[];this.localHazards=[];this.cloneTargets=[];this.cloneJumpUsed=false;this.copyMark=null;this.copyBuff=null;this.adaptive={};this.novelScale=1;this.novelScaleUntil=0;this.fusionSample=null;this.recordedRoute=[];this.status.resurrection=0;this.status.morph=0;this.aimTouch=null;this.hideAimGuide();this.clearDecoys();this.menu?.close();this.refreshButtons();}
+ reset(){this.vex.reset();this.motion.clear();this.comboStages={};this.clearComboVisual();if(this.copyBuff?.original){this.loadout=[...this.copyBuff.original];this.refreshSelects();this.refreshButtons();}this.cooldowns={};this.status={};this.returnPoint=null;this.targeting=false;this.cleanupMarker();for(const e of this.effects){this.game.world.scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();}this.effects=[];this.lastSafe={x:0,y:0,z:18};this.history=[];this.localHazards=[];this.cloneTargets=[];this.cloneJumpUsed=false;this.copyMark=null;this.copyBuff=null;this.adaptive={};this.novelScale=1;this.novelScaleUntil=0;this.fusionSample=null;this.recordedRoute=[];this.status.resurrection=0;this.status.morph=0;this.aimTouch=null;this.hideAimGuide();this.clearDecoys();this.menu?.close();this.refreshButtons();}
  restoreMenuLoadout(){this.loadout=[...this.menuLoadout];this.refreshSelects();this.refreshButtons();this.updateEconomyHUD();}
- startRun(mode){this.motion.clear();const kit=heroLoadout(this.game.heroSelection?.selectedHero);this.economy.reset(kit[0]);this.economy.owned=new Set(kit);this.loadout=[...kit];this.comboStages={};this.refreshButtons();this.refreshSelects();this.updateEconomyHUD();}
+ startRun(mode){this.vex.reset();this.motion.clear();const kit=heroLoadout(this.game.heroSelection?.selectedHero);this.economy.reset(kit[0]);this.economy.owned=new Set(kit);this.loadout=[...kit];this.comboStages={};this.refreshButtons();this.refreshSelects();this.updateEconomyHUD();}
  isCasualRun(){return this.game.mode!=='multiplayer'&&this.game.mode!==undefined&&this.game.state!=='menu';}
  earnKillCredit(enemy){return 0;}
  updateEconomyHUD(){const hud=$('titan-economy-hud');if(!hud)return;const active=this.isCasualRun();hud.classList.toggle('hidden',!active);if(active)hud.textContent='✦ KIT COMPLETO · 3 PODERES LIBERADOS';}
@@ -213,6 +214,7 @@ export class PowerSystem {
   if(id==='morph'&&this.isActive('morph')){this.cancelMorph();return;}
 
   if(this.frozen()){g.toast('CONGELADO!');return;}
+  if(['vault','wallrun_boost','vex_ultimate'].includes(id)&&g.heroSelection?.selectedHero==='striker'){this.vex.cast(id);return;}
   if((this.cooldowns[id]||0)>now()){g.toast('RECARGA · '+Math.ceil((this.cooldowns[id]-now())/1000)+'s');return;}
   if(this.isActive('phase')&&id!=='phase')return;
   if(id==='teleport'){g.mouseDown=false;this.menu.openTeleport();return;}
@@ -505,7 +507,7 @@ export class PowerSystem {
    mat.dispose();
  }
  cloneAvailable(){return !this.cloneJumpUsed&&this.cloneTargets.some(c=>c.until>now());}
- needsAim(id){id=POWER_VARIANTS[id]?.base||id;return ['push','freeze','chain','gravity','blackhole','swap','copy'].includes(id)||(id==='clonejump'&&this.cloneAvailable());}
+ needsAim(id){id=POWER_VARIANTS[id]?.base||id;return ['push','freeze','chain','gravity','blackhole','swap','copy','vault','vex_ultimate'].includes(id)||(id==='clonejump'&&this.cloneAvailable());}
  showAimGuide(id,touch=null){
    let guide=$('power-aim-guide');if(!guide){guide=document.createElement('div');guide.id='power-aim-guide';document.body.appendChild(guide);}
    guide.classList.add('visible');document.body.classList.add('power-targeting');const pick=id==='clonejump'&&this.cloneAvailable();
@@ -592,7 +594,7 @@ export class PowerSystem {
   if(msg.kind==='gravity'&&Array.isArray(msg.affected)&&msg.affected.includes(g.multiplayer.id)){this.status.gravity=now()+2700;this.flash(0xd4b2ff,8);}
   if(msg.kind==='phase-exit'&&Number.isFinite(msg.x))pk.spawn(msg.x,msg.y,msg.z);
  }
- update(dt){this.motion.update(dt);const g=this.game,pk=g.parkour,t=now();
+ update(dt){this.motion.update(dt);this.vex.update(dt);const g=this.game,pk=g.parkour,t=now();
   if(!this.comboVisual&&this.comboStages.butterfly_orbit?.until>t)this.showComboVisual(0xae94ff);
   if(!this.comboVisual&&this.comboStages.butterfly_launch?.until>t)this.showComboVisual(0xff9edc);
   if(this.comboVisual){const orbital=this.comboStages.butterfly_orbit,launch=this.comboStages.butterfly_launch;if(orbital?.until>t){const q=orbitLocation(pk.x,pk.z,orbital.started,t);this.comboVisual.position.set(q.x,pk.y+1.5,q.z);}else if(launch?.until>t){this.comboVisual.position.set(launch.orb.x,launch.orb.y+1.5,launch.orb.z);}else this.clearComboVisual();}
@@ -619,8 +621,9 @@ export class PowerSystem {
   $('power-descend').classList.toggle('visible',this.isActive('flight')&&!!g.mobile?.enabled);
   this.uiTick-=dt;if(this.uiTick<0){for(let i=0;i<3;i++){const id=this.loadout[i],btn=$('power-'+['a','b','c'][i]);const until=id?(this.cooldowns[id]||0):0;const left=Math.ceil((until-t)/1000);const active=id&&this.isActive(id);const back=id==='teleport'&&this.returnPoint?.until>t;const combo=this.comboStages[id]?.until>t;const jump=(POWER_VARIANTS[id]?.base||id)==='clonejump'&&this.cloneAvailable();const liveMs=Math.max(0,(id?this.status[id]||0:0)-t);
     const label=btn.querySelector('.power-time');label.textContent=!id?'BLOQUEADO':id==='resurrection'&&!active&&left<=0?'AUTO':back?'↶ '+Math.ceil((this.returnPoint.until-t)/1000)+'s':jump?'TROCAR '+Math.ceil((Math.max(...this.cloneTargets.map(c=>c.until))-t)/1000)+'s':combo?'REATIVE '+Math.ceil((this.comboStages[id].until-t)/1000)+'s':active?('ATIVO '+(liveMs/1000).toFixed(1)+'s'):left>0?left+'s':'PRONTO';
+    if(g.heroSelection?.selectedHero==='striker'&&['vault','wallrun_boost','vex_ultimate'].includes(id)){label.textContent=this.vex.hud(id);btn.classList.toggle('cooling',id==='vault'?this.vex.charges===0:id==='vex_ultimate'?this.vex.stepTime<this.vex.bladeReadyAt:this.vex.stepTime<this.vex.climbReadyAt);btn.classList.toggle('active',!!(this.vex.grapple&&id==='vault'||this.vex.climb&&id==='wallrun_boost'||this.vex.blade&&id==='vex_ultimate'));btn.style.setProperty('--power-progress',id==='vault'?(this.vex.charges/3*100)+'%':id==='wallrun_boost'?(this.vex.climb?Math.max(0,this.vex.climb.time/5.3*100):100)+'%':(this.vex.stepTime>=this.vex.bladeReadyAt?'100%':Math.max(0,100-(this.vex.bladeReadyAt-this.vex.stepTime)/40*100)+'%'));continue;}
     btn.classList.toggle('cooling',left>0&&!back&&!jump&&!combo&&!active);btn.classList.toggle('active',active||back||jump);
     btn.style.setProperty('--power-progress',active?Math.max(0,Math.min(100,liveMs/(POWER_DATA[id]?.duration||((id==='copy')?18000:3000))*100))+'%':left>0?Math.max(0,100-(until-t)/((POWER_DATA[id]?.cool||1)*10))+'%':'100%');}this.uiTick=.2;}
  }
- resetOnDeath(){this.novelScale=1;this.novelScaleUntil=0;this.recordedRoute=[];this.fusionSample=null;this.abilityTouches?.clear();this.adaptive={};this.motion.clear();this.comboStages={};this.cancelTargeting();this.returnPoint=null;this.status={};this.copyMark=null;this.copyBuff=null;document.body.classList.remove('titan-morphed','titan-resurrected');}
+ resetOnDeath(){this.vex.reset();this.novelScale=1;this.novelScaleUntil=0;this.recordedRoute=[];this.fusionSample=null;this.abilityTouches?.clear();this.adaptive={};this.motion.clear();this.comboStages={};this.cancelTargeting();this.returnPoint=null;this.status={};this.copyMark=null;this.copyBuff=null;document.body.classList.remove('titan-morphed','titan-resurrected');}
 }

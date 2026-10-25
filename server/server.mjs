@@ -1,4 +1,5 @@
 import {HERO_COMBOS,dashVector,orbitLocation,segmentDistance2D} from '../public/src/heroCombos.js';
+import {findGrappleAnchor,targetScore,lineOfSight,VEX_TUNING} from '../public/src/vexPhysics.js';
 import {POWER_VARIANTS,heroById,heroLoadout,heroAllows,HEROES} from '../public/src/heroRoster.js';
 /** TITAN PROTOCOL rooms + PvP. Node 22+, zero npm dependencies.
  * Designed for 2-8 players per room, authoritative health/kills, basic aim, rate and speed checks.
@@ -192,8 +193,9 @@ function move(p,data){
   const distance=Math.hypot(x-p.x,z-p.z);
   const dy=Math.abs(y-p.y);
   const flying=p.powers.flightUntil>now;const phased=p.powers.phaseUntil>now;
+  const vexMoving=p.hero==='striker'&&(p.vex?.moveUntil||0)>now;
   // Client dash has a cooldown; authoritative speed checks still reject invalid teleports.
-  if(distance>Math.max(3.2,(flying?35:42)*dt+1.0)||dy>Math.max(2.4,(flying?22:17)*dt+1.0))return;
+  if(distance>Math.max(3.2,(flying?35:vexMoving?48:42)*dt+1.0)||dy>Math.max(2.4,(flying?22:vexMoving?42:17)*dt+1.0))return;
   if(!phased&&!flying&&!locationValid(x,y,z,roomColliders(p.room)))return;
   if(!phased&&!flying)p.powers.safe={x,y,z};
   p.x=x;p.y=y;p.z=z;p.yaw=yaw;p.pitch=pitch;p.weapon=weapon;p.lastMove=now;p.lastSeen=now;
@@ -269,7 +271,7 @@ function fire(p,data){
   setTimeout(()=>{
     if(victim.room.players.get(victim.id)!==victim||victim.alive)return;
     const s=spawn(victim.deaths%SPAWNS.length);Object.assign(victim,s,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
-    victim.vaultTrack=null;victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];victim.powers.copyMark=null;victim.powers.copiedUntil=0;victim.powers.propUntil=0;victim.powers.propType=null;victim.powers.resurrectionUntil=0;victim.powers.combo={};victim.powers.empoweredUntil=0;if(victim.powers.originalLoadout){victim.powers.loadout=sanitizeLoadout(victim.powers.originalLoadout);victim.powers.originalLoadout=null;}
+    victim.vaultTrack=null;victim.vex=null;victim.powers.flightUntil=0;victim.powers.phaseUntil=0;victim.powers.invisibleUntil=0;victim.powers.frozenUntil=0;victim.powers.teleportReturn=null;victim.powers.shieldUntil=0;victim.powers.gravityUntil=0;victim.powers.history=[];victim.powers.copyMark=null;victim.powers.copiedUntil=0;victim.powers.propUntil=0;victim.powers.propType=null;victim.powers.resurrectionUntil=0;victim.powers.combo={};victim.powers.empoweredUntil=0;if(victim.powers.originalLoadout){victim.powers.loadout=sanitizeLoadout(victim.powers.originalLoadout);victim.powers.originalLoadout=null;}
     send(victim.socket,{type:'respawn',spawn:s,hp:100,shield:40,powers:powerSnapshot(victim)});
     broadcast(p.room,{type:'revived',player:publicPlayer(victim)},victim.socket);
   },2200);
@@ -327,7 +329,7 @@ function applyAbilityDamage(attacker,victim,damage,now=Date.now(),kind='energy')
    setTimeout(()=>{
      if(victim.room.players.get(victim.id)!==victim||victim.alive)return;
      const sp=spawn(victim.deaths%SPAWNS.length);Object.assign(victim,sp,{hp:100,shield:40,alive:true,spawnUntil:Date.now()+1600,lastMove:Date.now()});
-     const selected=victim.powers.originalLoadout||victim.powers.loadout;victim.powers=freshPowerState();victim.powers.loadout=sanitizeLoadout(selected);
+     const selected=victim.powers.originalLoadout||victim.powers.loadout;victim.vex=null;victim.powers=freshPowerState();victim.powers.loadout=sanitizeLoadout(selected);
      send(victim.socket,{type:'respawn',spawn:sp,hp:100,shield:40,powers:powerSnapshot(victim)});
      broadcast(attacker.room,{type:'revived',player:publicPlayer(victim)},victim.socket);
    },2200);
@@ -699,6 +701,55 @@ function castPower(p,data){
   }else if(effect==='phase'){state.phaseUntil=now+rule.duration;state.safe=locationValid(p.x,p.y,p.z,roomColliders(p.room))?{x:p.x,y:p.y,z:p.z}:state.safe;}
   notifyPower(p,id);
 }
+/** Independent, server-verified Vex actions. No trusts in client damage or cooldowns. */
+function vexState(p){return p.vex||(p.vex={recharges:[],climbReadyAt:0,bladeReadyAt:0,bladeUntil:0,bladeTarget:null,moveUntil:0});}
+function vexActivation(p,data){
+ const skill=data.skill,t=Date.now(),v=vexState(p);
+ if(p.hero!=='striker'||!p.alive||!['vault','wallrun_boost','vex_ultimate'].includes(skill)||!p.powers.loadout.includes(skill)||p.powers.frozenUntil>t||p.powers.gravityUntil>t){send(p.socket,{type:'vex-cast-result',skill,ok:false});return;}
+ const solids=roomColliders(p.room);
+ if(skill==='vault'){
+  v.recharges=v.recharges.filter(tick=>tick>t);
+  if(v.recharges.length>=VEX_TUNING.grappleCharges){send(p.socket,{type:'vex-cast-result',skill,ok:false});return;}
+  const cp=Math.cos(p.pitch),dir={x:-Math.sin(p.yaw)*cp,y:Math.sin(p.pitch),z:-Math.cos(p.yaw)*cp};
+  const origin={x:p.x,y:p.y+1.5,z:p.z},h=findGrappleAnchor(origin,dir,solids,VEX_TUNING.grappleRange);
+  const a=data.anchor;
+  if(!h||!a||!Number.isFinite(a.x)||!Number.isFinite(a.y)||!Number.isFinite(a.z)||Math.hypot(a.x-h.x,a.y-h.y,a.z-h.z)>3.7){send(p.socket,{type:'vex-cast-result',skill,ok:false});return;}
+  v.recharges.push(t+VEX_TUNING.grappleRecharge*1000);v.moveUntil=t+12500;
+ }else if(skill==='wallrun_boost'){
+  if(v.climbReadyAt>t){send(p.socket,{type:'vex-cast-result',skill,ok:false});return;}
+  const near=solids.some(b=>b.active!==false&&b.maxY>p.y+.9&&b.minY<p.y+1.7&&(
+   (Math.abs(Math.abs(p.x-b.x)-b.hx)<2&&Math.abs(p.z-b.z)<b.hz+1)||
+   (Math.abs(Math.abs(p.z-b.z)-b.hz)<2&&Math.abs(p.x-b.x)<b.hx+1)));
+  if(!near){send(p.socket,{type:'vex-cast-result',skill,ok:false});return;}
+  v.climbReadyAt=t+13000;v.moveUntil=t+5600;
+ }else{
+  if(v.bladeReadyAt>t){send(p.socket,{type:'vex-cast-result',skill,ok:false});return;}
+  v.bladeReadyAt=t+VEX_TUNING.bladeCooldown*1000;v.bladeUntil=t+1000;v.moveUntil=t+1100;
+  const target=p.room.mode==='coop'?p.room.coop?.enemies?.find(e=>e.id===data.target):p.room.players.get(data.target);
+  if(target&&(p.room.mode==='coop'||target.alive&&target.team!==p.team)){
+   const cp=Math.cos(p.pitch),dir={x:-Math.sin(p.yaw)*cp,y:Math.sin(p.pitch),z:-Math.cos(p.yaw)*cp};
+   const from={x:p.x,y:p.y+1.55,z:p.z},to={x:target.x,y:(p.room.mode==='coop'?0:target.y)+1.15,z:target.z};
+   v.bladeTarget=targetScore(from,dir,to,VEX_TUNING.bladeRange)&&lineOfSight(from,to,solids)?target.id:null;
+  }else v.bladeTarget=null;
+ }
+ send(p.socket,{type:'vex-cast-result',skill,ok:true});
+ broadcast(p.room,{type:'power-vfx',kind:'vex-'+skill,player:p.id,x:p.x,y:p.y,z:p.z},p.socket);
+}
+function vexBladeHit(p,data){
+ const v=vexState(p),t=Date.now(),isCoop=p.room.mode==='coop';
+ const target=isCoop?p.room.coop?.enemies?.find(e=>e.id===data.target):p.room.players.get(data.target);
+ const ok=p.hero==='striker'&&p.alive&&v.bladeUntil>t&&v.bladeTarget===data.target&&target&&
+   (isCoop||target.alive&&target.team!==p.team)&&
+   Math.hypot(target.x-p.x,(isCoop?0:target.y)-p.y,target.z-p.z)<3.25&&
+   lineOfSight({x:p.x,y:p.y+1.1,z:p.z},{x:target.x,y:(isCoop?0:target.y)+1.1,z:target.z},roomColliders(p.room));
+ v.bladeUntil=0;v.bladeTarget=null;
+ if(!ok){send(p.socket,{type:'vex-hit-confirm',ok:false});return;}
+ if(isCoop){target.hp=Math.max(0,target.hp-VEX_TUNING.bladeDamage);if(target.hp===0){p.room.coop.enemies=p.room.coop.enemies.filter(e=>e!==target);p.kills++;}}
+ else applyAbilityDamage(p,target,VEX_TUNING.bladeDamage,t,'melee');
+ v.bladeReadyAt=t+220;
+ send(p.socket,{type:'vex-hit-confirm',ok:true,target:target.id});
+ broadcast(p.room,{type:'power-vfx',kind:'vex-slash',player:p.id,x:target.x,y:target.y||0,z:target.z});
+}
 function onMessage(ws,data){
   if(!data||typeof data!=='object'||typeof data.type!=='string')return;
   if(data.type==='join'){join(ws,data);return;}
@@ -709,6 +760,8 @@ function onMessage(ws,data){
   }
   else if(data.type==='move')move(p,data);
   else if(data.type==='fire')fire(p,data);
+  else if(data.type==='vex-activate')vexActivation(p,data);
+  else if(data.type==='vex-blade-hit')vexBladeHit(p,data);
   else if(data.type==='world-interact')interactWorld(p,data.id);
   else if(data.type==='builder-place')placeForgeBlock(p,data.pos);
   else if(data.type==='builder-remove'){const b=p.room.blocks.find(b=>b.id===data.id&&b.owner===p.id);if(b&&p.alive&&Math.hypot(p.x-b.x,p.z-b.z)<=FORGE_RANGE+2)dropForgeBlock(p.room,b);}
@@ -881,7 +934,7 @@ const tick=setInterval(()=>{
         if(action.kind==='damage'||action.kind==='down'){
           const victim=room.players.get(action.id);if(victim){send(victim.socket,{type:'damaged',hp:victim.hp,shield:victim.shield});broadcast(room,{type:'health',id:victim.id,hp:victim.hp,shield:victim.shield});if(action.kind==='down')send(victim.socket,{type:'coop-downed'});}
         }else if(action.kind==='revive'){
-          const revived=room.players.get(action.id);if(revived){send(revived.socket,{type:'respawn',spawn:{x:action.x,y:0,z:action.z},hp:100,shield:40,powers:powerSnapshot(revived)});broadcast(room,{type:'revived',player:publicPlayer(revived)},revived.socket);}
+          const revived=room.players.get(action.id);if(revived){revived.vex=null;send(revived.socket,{type:'respawn',spawn:{x:action.x,y:0,z:action.z},hp:100,shield:40,powers:powerSnapshot(revived)});broadcast(room,{type:'revived',player:publicPlayer(revived)},revived.socket);}
         }else if(action.kind==='phase')broadcast(room,{type:'coop-phase',phase:action.phase});
       }
       if(Math.floor(now/200)!==Math.floor((now-100)/200))broadcast(room,coopSnapshot(room));

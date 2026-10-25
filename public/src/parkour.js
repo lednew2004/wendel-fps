@@ -53,7 +53,7 @@ export class ParkourController {
     this.updateHud();return true;
   }
   spawn(x,y,z){
-    this.vault=null;this.impactKick=0;this.x=x;this.z=z;this.y=y;this.vexDoubleUsed=false;this.vx=0;this.vz=0;this.vy=0;this.grounded=true;
+    this.game.powers?.vex?.onSpawn();this.vault=null;this.impactKick=0;this.x=x;this.z=z;this.y=y;this.vexDoubleUsed=false;this.vx=0;this.vz=0;this.vy=0;this.grounded=true;
     this.coyote=0;this.buffer=0;this.wallRun=0;this.slide=0;this.dashTime=0;this.ladder=null;this.hanging=null;
     this.game.player.x=x;this.game.player.z=z;this.game.player.eyeY=y+1.75;
     this.game.positionCamera();
@@ -87,10 +87,11 @@ export class ParkourController {
     this.spawn(p.x,p.y,p.z);this.prompt='REINICIADO NO ÚLTIMO CHECKPOINT';
   }
   jump(){
+    const vex=this.game.powers?.vex;if(vex?.isVex&&vex.jumpFromClimb())return;
+    if(vex?.isVex&&vex.grapple){vex.releaseGrapple();this.vy=Math.max(this.vy,6);this.grounded=false;this.prompt='SALTO DE BALANÇO · MOMENTUM CONSERVADO';return;}
     if(this.game.deployment?.active){this.game.deployment.deploy();return;}
     if(this.hanging){this.mantle();return;}
     if(this.ladder){this.dismountLadder();return;}
-    if(this.game.powers?.isActive('vex_ultimate')&&!this.grounded&&!this.ladder&&!this.hanging&&!this.vexDoubleUsed){this.vy=CFG.jumpSpeed*1.75;this.vexDoubleUsed=true;this.prompt='VEX · PULO DUPLO';return;}
     this.buffer=CFG.jumpBuffer;
     if(this.grounded){
       const dir=this.direction();
@@ -198,7 +199,8 @@ export class ParkourController {
     this.impactKick=Math.max(0,(this.impactKick||0)-dt*2.5);
     const head=1.72-(this.slide>0?.54:0);
     const speed=Math.hypot(this.vx,this.vz);
-    const bob=this.grounded&&speed>.4?Math.sin(this.game.animTime*12)*Math.min(.035,speed*.0025):0;
+    const vex=this.game.powers?.vex;
+    const bob=this.grounded&&speed>.4?Math.sin(this.game.animTime*12)*Math.min(.035,speed*.0025):vex?.isVex&&vex.climb?Math.sin(vex.stepTime*15)*.035:vex?.isVex&&vex.grapple?Math.sin(vex.stepTime*6)*.018:0;
     const vaultCamera=vaultProgress===null?null:vaultCameraMotion(vaultProgress);
     this.game.player.eyeY=this.y+head+bob-this.impactKick*.11-(vaultCamera?.headDip||0);
     if(this.game.weapons)this.game.weapons.vaultAnim=vaultProgress===null?0:Math.sin(Math.PI*vaultProgress);
@@ -208,12 +210,12 @@ export class ParkourController {
     // When ADS is held, Weapons exclusively controls FOV; two competing camera
     // interpolations caused jitter and made the optic feel like it barely zoomed.
     if(!this.game.rightDown){
-      const fov=this.game.world.baseFOV+Math.min(5,speed*.32)+(vaultCamera?.fovBoost||0);
+      const fov=this.game.world.baseFOV+Math.min(5,speed*.32)+(vaultCamera?.fovBoost||0)+(vex?.isVex?(vex.blade?7:vex.grapple?Math.min(5,speed*.16):vex.climb?1.8:0):0);
       const next=cam.fov+Math.min(1,dt*8)*(fov-cam.fov);
       if(Math.abs(next-cam.fov)>.015){cam.fov=next;cam.updateProjectionMatrix();}
     }
     const strafe=(this.vx*Math.cos(this.game.yaw)-this.vz*Math.sin(this.game.yaw));
-    this.game.world.cameraPitch.rotation.z=(vaultCamera?.roll||0)-Math.max(-.018,Math.min(.018,strafe*.0016)); // brief visual lean; LookController keeps aim
+    this.game.world.cameraPitch.rotation.z=(vaultCamera?.roll||0)+(vex?.isVex?(vex.ropeRoll||0)+(vex.climb?.nx||0)*.035:0)-Math.max(-.018,Math.min(.018,strafe*.0016)); // brief visual lean; LookController keeps aim
     this.hudCooldown=(this.hudCooldown||0)-dt;
     if(this.hudCooldown<=0){this.updateHud();this.hudCooldown=.095;}
   }
@@ -224,6 +226,8 @@ export class ParkourController {
     const k=this.game.keys;
     const dir=this.direction();
     if(this.running)this.elapsed+=dt;
+    const vex=powers?.vex;
+    if(vex?.isVex&&vex.climbStep(dt)){this.checkCourse();return;}
     if(this.ladder){
       const climb=Math.max(-1,Math.min(1,Number(!!k.KeyW)-Number(!!k.KeyS)+(this.game.mobile?.move.y||0)));
       this.y=Math.max(this.ladder.base,Math.min(this.ladder.top,this.y+climb*CFG.ladderSpeed*dt));
@@ -245,10 +249,10 @@ export class ParkourController {
     const isSprint=!!(k.ShiftLeft||k.ShiftRight||mobile?.sprintTouch)||(!!mobile?.enabled&&stickMagnitude>.72);
     // Mobile-only pace boost. Desktop physics, jump and dash are unchanged.
     const touchPace=mobile?.enabled&&this.slide<=0?(isSprint?1.10:1.18):1;
-    const vexBoost=powers?.isActive('vex_ultimate')?1.65:powers?.isActive('wallrun_boost')?1.3:1;
+    const vexBoost=1;
     const speed=(this.slide>0?CFG.slideSpeed:isSprint?CFG.sprintSpeed:CFG.walkSpeed)*touchPace*vexBoost*(this.game.player.speedBonus||1);
     const ax=dir.x*speed,az=dir.z*speed;
-    const accel=(this.grounded?CFG.accelGround:CFG.accelAir)*dt;
+    const accel=(this.grounded?CFG.accelGround:(vex?.isVex&&vex.grapple?4.8:CFG.accelAir))*dt;
     if(this.dashTime>0){
       this.dashTime=Math.max(0,this.dashTime-dt);
       // Retain at least normal run velocity at the tail of a dash.
@@ -258,7 +262,7 @@ export class ParkourController {
     }
     else {this.vx=approach(this.vx,ax,accel);this.vz=approach(this.vz,az,accel);}
     if(!dir.mag && this.dashTime<=0){
-      const fric=(this.grounded?CFG.frictionGround:CFG.frictionAir)*dt;
+      const fric=(this.grounded?CFG.frictionGround:(vex?.isVex&&vex.grapple?.19:CFG.frictionAir))*dt;
       this.vx=approach(this.vx,0,fric);this.vz=approach(this.vz,0,fric);
     }
     if(flying){this.grounded=false;this.vy=(k.Space?9:0)-(k.ControlLeft||k.ControlRight||k.KeyC?9:0);if(!k.Space&&!k.ControlLeft&&!k.ControlRight&&!k.KeyC)this.vy=1.0;}
@@ -269,8 +273,8 @@ export class ParkourController {
     }
     if(!this.grounded&&!flying){
       const wall=this.city.wallNear(this.x,this.z,this.y,.76);
-      const canRun=!!wall&&(isSprint||powers?.isActive('wallrun_boost')||powers?.isActive('vex_ultimate'))&&dir.mag>0&&Math.hypot(this.vx,this.vz)>5&&this.vy<3;
-      if(canRun&&this.wallRun<(powers?.isActive('vex_ultimate')?3.2:powers?.isActive('wallrun_boost')?2.0:CFG.wallRunTime)){
+      const canRun=!!wall&&(isSprint)&&dir.mag>0&&Math.hypot(this.vx,this.vz)>5&&this.vy<3;
+      if(canRun&&this.wallRun<CFG.wallRunTime){
         this.wallRun+=dt;this.vy=Math.max(this.vy,-2.0);
         const dot=this.vx*wall.nx+this.vz*wall.nz;
         if(dot<0){this.vx-=dot*wall.nx;this.vz-=dot*wall.nz;}
@@ -286,6 +290,7 @@ export class ParkourController {
         this.vy-=CFG.gravity*dt*(lift||1);
       }
     }
+    if(vex?.isVex){vex.ropeStep(dt);vex.bladeStep(dt);}
     const prevY=this.y;
     const height=this.slide>0?1.08:CFG.characterHeight;
     const radius=CFG.characterRadius;
@@ -312,11 +317,15 @@ export class ParkourController {
       const stairY=this.city.floorAt(this.x,this.z,this.y,CFG.stairStep);
       if(stairY>=this.y-.47 && stairY<=this.y+CFG.stairStep){
         this.y=stairY;this.vy=0;this.coyote=CFG.coyote;
-        this.checkCourse();return;
+        if(vex?.isVex)vex.afterMove(dt);this.checkCourse();return;
       }
       this.grounded=false;this.coyote=CFG.coyote;
     }
-    const nextY=this.y+this.vy*dt;
+    let nextY=this.y+this.vy*dt;
+    // Vex cannot be dragged through a ceiling by the cable or aerial blades.
+    if(vex?.isVex&&this.vy>0&&!phased&&!this.city.canOccupy(this.x,this.z,nextY,height,radius)){
+      nextY=this.y;this.vy=0;
+    }
     const landed=!flying&&this.vy<=0?this.city.landingAt(this.x,this.z,prevY,nextY):-Infinity;
     if(landed!==-Infinity){
       this.y=landed;this.vy=0;this.grounded=true;this.wallRun=0;this.coyote=CFG.coyote;
@@ -335,6 +344,7 @@ export class ParkourController {
       }
     }
     if(this.y<-.6)this.resetCheckpoint();
+    if(vex?.isVex)vex.afterMove(dt);
     this.checkCourse();
   }
   checkCourse(){

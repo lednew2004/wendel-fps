@@ -18,7 +18,7 @@ export const POWER_VARIANTS=Object.freeze({
  ...NOVEL_SKILLS
 });
 export const HEROES=Object.freeze([
- {id:'striker',name:'VEX',title:'IMPACTO CINÉTICO',class:'Assalto',color:0xff735f,role:'scout',weapon:0,skills:['vault','wallrun_boost','vex_ultimate'],description:'Salta muros, corre por paredes e domina o parkour vertical.'},
+ {id:'striker',name:'VEX',title:'PREDADOR VERTICAL',class:'Mobilidade',color:0xff735f,role:'scout',weapon:0,skills:['vault','wallrun_boost','vex_ultimate'],description:'Três garras em sequência com balanço físico, escalada por tempo limitado e lâminas que recarregam ao acertar.'},
  {id:'cryomancer',name:'NYRA',title:'ARQUITETA DO GELO',class:'Controle',color:0x80dfff,role:'sniper',weapon:2,skills:['freeze','iceburst','stasis'],description:'Três formas de congelar, isolar e interromper alvos.'},
  {id:'riftwalker',name:'KAIROS',title:'NAVEGADOR DIMENSIONAL',class:'Mobilidade',color:0xbb8aff,role:'hunter',weapon:0,skills:['teleport','swap','phase'],description:'Teleporte pelo mapa, troca de lugar e intangibilidade.'},
  {id:'aeronaut',name:'ÍCARO',title:'PREDADOR AÉREO',class:'Mobilidade',color:0x5affdf,role:'scout',weapon:0,skills:['flight','jetburst','pulsegravity'],description:'Voo livre, impulsos e domínio aéreo.'},

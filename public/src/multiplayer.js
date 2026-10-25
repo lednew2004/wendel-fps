@@ -291,7 +291,7 @@ export class MultiplayerClient {
         // On automatic reconnect do not restart the whole game/camera.
         if(this.game.mode!=='multiplayer')this.game.start('multiplayer');
         else if(this.game.state!=='playing'&&!this.panelOpen)this.game.setState('playing');
-        this.game.parkour.spawn(msg.spawn.x,msg.spawn.y,msg.spawn.z);
+        this.game.powers?.vex?.reset();this.game.parkour.spawn(msg.spawn.x,msg.spawn.y,msg.spawn.z);
         const self=msg.players.find(p=>p.id===msg.id);
         this.game.player.health=self?.hp??100;this.game.player.shield=self?.shield??40;
         this.alive=self?.alive!==false;
@@ -352,6 +352,10 @@ export class MultiplayerClient {
         break;
       }
       case 'power-vfx':{
+        if(msg.kind==='vex-vault')this.game.powers.motion.spark({x:msg.x,y:msg.y,z:msg.z},0x79e9ff,.27,.43);
+        if(msg.kind==='vex-wallrun_boost')this.game.powers.motion.burst({x:msg.x,y:msg.y,z:msg.z},0x7fdfff,1.1);
+        if(msg.kind==='vex-vex_ultimate')this.game.powers.motion.burst({x:msg.x,y:msg.y,z:msg.z},0xff7484,1.3);
+        if(msg.kind==='vex-slash')this.game.powers.motion.ultimate({x:msg.x,y:msg.y,z:msg.z},0xff6b76,3);
         if(msg.player===this.id&&msg.kind==='forge_build'){this.game.forge.enable(12000);this.game.powers.status.forge_build=Date.now()+12000;this.game.toast('MODO CRIATIVO · ATIRAR COLOCA BLOCOS');}
         if(msg.player===this.id&&msg.kind==='forge_ultimate'){this.game.forge.enable(16000,true);this.game.powers.status.forge_ultimate=Date.now()+16000;this.game.toast('DOMÍNIO VOXEL · CONSTRUÇÃO ACELERADA');}
 
@@ -416,6 +420,8 @@ export class MultiplayerClient {
         }
         for(const [id,entry] of this.others)if(!this.players.some(p=>p.id===id))this.removeRemote(id);
         this.updateScore();break;
+      case 'vex-hit-confirm':this.game.powers?.vex?.onServerBlade(!!msg.ok,msg.target);break;
+      case 'vex-cast-result':if(!msg.ok){if(msg.skill==='vault'){this.game.powers?.vex?.releaseGrapple();this.game.powers.vex.charges=Math.min(3,this.game.powers.vex.charges+1);this.game.powers.vex.recharge.pop();}if(msg.skill==='wallrun_boost'){this.game.powers.vex.climb=null;this.game.powers.vex.climbReadyAt=0;}if(msg.skill==='vex_ultimate'){this.game.powers.vex.blade=null;this.game.powers.vex.awaitingBlade=false;this.game.powers.vex.bladeReadyAt=0;}this.game.toast('VEX · AÇÃO RECUSADA PELO SERVIDOR');}break;
       case 'joined':if(this.connected){this.setRemote(msg.player);const i=this.players.findIndex(p=>p.id===msg.player.id);if(i>=0)this.players[i]=msg.player;else this.players.push(msg.player);this.updateScore();this.game.toast(`${msg.player.name} ENTROU NA PARTIDA`);}break;
       case 'moved':if(this.connected){this.setRemote(msg.player);const i=this.players.findIndex(p=>p.id===msg.player.id);if(i>=0)this.players[i]=msg.player;else this.players.push(msg.player);}break;
       case 'left':this.removeRemote(msg.id);this.players=this.players.filter(p=>p.id!==msg.id);this.updateScore();break;
@@ -438,7 +444,7 @@ export class MultiplayerClient {
         break;
       }
       case 'respawn':{
-        this.game.parkour.spawn(msg.spawn.x,msg.spawn.y,msg.spawn.z);
+        this.game.powers?.vex?.reset();this.game.parkour.spawn(msg.spawn.x,msg.spawn.y,msg.spawn.z);
         this.game.player.health=msg.hp;this.game.player.shield=msg.shield;
         this.alive=true;byId('mp-respawn').textContent='VOCÊ FOI ELIMINADO · REAPARECENDO...';byId('mp-respawn').classList.add('hidden');
         this.game.toast('RETORNOU AO COMBATE');this.game.updateHud();break;
@@ -512,7 +518,7 @@ export class MultiplayerClient {
     const existing=new Set();
     for(const unit of state.enemies||[]){
       existing.add(unit.id);let enemy=this.coopEntities.get(unit.id);
-      if(!enemy){enemy=this.game.enemies.spawn(unit.type,[unit.x,unit.z],1);this.coopEntities.set(unit.id,enemy);}
+      if(!enemy){enemy=this.game.enemies.spawn(unit.type,[unit.x,unit.z],1);enemy.coopId=unit.id;this.coopEntities.set(unit.id,enemy);}
       const dx=unit.x-enemy.x,dz=unit.z-enemy.z;enemy.lastMoving=Math.hypot(dx,dz)>.03?1:0;
       enemy.x=unit.x;enemy.z=unit.z;enemy.group.position.set(unit.x,0,unit.z);
       enemy.hp=unit.hp;enemy.maxHp=unit.maxHp;enemy.bar.scale.x=Math.max(0,unit.hp/Math.max(1,unit.maxHp));
@@ -558,7 +564,7 @@ export class MultiplayerClient {
       if(entry.motion){const m=entry.motion;m.elapsed+=dt;const u=Math.min(1,m.elapsed/m.duration);if(m.vault){const point=vaultPosition(m.vault,u);entry.group.position.set(point.x,point.y,point.z);}else{const ease=1-Math.pow(1-u,2.6);entry.group.position.set(m.from.x+(m.to.x-m.from.x)*ease,m.from.y+(m.to.y-m.from.y)*ease,m.from.z+(m.to.z-m.from.z)*ease);}if(u>=1)entry.motion=null;}
       else entry.group.position.lerp(entry.target,Math.min(1,dt*12));
       entry.group.rotation.y=entry.yaw;
-      animateOperative(entry.group.userData.body,dt,{moving:movement,airborne:!!entry.motion?.vault,firing:entry.flash>0,distance:Math.hypot(entry.group.position.x-this.game.player.x,entry.group.position.z-this.game.player.z)});
+      animateOperative(entry.group.userData.body,dt,{moving:movement,airborne:!!entry.motion?.vault||entry.group.position.y>.8,firing:entry.flash>0,distance:Math.hypot(entry.group.position.x-this.game.player.x,entry.group.position.z-this.game.player.z)});
     }
   }
   disconnect(manual=true){

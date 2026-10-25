@@ -706,7 +706,7 @@ export class Game {
         this.uiTick-=dt;if(this.uiTick<=0){this.updateHud();this.uiTick=.095;}this.radarTick-=dt;if(this.radarTick<=0){this.updateRadar();this.radarTick=.12;}}
       else if(this.state==='playing'){this.uiTick-=dt;if(this.uiTick<=0){this.updateHud();this.uiTick=.15;}this.radarTick-=dt;if(this.radarTick<=0){this.updateRadar();this.radarTick=.2;}}
     }else if(this.mode==='multiplayer'&&this.state==='paused'){this.multiplayer.update(dt);this.mouseDown=false;}else if(this.state==='menu'){const t=this.animTime*.095;this.world.setMenuCamera(t);this.weapons.model.visible=false;}else if(this.state==='paused'||this.state==='upgrade'||this.state==='dead'){/* Keep last camera frame and scene. */}
-    if(this.state==='playing')this.weapons.model.visible=this.weapons.ads<.18&&!this.deployment?.active;
+    if(this.state==='playing')this.weapons.model.visible=this.weapons.ads<.18&&!this.deployment?.active&&!(this.powers?.vex?.isVex&&(this.powers.vex.blade||this.powers.vex.climb));
     if(this.calloutTimer>0){this.calloutTimer-=dt;if(this.calloutTimer<=0)el('wave-callout').classList.remove('active');}
     if(this.toastTimer>0){this.toastTimer-=dt;if(this.toastTimer<=0)el('toast').classList.remove('active');}
     if(this.hitmarkTimer>0){this.hitmarkTimer-=dt;if(this.hitmarkTimer<=0){el('hitmarker').classList.remove('active','kill');}}
