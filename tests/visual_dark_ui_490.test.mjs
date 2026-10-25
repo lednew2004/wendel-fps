@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const html=read('public/index.html');
+const css=read('public/src/styles.css');
+const identity=read('public/src/characterIdentity.js');
+const models=read('public/src/championModels.js');
+const check=(msg,cond)=>{assert.ok(cond,msg);console.log('OK:',msg)};
+check('HUD mission chip now includes tactical panel icon',html.includes('panel-icon icon-objective'));
+check('Ability icons are SVG-style classes instead of plain text glyphs',html.includes('ability-dash')&&html.includes('ability-grenade')&&html.includes('ability-pulse'));
+check('Stylesheet ships SVG tactical icons and dark HUD refresh',css.includes('v4.9.0 — dark bots + tactical icon refresh')&&css.includes('icon-radar')&&css.includes('icon-weapon'));
+check('Enemy identity palette is darkened while keeping player style',identity.includes("scout:  {name:'CORREDOR RUBRO', uniform:0x0f141a")&&identity.includes("player: {name:'OPERADOR TITAN'"));
+check('Champion models use darker shell materials',models.includes('0x141018')&&models.includes('0x060a11'));
+console.log('PASS: 5 dark bot + UI smoke checks');

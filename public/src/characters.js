@@ -27,17 +27,18 @@ function capsule(parent,mat,x,y,z,scaleX,scaleY,scaleZ){return piece(parent,SHAP
 // game root faces negative Z, matching the existing rifle and AI orientation.
 export function createOperative({role='scout',size=1,player=false,tint=null,hero=null}={}){
   const style=characterStyle(role,tint);
+  const enemyDark=!player&&role!=='player';
   const root=new THREE.Group();root.name=`TITAN_${(hero||role).toUpperCase()}`;
   const visual=new THREE.Group();visual.scale.setScalar(size);root.add(visual);
-  const fabric=COLOR(style.uniform,.04,.93);
-  const armor=COLOR(style.armor,.48,.42);
-  const accent=COLOR(style.accent,.42,.34);
-  const black=COLOR(0x161f27,.55,.43);
-  const leather=COLOR(0x4b4040,.12,.84);
+  const fabric=COLOR(style.uniform,enemyDark?.10:.04,enemyDark?.97:.93);
+  const armor=COLOR(style.armor,enemyDark?.82:.48,enemyDark?.24:.42);
+  const accent=COLOR(style.accent,enemyDark?.55:.42,enemyDark?.22:.34);
+  const black=COLOR(enemyDark?0x070b10:0x161f27,enemyDark?.88:.55,enemyDark?.18:.43);
+  const leather=COLOR(enemyDark?0x2a2428:0x4b4040,.12,enemyDark?.72:.84);
   const skin=COLOR(style.skin,.01,.89);
-  const helmet=COLOR(style.helmet,.34,.56);
-  const glass=new THREE.MeshStandardMaterial({color:style.accent,emissive:style.accent,emissiveIntensity:.22,metalness:.1,roughness:.19});
-  const glowing=new THREE.MeshStandardMaterial({color:style.accent,emissive:style.accent,emissiveIntensity:1.2,metalness:.24,roughness:.34});
+  const helmet=COLOR(style.helmet,enemyDark?.78:.34,enemyDark?.26:.56);
+  const glass=new THREE.MeshStandardMaterial({color:style.accent,emissive:style.accent,emissiveIntensity:enemyDark?.58:.22,metalness:.1,roughness:enemyDark?.09:.19});
+  const glowing=new THREE.MeshStandardMaterial({color:style.accent,emissive:style.accent,emissiveIntensity:enemyDark?1.8:1.2,metalness:.24,roughness:.34});
   const width=style.build||1;
   const hips=orb(visual,fabric,0,.95,0,.35*width,.26,.24);
   // Rounded, sculpted vest silhouette, front plates and shoulder guards.
@@ -64,8 +65,8 @@ export function createOperative({role='scout',size=1,player=false,tint=null,hero
   orb(head,helmet,0,.14,.18,.27,.17,.19);      // crown rear
   for(const s of [-1,1]){
     orb(head,helmet,s*.258,.045,.02,.07,.20,.19); // ear guards
-    orb(head,skin,s*.105,.005,-.246,.052,.034,.015); // eyes
-    orb(head,black,s*.105,.009,-.263,.025,.021,.011);
+    orb(head,enemyDark?glass:skin,s*.105,.005,-.246,.052,.034,.015); // eyes
+    orb(head,enemyDark?glowing:black,s*.105,.009,-.263,.025,.021,.011);
     orb(head,leather,s*.105,-.10,-.23,.07,.025,.022); // cheek band
   }
   orb(head,skin,0,-.076,-.258,.062,.105,.079); // nose
@@ -89,6 +90,15 @@ export function createOperative({role='scout',size=1,player=false,tint=null,hero
       const spike=piece(head,SHAPES.cone,helmet,[s*.25,.40,.035],[.095,.37,.095],[0,0,s*.30]);spike.castShadow=true;
     }
     orb(torso,glowing,0,.09,-.383,.19,.15,.055);
+  }
+  if(enemyDark){
+    orb(torso,black,0,.02,-.29,.43*width,.41,.06);
+    orb(torso,glowing,0,.06,-.37,.11,.17,.032);
+    orb(torso,glowing,0,-.18,-.35,.07,.10,.028);
+    for(const s of [-1,1]){
+      orb(torso,black,s*.38*width,.18,-.18,.18,.12,.18);
+      orb(head,glowing,s*.16,.08,-.285,.030,.020,.010);
+    }
   }
   const arms=[];
   const legs=[];

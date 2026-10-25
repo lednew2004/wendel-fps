@@ -3,9 +3,9 @@ import * as THREE from 'three';
 /** Original 3D geometry for three visually distinct arena champions. No external assets. */
 export function createChampionModel(champion){
   const root=new THREE.Group();root.userData.championModel=true;root.userData.parts=[];
-  const shell=new THREE.MeshStandardMaterial({color:champion.id==='arachnex'?0x342535:champion.id==='colossus'?0x777d7b:0x344354,metalness:champion.id==='colossus'?.30:.77,roughness:.36});
-  const panels=new THREE.MeshStandardMaterial({color:champion.color,metalness:.6,roughness:.28});
-  const steel=new THREE.MeshStandardMaterial({color:0x151c27,metalness:.88,roughness:.29});
+  const shell=new THREE.MeshStandardMaterial({color:champion.id==='arachnex'?0x141018:champion.id==='colossus'?0x14191c:0x111a24,metalness:champion.id==='colossus'?.48:.82,roughness:.28});
+  const panels=new THREE.MeshStandardMaterial({color:champion.color,metalness:.78,roughness:.21,emissive:champion.color,emissiveIntensity:.08});
+  const steel=new THREE.MeshStandardMaterial({color:0x060a11,metalness:.94,roughness:.18});
   const glow=new THREE.MeshBasicMaterial({color:champion.color,toneMapped:false});
   const add=(parent,geom,mat,x,y,z,sx=1,sy=1,sz=1)=>{const m=new THREE.Mesh(geom,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;};
   const box=(parent,mat,x,y,z,w,h,d)=>add(parent,new THREE.BoxGeometry(1,1,1),mat,x,y,z,w,h,d);
