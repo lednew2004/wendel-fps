@@ -260,8 +260,8 @@ export class ParkourController {
       const retained=.46+.54*tail;
       this.vx=this.dashVX*retained;this.vz=this.dashVZ*retained;
     }
-    else {this.vx=approach(this.vx,ax,accel);this.vz=approach(this.vz,az,accel);}
-    if(!dir.mag && this.dashTime<=0){
+    else if(!(vex?.isVex&&vex.blade)){this.vx=approach(this.vx,ax,accel);this.vz=approach(this.vz,az,accel);}
+    if(!dir.mag && this.dashTime<=0&&!(vex?.isVex&&vex.blade)){
       const fric=(this.grounded?CFG.frictionGround:(vex?.isVex&&vex.grapple?.19:CFG.frictionAir))*dt;
       this.vx=approach(this.vx,0,fric);this.vz=approach(this.vz,0,fric);
     }
@@ -271,7 +271,7 @@ export class ParkourController {
       this.grounded=false;this.coyote=0;this.buffer=0;
       this.prompt=isSprint?'SALTO COM IMPULSO':'SALTO';
     }
-    if(!this.grounded&&!flying){
+    if(!this.grounded&&!flying&&!(vex?.isVex&&vex.blade)){
       const wall=this.city.wallNear(this.x,this.z,this.y,.76);
       const canRun=!!wall&&(isSprint)&&dir.mag>0&&Math.hypot(this.vx,this.vz)>5&&this.vy<3;
       if(canRun&&this.wallRun<CFG.wallRunTime){
@@ -333,7 +333,7 @@ export class ParkourController {
       if(prevY-landed>2.0)this.prompt='ATERRISSAGEM — SEGURE CTRL PARA DESLIZAR';
       if((k.ControlLeft||k.ControlRight)&&this.slide<=0)this.slide=.34;
     }else{
-      this.y=Math.min(37,Math.max(-12,nextY));
+      this.y=Math.min(vex?.isVex?72:37,Math.max(-12,nextY));
       if(this.grounded){
         const ground=this.city.floorAt(this.x,this.z,this.y,CFG.stairStep);
         if(ground>=this.y-.50&&ground<=this.y+CFG.stairStep&&this.vy<=0){

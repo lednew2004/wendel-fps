@@ -724,7 +724,7 @@ function vexActivation(p,data){
   v.climbReadyAt=t+13000;v.moveUntil=t+5600;
  }else{
   if(v.bladeReadyAt>t){send(p.socket,{type:'vex-cast-result',skill,ok:false});return;}
-  v.bladeReadyAt=t+VEX_TUNING.bladeCooldown*1000;v.bladeUntil=t+1000;v.moveUntil=t+1100;
+  v.bladeReadyAt=t+VEX_TUNING.bladeCooldown*1000;v.bladeUntil=t+1500;v.moveUntil=t+1600;
   const target=p.room.mode==='coop'?p.room.coop?.enemies?.find(e=>e.id===data.target):p.room.players.get(data.target);
   if(target&&(p.room.mode==='coop'||target.alive&&target.team!==p.team)){
    const cp=Math.cos(p.pitch),dir={x:-Math.sin(p.yaw)*cp,y:Math.sin(p.pitch),z:-Math.cos(p.yaw)*cp};
@@ -740,13 +740,13 @@ function vexBladeHit(p,data){
  const target=isCoop?p.room.coop?.enemies?.find(e=>e.id===data.target):p.room.players.get(data.target);
  const ok=p.hero==='striker'&&p.alive&&v.bladeUntil>t&&v.bladeTarget===data.target&&target&&
    (isCoop||target.alive&&target.team!==p.team)&&
-   Math.hypot(target.x-p.x,(isCoop?0:target.y)-p.y,target.z-p.z)<3.25&&
+   Math.hypot(target.x-p.x,(isCoop?0:target.y)-p.y,target.z-p.z)<3.65&&
    lineOfSight({x:p.x,y:p.y+1.1,z:p.z},{x:target.x,y:(isCoop?0:target.y)+1.1,z:target.z},roomColliders(p.room));
  v.bladeUntil=0;v.bladeTarget=null;
  if(!ok){send(p.socket,{type:'vex-hit-confirm',ok:false});return;}
  if(isCoop){target.hp=Math.max(0,target.hp-VEX_TUNING.bladeDamage);if(target.hp===0){p.room.coop.enemies=p.room.coop.enemies.filter(e=>e!==target);p.kills++;}}
  else applyAbilityDamage(p,target,VEX_TUNING.bladeDamage,t,'melee');
- v.bladeReadyAt=t+220;
+ v.bladeReadyAt=t+80;
  send(p.socket,{type:'vex-hit-confirm',ok:true,target:target.id});
  broadcast(p.room,{type:'power-vfx',kind:'vex-slash',player:p.id,x:target.x,y:target.y||0,z:target.z});
 }

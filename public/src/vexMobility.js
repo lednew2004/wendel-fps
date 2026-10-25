@@ -48,11 +48,11 @@ export class VexMobility{
   this.charges--;this.recharge.push(this.stepTime+T.grappleRecharge);
   const dist=Math.hypot(hit.x-p.x,hit.y-(p.y+1.05),hit.z-p.z);
   const previous=this.grapple;
-  this.grapple={anchor:hit,length:clampVex(dist*.86,3.5,33),life:0,previous:previous?.anchor||null};
+  this.grapple={anchor:hit,length:clampVex(dist*.88,2.9,40),life:0,previous:previous?.anchor||null};
   this.climb=null;this.blade=null;p.hanging=null;p.ladder=null;p.grounded=false;p.coyote=0;
   // Velocity is retained on anchor change: a true two-point swing, no teleport.
   const dx=hit.x-p.x,dz=hit.z-p.z,d=Math.hypot(dx,dz)||1;
-  p.vx+=dx/d*(previous?1.0:4.1);p.vz+=dz/d*(previous?1.0:4.1);p.vy=Math.max(p.vy,previous?.0:3.0);
+  p.vx+=dx/d*(previous?1.0:9.0);p.vz+=dz/d*(previous?1.0:9.0);p.vy=Math.max(p.vy,previous?0:3.5);
   this.rope.visible=true;this.hook.visible=true;this.hook.position.set(hit.x,hit.y,hit.z);
   if(this.game.mode==='multiplayer'){this.game.multiplayer.syncState();this.game.multiplayer.send({type:'vex-activate',skill:'vault',anchor:{x:hit.x,y:hit.y,z:hit.z}});}
   this.game.audio.play('dash');this.feedback(`GARRA ANCORADA · ${this.charges}/3 · MIRE E USE 1 NOVAMENTE`);
@@ -76,23 +76,34 @@ export class VexMobility{
   const k=this.game.keys,move=this.game.mobile?.move;
   const vertical=clampVex(Number(!!k.KeyW)-Number(!!k.KeyS)+(move?.y||0),-1,1);
   const side=clampVex(Number(!!k.KeyD)-Number(!!k.KeyA)+(move?.x||0),-1,1);
-  const tx=a.nx?(s.x+a.nx*(s.hx+CFG.characterRadius+.08)):clampVex(p.x+side*T.climbSideSpeed*dt,s.x-s.hx+.6,s.x+s.hx-.6);
-  const tz=a.nz?(s.z+a.nz*(s.hz+CFG.characterRadius+.08)):clampVex(p.z+side*T.climbSideSpeed*dt,s.z-s.hz+.6,s.z+s.hz-.6);
-  const climb=vertical===0?.46:vertical;
-  const ty=p.y+climb*T.climbSpeed*dt;
+  // Never snap to the wall centre: take only short, collision-checked tangential steps.
+  // Otherwise large buildings could move Vex across the whole block in one frame.
+  const tx=p.x+(a.nz?side*T.climbSideSpeed*dt:0);
+  const tz=p.z+(a.nx?side*T.climbSideSpeed*dt:0);
+  const climb=vertical===0?.43:vertical;
   const roof=s.maxY+.05;
-  if(ty>=roof-.22){
-   const bx=a.nx?p.x-a.nx*1.15:p.x,bz=a.nz?p.z-a.nz*1.15:p.z;
-   if(this.game.urban.canOccupy(bx,bz,roof+.08,CFG.characterHeight,CFG.characterRadius)){
-    p.x=bx;p.z=bz;p.y=roof+.08;p.vy=0;p.vx=a.nx*-2;p.vz=a.nz*-2;p.grounded=true;
-    this.climb=null;this.pk.combo++;this.feedback('MANTLE · TELHADO CONQUISTADO');this.game.audio.play('dash');return true;
+  const ty=Math.min(roof+.08,p.y+climb*T.climbSpeed*dt);
+  const faceDist=a.nx?Math.abs(Math.abs(tx-s.x)-s.hx):Math.abs(Math.abs(tz-s.z)-s.hz);
+  const withinFace=a.nx?Math.abs(tz-s.z)<=s.hz+.35:Math.abs(tx-s.x)<=s.hx+.35;
+  // A physically plausible short mantle over the ledge; never cross the building
+  // with a full-radius teleport to a different face or unrelated roof.
+  if(ty>=roof-.12 && withinFace && faceDist<1.0){
+   const bx=p.x-a.nx*.82,bz=p.z-a.nz*.82;
+   if(Math.hypot(bx-p.x,bz-p.z)<.85 &&
+      this.game.urban.canOccupy(bx,bz,roof+.12,CFG.characterHeight,CFG.characterRadius)){
+    p.x=bx;p.z=bz;p.y=roof+.12;p.vy=0;p.vx=-a.nx*2;p.vz=-a.nz*2;p.grounded=true;
+    this.climb=null;this.pk.combo++;this.feedback('TELHADO ALCANÇADO');this.game.audio.play('dash');return true;
    }
   }
-  if(ty<.05||!this.game.urban.canOccupy(tx,tz,ty,CFG.characterHeight,CFG.characterRadius)){
-   if(ty<.05){this.climb=null;p.grounded=true;p.vy=0;return false;}
+  // A wall contact must remain within reach of the original face.
+  if(!withinFace || faceDist>1.35 || ty<.03 ||
+     !this.game.urban.canOccupy(tx,tz,ty,CFG.characterHeight,CFG.characterRadius)){
+   if(ty<.03){this.climb=null;p.vy=0;return false;}
    a.time-=dt*.3;return true;
   }
-  p.x=tx;p.z=tz;p.y=ty;p.vx=side*T.climbSideSpeed*(a.nz?1:0);p.vz=side*T.climbSideSpeed*(a.nx?1:0);p.vy=climb*T.climbSpeed;
+  p.x=tx;p.z=tz;p.y=ty;
+  p.vx=(a.nz?side*T.climbSideSpeed:0);
+  p.vz=(a.nx?side*T.climbSideSpeed:0);p.vy=climb*T.climbSpeed;
   a.progress+=dt*Math.abs(climb)*8;
   return true;
  }
@@ -102,12 +113,21 @@ export class VexMobility{
  }
  ropeStep(dt){
   const g=this.grapple,p=this.pk;if(!g)return;
-  g.life+=dt;if(g.life>12||p.y<-.1){this.releaseGrapple();return;}
-  if(this.game.keys.KeyW)g.length=Math.max(3.8,g.length-T.ropeReel*dt);
-  if(this.game.keys.KeyS)g.length=Math.min(38,g.length+T.ropeReel*dt);
+  g.life+=dt;if(g.life>14||p.y<-.1){this.releaseGrapple();return;}
+  // Winch works even without W: casting a hook must actually draw Vex to the wall.
+  // Hold S to loosen cable and make larger swings; hold W for a faster reel.
+  const reel=this.game.keys.KeyS?-5:this.game.keys.KeyW?T.ropeReel:T.ropeAutoReel;
+  g.length=clampVex(g.length-reel*dt,2.5,40);
   const dir=p.direction();
   const v=ropeVelocity({x:p.x,y:p.y,z:p.z},{x:p.vx,y:p.vy,z:p.vz},g.anchor,g.length,dt,dir);
   p.vx=v.x;p.vy=v.y;p.vz=v.z;p.grounded=false;
+  // The spring alone can settle at the cable length without ever reaching the
+  // facade. Give the reel a modest inward pull along the real cable direction.
+  if(!this.game.keys.KeyS && v.dist>3.0){
+   const dx=g.anchor.x-p.x,dy=g.anchor.y-(p.y+1.05),dz=g.anchor.z-p.z;
+   const d=Math.hypot(dx,dy,dz)||1,pull=T.ropePull*dt;
+   p.vx+=dx/d*pull;p.vy+=dy/d*pull;p.vz+=dz/d*pull;
+  }
   const dx=g.anchor.x-p.x,dy=g.anchor.y-(p.y+1.05),dz=g.anchor.z-p.z,dist=Math.hypot(dx,dy,dz)||1;
   // Removing only outward velocity at full extension keeps tangential momentum.
   if(dist>=g.length-.08){const nx=dx/dist,ny=dy/dist,nz=dz/dist;const outward=-(p.vx*nx+p.vy*ny+p.vz*nz);
@@ -129,7 +149,15 @@ export class VexMobility{
   const {from,dir}=this.aim(),p=this.pk;let best=null;
   const mp=this.game.multiplayer;
   const choices=this.game.mode==='multiplayer'?(mp.roomMode==='coop'?[...mp.coopEntities.values()].filter(e=>!e.dead):(mp.players||[]).filter(e=>e.id!==mp.id&&e.alive&&e.team!==mp.players.find(p=>p.id===mp.id)?.team)):this.game.enemies.enemies.filter(e=>!e.dead);
-  for(const enemy of choices){const pos={x:enemy.x,y:(enemy.y||p.y)+.8,z:enemy.z};const score=targetScore(from,dir,pos,T.bladeRange);
+  for(const enemy of choices){
+   // Local AI stores its torso offset separately from the rooftop floorY;
+   // online players instead have an actual feet elevation (which may be 0).
+   const centerY=enemy.coopId!=null||this.game.mode!=='multiplayer'
+    ?(enemy.floorY??0)+(enemy.y??1.4)+.18
+    :this.game.multiplayer.roomMode==='coop'
+      ?(enemy.floorY??0)+(enemy.y??1.4)+.18
+      :(enemy.y??0)+1.15;
+   const pos={x:enemy.x,y:centerY,z:enemy.z};const score=targetScore(from,dir,pos,T.bladeRange);
    if(!score||!lineOfSight(from,pos,this.solids()))continue;
    if(!best||score.score<best.score.score)best={enemy,score,pos};
   }
@@ -153,16 +181,17 @@ export class VexMobility{
   const b=this.blade,p=this.pk;if(!b)return;
   b.age+=dt;
   // Steering is intentionally small: aim decides the direction, physics keeps it honest.
-  if(b.target&&!b.target.dead&&b.age<.48){const tx=b.target.x-p.x,ty=(b.target.y||1.4)-(p.y+1.05),tz=b.target.z-p.z,dist=Math.hypot(tx,ty,tz)||1;
-   const steer=Math.min(1,dt*1.55);p.vx=smooth(p.vx,tx/dist*T.bladeSpeed,steer);p.vy=smooth(p.vy,ty/dist*T.bladeSpeed,steer);p.vz=smooth(p.vz,tz/dist*T.bladeSpeed,steer);
+  if(b.target&&!b.target.dead&&b.age<.65){const tx=b.target.x-p.x,ty=((b.target.coopId!=null||this.game.mode!=='multiplayer')?(b.target.floorY??0)+(b.target.y??1.45):(b.target.y??0)+1.05)-(p.y+1.05),tz=b.target.z-p.z,dist=Math.hypot(tx,ty,tz)||1;
+   const steer=Math.min(1,dt*5.0);p.vx=smooth(p.vx,tx/dist*T.bladeSpeed,steer);p.vy=smooth(p.vy,ty/dist*T.bladeSpeed,steer);p.vz=smooth(p.vz,tz/dist*T.bladeSpeed,steer);
   }
   if(b.age>T.bladeDuration){this.blade=null;this.game.audio.play('empty');this.feedback('LÂMINAS ERRARAM · CARGA PERDIDA');}
  }
  bladePost(){
   const b=this.blade,p=this.pk;if(!b)return;
   const target=b.target;if(!target||target.dead)return;
-  const dist=Math.hypot(target.x-p.x,(target.y||1.45)-(p.y+1.05),target.z-p.z);
-  if(dist>Math.max(1.45,target.radius||.6)+.8)return;
+  const centerY=(target.coopId!=null||this.game.mode!=='multiplayer')?(target.floorY??0)+(target.y??1.45):(target.y??0)+1.05;
+  const dist=Math.hypot(target.x-p.x,centerY-(p.y+1.05),target.z-p.z);
+  if(dist>Math.max(1.6,target.radius||.6)+1.0)return;
   if(this.game.mode==='multiplayer'){
    // Damage/recharge require server confirmation; no client-authoritative hits.
    this.awaitingBlade=true;this.blade=null;this.game.multiplayer.syncState();
@@ -170,7 +199,7 @@ export class VexMobility{
   }else{
    this.game.enemies.damage(target,T.bladeDamage,new THREE.Vector3(target.x,target.y||1.2,target.z),'pulse');
   }
-  b.hit=true;this.blade=null;this.bladeReadyAt=this.stepTime+.22;this.bladeCombo++;
+  b.hit=true;this.blade=null;this.bladeReadyAt=this.stepTime+.08;this.bladeCombo++;
   const dx=p.x-b.start.x,dz=p.z-b.start.z,len=Math.hypot(dx,dz)||1;
   p.vx=dx/len*10;p.vz=dz/len*10;p.vy=Math.max(5.5,p.vy*.22);p.grounded=false;
   this.bladeSwing=1.45;this.game.powers.motion.burst({x:target.x,y:target.y||1.2,z:target.z},0xff6b73,1.65);
@@ -178,7 +207,7 @@ export class VexMobility{
   this.game.audio.play('hit');this.feedback(`ACERTO! LÂMINAS REARMADAS · COMBO ×${this.bladeCombo}`);
  }
  onServerBlade(ok,targetId){if(!this.awaitingBlade)return;this.awaitingBlade=false;if(!ok){this.game.toast('LÂMINAS · GOLPE NÃO CONFIRMADO');return;}
-  this.bladeReadyAt=this.stepTime+.22;this.bladeCombo++;this.bladeSwing=1.4;
+  this.bladeReadyAt=this.stepTime+.08;this.bladeCombo++;this.bladeSwing=1.4;
   const p=this.pk;p.vy=Math.max(5.5,p.vy*.4);p.grounded=false;
   this.game.powers.motion.burst({x:p.x,y:p.y+1.0,z:p.z},0xff6677,1.6);this.game.audio.play('hit');this.feedback('ACERTO CONFIRMADO · LÂMINAS REARMADAS · COMBO ×'+this.bladeCombo);}
  afterMove(dt){if(!this.isVex)return;this.ropePost(dt);this.bladePost();}
@@ -212,7 +241,7 @@ export class VexMobility{
   if(this.game.weapons?.model)this.game.weapons.model.visible=!attack&&!climbing;
  }
  hud(id,t){
-  if(id==='vault')return this.charges>0?`${'◆'.repeat(this.charges)}${'◇'.repeat(3-this.charges)} · ${this.charges}/3`:`0/3 · ${Math.max(0,Math.ceil(this.recharge[0]-t))}s`;
+  if(id==='vault')return this.charges>0?`${'◆'.repeat(this.charges)}${'◇'.repeat(3-this.charges)} · ${this.charges}/3`:`0/3 · ${Math.max(0,Math.ceil((this.recharge[0]||0)-this.stepTime))}s`;
   if(id==='wallrun_boost')return this.climb?`ESCALANDO ${this.climb.time.toFixed(1)}s`:this.stepTime<this.climbReadyAt?`${Math.ceil(this.climbReadyAt-this.stepTime)}s`:'PRONTO · 5,3s';
   if(id==='vex_ultimate')return this.blade?'INVESTINDO':this.stepTime>=this.bladeReadyAt?`PRONTO · COMBO ×${this.bladeCombo}`:`${Math.ceil(this.bladeReadyAt-this.stepTime)}s`;
   return null;

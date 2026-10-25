@@ -1,7 +1,7 @@
 /** TITAN 4.8.7: math-only, deterministic Vex movement helpers. Units: meters/seconds. */
 export const VEX_TUNING=Object.freeze({
  grappleRange:42,grappleCharges:3,grappleRecharge:8.5,grappleMaxSpeed:34,
- ropeGravity:25,ropeSpring:47,ropeDamping:7.2,ropeReel:3.1,
+ ropeGravity:25,ropeSpring:76,ropeDamping:8.8,ropeReel:12.0,ropeAutoReel:8.2,ropePull:20,
  climbDuration:5.3,climbSpeed:7.3,climbSideSpeed:4.4,
  bladeRange:28,bladeSpeed:38,bladeDuration:.78,bladeCooldown:40,bladeDamage:85
 });
@@ -32,7 +32,7 @@ export function ropeVelocity(feet,velocity,anchor,length,dt,steer={x:0,z:0}){
  const dist=Math.hypot(dx,dy,dz)||.001,nx=dx/dist,ny=dy/dist,nz=dz/dist;
  const outward=-(velocity.x*nx+velocity.y*ny+velocity.z*nz);
  const extension=Math.max(0,dist-length);
- const force=clampVex(extension*VEX_TUNING.ropeSpring+outward*VEX_TUNING.ropeDamping,0,130);
+ const force=clampVex(extension*VEX_TUNING.ropeSpring+Math.max(0,outward)*VEX_TUNING.ropeDamping,0,175);
  const tangent=(steer.x*nx+steer.z*nz);
  const x=velocity.x+(nx*force+(steer.x-nx*tangent)*7.2)*dt;
  const y=velocity.y+ny*force*dt;
@@ -50,7 +50,7 @@ export function targetScore(origin,direction,target,maxRange=28){
  const x=target.x-origin.x,y=target.y-origin.y,z=target.z-origin.z;
  const distance=Math.hypot(x,y,z);if(distance>.01&&distance<=maxRange){
   const dot=(x*direction.x+y*direction.y+z*direction.z)/distance;
-  if(dot>.944)return {distance,dot,score:(1-dot)*16+distance*.009};
+  if(dot>.92)return {distance,dot,score:(1-dot)*16+distance*.009};
  }
  return null;
 }

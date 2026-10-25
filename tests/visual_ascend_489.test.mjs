@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const check=(msg,condition)=>{assert.ok(condition,msg);console.log('OK:',msg)};
+const html=read('public/index.html'),css=read('public/src/ascendPalette.css'),urban=read('public/src/squadWorld.js'),world=read('public/src/world.js'),sky=read('public/src/ascendAtmosphere.js');
+check('New CSS is loaded after original entryFlow CSS',html.indexOf('entryFlow.css')<html.indexOf('ascendPalette.css'));
+check('FPS UI gets the ASCEND accent without removing original HUD',css.includes('--cyan:#dcff60')&&html.includes('id="crosshair"'));
+check('Authoritative server blockers are separate from skyline visual meshes',urban.includes('visual-only (no hitboxes')&&urban.includes('city.solids.push({...p})'));
+check('Existing indoor collision floor volumes are retained',urban.includes('city.addSurface(p.x,p.z,p.w,p.d,p.maxY)'));
+check('Stylized facade and skyline window instances exist',urban.includes('sideGlass')&&urban.includes('skylineGlazing'));
+check('Cheap shader-based atmosphere follows camera',world.includes('this.camera.getWorldPosition(this.ascendSky.position)')&&sky.includes('THREE.BackSide'));
+check('Combat surface raycasts remain owned by the original world',world.includes('this.city.rayTargets'));
+check('Vex and FPS weapons are preserved',read('public/src/game.js').includes('this.weapons')&&read('public/src/game.js').includes('Vex'));
+console.log('PASS: 8 ASCEND visual migration smoke checks');

@@ -1,0 +1,39 @@
+/* Titan Protocol 4.8.9 · visual styling adapted from ASCEND: ORIGINS 1.1.
+   CSS only; controls, game modes, FPS HUD and user-selected operator accents stay intact. */
+:root,body,body[data-sector="1"],body[data-sector="2"]{
+  --bg:#080e17;--panel:#111f2b;--cyan:#dcff60;--orange:#d5a879;
+  --text:#edf5f9;--mute:#9aafbd;--line:rgba(146,180,198,.24);
+}
+body{background:#080d16;color:var(--text)}
+#grain{background:radial-gradient(ellipse at 50% 48%,transparent 34%,rgba(4,9,19,.39) 100%),repeating-linear-gradient(0deg,rgba(223,239,255,.012) 0 1px,transparent 1px 4px);opacity:.40}
+.hud .vitals,.hud .weapons,.radar-card,.mission-chip,.ability{background:linear-gradient(145deg,rgba(9,23,34,.87),rgba(18,37,50,.78));border-color:rgba(124,157,176,.28);box-shadow:0 10px 35px rgba(2,8,18,.25)}
+.logo-mark{border-color:#dcff6088;background:linear-gradient(150deg,#223a4a,#091520)}
+.health>div{background:linear-gradient(90deg,#a5da57,#e1ff83);box-shadow:0 0 11px #c4f25c77}
+.shield>div{background:linear-gradient(90deg,#4e91ba,#91d8e8)}
+.wave-track>div,.loading-track i,.interact-track>i{background:#dcff60;box-shadow:0 0 10px #c0f15f66}
+.live-dot{background:#dcff60;box-shadow:0 0 9px #c6f57a}
+.ability-icon,.radar-head span,.score strong,.vitals-label strong{color:#edffbb}
+.ability-key{border-color:#859e7e;color:#eaffaa}
+#crosshair{filter:drop-shadow(0 0 3px #0d233c)}
+.boss-hud{background:#241b20dd;border-color:#ad7d73aa}
+.menu-card,.dialog,.arsenal-panel{background:linear-gradient(145deg,rgba(19,35,49,.98),rgba(7,16,28,.98));border-color:rgba(132,171,189,.42)}
+.primary-btn,.entry-main-btn{background:#dcff60!important;color:#121b23!important;box-shadow:0 8px 25px #a1e03b22!important}
+.primary-btn:hover,.entry-main-btn:hover{background:#ecff9b!important}
+/* Menu remains completely fullscreen and GPU-light, as in v4.8.5. */
+.titan-entry{--entry-accent:#dcff60;background:#080d16}
+.entry-ambient{background:radial-gradient(ellipse 55% 50% at 73% 45%,rgba(40,76,101,.40),transparent 72%),radial-gradient(ellipse 50% 47% at 15% 100%,rgba(46,70,83,.23),transparent 76%),linear-gradient(140deg,#060d16 0%,#132335 50%,#071321 100%)}
+.entry-skyline{opacity:.48;filter:sepia(.07) saturate(.6)}
+.entry-light-beam{background:linear-gradient(90deg,transparent,#d4e4b307 40%,#c8edee13 50%,transparent)}
+.entry-brand span,.intro-reveal em,.entry-section-heading h2 span,.entry-kicker,.entry-main-btn b{color:#dbff60}
+.entry-mode-card:hover,.entry-mode-card:focus-visible{border-color:#d9ff60!important}
+.entry-mode-card{background:linear-gradient(145deg,rgba(20,37,51,.86),rgba(8,18,31,.9))}
+.entry-preview-glow{background:radial-gradient(ellipse at center,rgba(153,192,177,.15),transparent 70%)}
+#entry-progress-bar,.intro-progress>div{background:#dbff60!important}
+/* FPS icons/ability cooldowns retain class-based, per-character states. */
+
+.entry-mode-card:before{background:#dcff60!important}
+.entry-mode-icon{color:#cfdfbb;text-shadow:0 0 22px #9fdb6544}
+.entry-mode-sub{color:#bedbb5}
+.entry-mode-card:hover,.entry-mode-card:focus-visible{background:linear-gradient(155deg,#273d4a,#0c1d2c 80%)!important}
+.entry-mode-number{color:#a7bbc5}
+.entry-operator-actions .entry-ghost-btn{background:#142838;border-color:#8da6ac66;color:#e5efed}

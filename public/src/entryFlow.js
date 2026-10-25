@@ -13,7 +13,7 @@ export class EntryFlow {
     const root=document.createElement('div');root.id='titan-entry';root.className='titan-entry';root.setAttribute('aria-label','Início do Titan Protocol');
     root.innerHTML=`
       <div class="entry-ambient" aria-hidden="true"><div class="entry-skyline"></div><div class="entry-light-beam"></div><div class="entry-noise"></div></div>
-      <header class="entry-header"><div class="entry-brand">T<span> / </span>P <small>TITAN PROTOCOL</small></div><div class="entry-server"><span></span> BUILD 4.8.6 · SISTEMAS ONLINE</div><button id="entry-fullscreen" type="button" title="Alternar tela cheia">⛶ <span>TELA CHEIA</span></button></header>
+      <header class="entry-header"><div class="entry-brand">T<span> / </span>P <small>TITAN PROTOCOL</small></div><div class="entry-server"><span></span> BUILD 4.8.9 · ASCEND VISUAL EDITION</div><button id="entry-fullscreen" type="button" title="Alternar tela cheia">⛶ <span>TELA CHEIA</span></button></header>
       <section data-stage="intro" class="entry-stage entry-intro" aria-label="Introdução cinematográfica">
         <div class="intro-reveal"><div class="intro-overline">UNIDADE TÁTICA / PROTOCOLO DE DEFESA</div><h1>TITAN<br><em>PROTOCOL</em><i>.</i></h1><p>O CONFLITO NÃO ESPERA.</p><div class="intro-subtitle">ESCOLHA SUA MISSÃO. DEFINA SEU OPERADOR.</div></div>
         <div class="intro-loading"><div class="intro-loading-row"><span id="entry-boot-status">SINCRONIZANDO SISTEMAS...</span><span id="entry-boot-pct">0%</span></div><div class="intro-progress"><div id="entry-progress-bar"></div></div><small>BOOT SEQUENCE / TACTICAL ENGINE</small></div>

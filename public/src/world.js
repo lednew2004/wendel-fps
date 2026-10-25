@@ -10,6 +10,7 @@ import {Sky} from 'three/addons/objects/Sky.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {SSAOPass} from 'three/addons/postprocessing/SSAOPass.js';
 import {SMAAPass} from 'three/addons/postprocessing/SMAAPass.js';
+import {createAscendSky} from './ascendAtmosphere.js';
 
 function makeCanvas(size, painter){
   const c=document.createElement('canvas');
@@ -96,8 +97,8 @@ export class World {
     this.mount=mount;
     this.scene=new THREE.Scene();
     this.photorealMode=false;this.photorealNodes=()=>[];this.prePhotoState=null;
-    this.scene.background=new THREE.Color(0x8bc2e8);
-    this.scene.fog=new THREE.FogExp2(0xc8d5db,.0016);
+    this.scene.background=new THREE.Color(0xa9c9dc);
+    this.scene.fog=new THREE.FogExp2(0xa9c9dc,.0019);
     this.camera=new THREE.PerspectiveCamera(78,1,.07,440);
     this.cameraRig=new THREE.Group();
     this.cameraPitch=new THREE.Group();
@@ -108,7 +109,7 @@ export class World {
     this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure=1.23;
+    this.renderer.toneMappingExposure=1.16;
     this.renderer.shadowMap.enabled=true;
     this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     mount.appendChild(this.renderer.domElement);
@@ -146,10 +147,10 @@ export class World {
     this.customFar=260;
     this.vegetation=null;
 
-    const hemi=new THREE.HemisphereLight(0xd4ebff,0x806855,1.28);
+    const hemi=new THREE.HemisphereLight(0xddeeff,0x526779,1.50);
     this.scene.add(hemi);
-    const sun=new THREE.DirectionalLight(0xffe1bc,2.35);
-    sun.position.set(-56,89,41);
+    const sun=new THREE.DirectionalLight(0xffd5a6,2.48);
+    sun.position.set(-60,94,46);
     sun.castShadow=true;
     sun.shadow.mapSize.set(2048,2048);
     sun.shadow.camera.left=-85;
@@ -162,6 +163,9 @@ export class World {
     sun.shadow.normalBias=.022;
     this.scene.add(sun);
     this.moon=sun;
+    this.ascendSky=createAscendSky();
+    this.ascendSky.visible=false;
+    this.scene.add(this.ascendSky);
 
     // Urban Combat initializes only one playable environment. The historical
     // industrial arena code remains available for a future optional map,
@@ -598,8 +602,8 @@ export class World {
       pal.panel.emissiveIntensity=this.graphicsLabEnabled?.10:.22;
       pal.orange.color.setHex(this.graphicsLabEnabled?0xdbbb84:0xffc05f);
     }
-    this.renderer.toneMappingExposure=this.graphicsLabEnabled?1.19:1.23;
-    if(this.urbanActive&&this.scene.fog&&this.scene.background){this.scene.fog.color.setHex(this.graphicsLabEnabled?0xc8d5db:0xc3d7e5);this.scene.background.setHex(this.graphicsLabEnabled?0x8bc2e8:0x87c3f2);}
+    this.renderer.toneMappingExposure=this.graphicsLabEnabled?1.16:1.18;
+    if(this.urbanActive&&this.scene.fog&&this.scene.background){this.scene.fog.color.setHex(0xa9c9dc);this.scene.background.setHex(0xa9c9dc);}
   }
   setGraphicsLabEnabled(enabled){
     this.graphicsLabEnabled=!!enabled;this.syncGraphicsLab39();
@@ -658,8 +662,8 @@ export class World {
     this.moon.shadow.camera.top=span;this.moon.shadow.camera.bottom=-span;
     this.moon.shadow.camera.updateProjectionMatrix();
     for(const node of this.baseEnvironmentNodes)node.visible=!enabled;
-    if(!enabled){this.scene.background.setHex(0xc0c9cf);this.scene.fog.color.setHex(0xb7c0c7);}
-    else{this.scene.background.setHex(this.graphicsLabEnabled?0x8bc2e8:0x87c3f2);this.scene.fog.color.setHex(this.graphicsLabEnabled?0xc8d5db:0xc3d7e5);}
+    if(!enabled){this.scene.background.setHex(0xa9c9dc);this.scene.fog.color.setHex(0xa9c9dc);}
+    else{this.scene.background.setHex(0xa9c9dc);this.scene.fog.color.setHex(0xa9c9dc);}
   }
   canMove(x,z,r=.5){
     if(this.urbanActive && this.city) return this.city.canOccupy(x,z,0,1.65,r);
@@ -738,6 +742,11 @@ export class World {
       try{this.renderer.render(this.scene,this.camera);}
       finally{for(const obj of suppressed)obj.visible=true;}
       return;
+    }
+    // Sky follows the FPS camera; it is decorative and never enters hit detection.
+    if(this.ascendSky){
+      this.ascendSky.visible=this.urbanActive;
+      if(this.ascendSky.visible)this.camera.getWorldPosition(this.ascendSky.position);
     }
     // No post passes active: render directly, avoiding expensive intermediate targets.
     if(!this.ssao.enabled&&!this.bloom.enabled&&!this.smaa.enabled) this.renderer.render(this.scene,this.camera);

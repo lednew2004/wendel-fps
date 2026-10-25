@@ -1,7 +1,7 @@
 {
   "name": "titan-protocol-multiplayer-gratis",
   "private": true,
-  "version": "4.8.7",
+  "version": "4.8.9",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -14,7 +14,8 @@
     "test:league": "node server/league_continuity_regression.mjs",
     "sfx:install": "node scripts/install-sfx.mjs",
     "postinstall": "node scripts/install-sfx.mjs",
-    "test:vex": "node tests/vex_physics.test.mjs && node tests/vex_server.test.mjs"
+    "test:vex": "node tests/vex_physics.test.mjs && node tests/vex_server.test.mjs && node tests/vex_regression488.test.mjs",
+    "test:visual": "node tests/visual_ascend_489.test.mjs"
   },
   "dependencies": {
     "three": "0.180.0"

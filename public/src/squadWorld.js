@@ -5,10 +5,10 @@ import {ARENA_BOUNDS,SQUAD_BLOCKS,SQUAD_INTERIORS,SQUAD_OBSTACLES,SQUAD_POINTS,S
  * A NEW authored arena; it never invokes the old city/graphics-lab/466 renderers.
  * Collision volumes are authored in squadLayout.js and shared with the server.
  */
-const palette={azure:0x2792c5,cyan:0x3aaab7,marine:0x335a7a,cream:0xddd0b6,concrete:0xaebfca};
+const palette={azure:0x4c6373,cyan:0x526d79,marine:0x304657,cream:0x897d72,concrete:0x78858a};
 const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
 const hash=(x,y=0)=>{const v=Math.sin(x*127.1+y*311.7)*43758.5453;return v-Math.floor(v);};
-function paintedTexture(base='#62bbdf',accent='#9dd2df',seed=7){
+function paintedTexture(base='#4c6373',accent='#b5bec6',seed=7){
  const c=document.createElement('canvas');c.width=c.height=512;
  const q=c.getContext('2d');q.fillStyle=base;q.fillRect(0,0,512,512);
  for(let i=0;i<2600;i++){
@@ -18,37 +18,37 @@ function paintedTexture(base='#62bbdf',accent='#9dd2df',seed=7){
  }
  for(let y=0;y<512;y+=26){
   q.fillStyle='rgba(255,255,255,.072)';q.fillRect(0,y,512,2);
-  q.fillStyle='rgba(8,30,39,.085)';q.fillRect(0,y+23,512,2);
+  q.fillStyle='rgba(10,22,33,.11)';q.fillRect(0,y+23,512,2);
  }
- for(let x=22;x<512;x+=125){q.strokeStyle='rgba(7,38,52,.20)';q.lineWidth=2;q.strokeRect(x,10,107,484);}
+ for(let x=22;x<512;x+=125){q.strokeStyle='rgba(18,32,42,.23)';q.lineWidth=2;q.strokeRect(x,10,107,484);}
  q.fillStyle=accent;q.globalAlpha=.06;q.fillRect(15,30,482,220);q.globalAlpha=1;
  const texture=new THREE.CanvasTexture(c);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4;return texture;
 }
 function concreteTexture(){
  const c=document.createElement('canvas');c.width=c.height=512;const g=c.getContext('2d');
- g.fillStyle='#bec6c6';g.fillRect(0,0,512,512);
- for(let i=0;i<8600;i++){const h=hash(i,19);g.fillStyle=h>.5?'rgba(45,66,76,.055)':'rgba(255,255,255,.063)';g.fillRect(hash(i,17)*512,hash(i,18)*512,1+h*5,1+h*3);}
- g.strokeStyle='rgba(57,72,75,.18)';g.lineWidth=2;for(let i=0;i<512;i+=128){g.beginPath();g.moveTo(i,0);g.lineTo(i,512);g.stroke();}
+ g.fillStyle='#78858a';g.fillRect(0,0,512,512);
+ for(let i=0;i<8600;i++){const h=hash(i,19);g.fillStyle=h>.5?'rgba(20,35,44,.09)':'rgba(231,241,239,.07)';g.fillRect(hash(i,17)*512,hash(i,18)*512,1+h*5,1+h*3);}
+ g.strokeStyle='rgba(47,66,73,.3)';g.lineWidth=2;for(let i=0;i<512;i+=128){g.beginPath();g.moveTo(i,0);g.lineTo(i,512);g.stroke();}
  const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.anisotropy=4;return tex;
 }
-function makeSign(text,color='#f6e5bb'){
+function makeSign(text,color='#dfff63'){
  const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=256;const c=canvas.getContext('2d');
- c.fillStyle='#263c49';c.fillRect(0,0,1024,256);c.fillStyle=color;c.fillRect(0,0,15,256);
+ c.fillStyle='#06111d';c.fillRect(0,0,1024,256);c.fillStyle='#d9ff62';c.fillRect(0,0,15,256);
  c.fillStyle='rgba(255,255,255,.1)';c.fillRect(28,19,970,7);
- c.font='bold 108px Arial';c.textAlign='center';c.textBaseline='middle';c.fillStyle='#f4f2df';c.fillText(text,512,134,958);
+ c.font='bold 108px Arial';c.textAlign='center';c.textBaseline='middle';c.fillStyle='#f4f9fc';c.fillText(text,512,134,958);
  const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;
  return new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide});
 }
 function graffitiTexture(){
  const c=document.createElement('canvas');c.width=1024;c.height=512;const g=c.getContext('2d');
  g.clearRect(0,0,1024,512);g.lineCap='round';g.lineJoin='round';
- const colors=['#31b3b3','#6ab66d','#b5d156','#e7a5aa','#a27ddd','#267aa2'];
+ const colors=['#83b6c9','#c2d9d7','#d9ff62','#d2a97c','#678ba1','#607888'];
  for(let k=0;k<29;k++){
   const x=110+hash(k,2)*830,y=90+hash(k,8)*300;
   g.strokeStyle=colors[k%colors.length];g.globalAlpha=.68;g.lineWidth=6+hash(k,3)*28;
   g.beginPath();g.moveTo(x-60,y+30);g.bezierCurveTo(x+90,y-160,x-85,y+120,x+90,y-15);g.stroke();
  }
- g.globalAlpha=.9;g.font='italic 900 130px Arial';g.fillStyle='#77c871';g.rotate(-.07);g.fillText('ZENITH',195,315);
+ g.globalAlpha=.9;g.font='italic 900 130px Arial';g.fillStyle='#d9ff62';g.rotate(-.07);g.fillText('TITAN',235,315);
  const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
  return new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:.83,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2});
 }
@@ -56,17 +56,19 @@ export function createSquadWorld(city){
  const root=city.root;
  const std=(color,metalness=0,roughness=.7,more={})=>new THREE.MeshStandardMaterial({color,metalness,roughness,...more});
  const m={
-  floor:std(0xe1d7c5,.06,.94,{map:concreteTexture()}),
-  asphalt:city.world.mat(0x9d9f9d,.04,.93,city.world.textures.asphalt),
-  blue:std(0xcce9ff,.30,.52,{map:paintedTexture('#397fa9','#75c8e0',1)}),
-  cyan:std(0xe9f9ff,.27,.55,{map:paintedTexture('#5dbacc','#b8eeeb',6)}),
-  marine:std(0xb4d5ee,.36,.56,{map:paintedTexture('#335a7e','#72b5d8',12)}),
-  cream:std(0xfff2dd,.04,.85,{map:paintedTexture('#d4c6b0','#f5e9d0',16)}),
-  trim:std(0x375b72,.66,.43),steel:std(0x546777,.71,.39),dark:std(0x293943,.55,.5),
-  orange:std(0xda8a38,.24,.54),wood:std(0xd5b587,.02,.85,{map:city.world.textures.wood}),
-  glass:new THREE.MeshPhysicalMaterial({color:0xb5e8f7,metalness:.2,roughness:.18,transparent:true,opacity:.58,depthWrite:false,side:THREE.DoubleSide}),
-  white:std(0xf9e8c5,.02,.82),mark:std(0xebd8a2,0,.87),green:std(0x5c805a,.05,.89),
-  lamp:new THREE.MeshBasicMaterial({color:0xffd08a,toneMapped:false})
+  floor:std(0xc8d1d1,.03,.94,{map:concreteTexture()}),
+  asphalt:city.world.mat(0x82949f,.03,.93,city.world.textures.asphalt),
+  blue:std(0xb4c2c8,.14,.71,{map:paintedTexture('#4c6373','#9fb6bd',1)}),
+  cyan:std(0xc6d1d1,.16,.68,{map:paintedTexture('#526d79','#a2c5ce',6)}),
+  marine:std(0xb2bec6,.28,.62,{map:paintedTexture('#304657','#799eb7',12)}),
+  cream:std(0xe3ddcf,.03,.88,{map:paintedTexture('#897d72','#cec1b3',16)}),
+  trim:std(0x475c6a,.51,.55),steel:std(0x53636e,.62,.46),dark:std(0x203241,.49,.54),
+  orange:std(0xc2d568,.21,.65),wood:std(0xc1af9b,.02,.88,{map:city.world.textures.wood}),
+  glass:new THREE.MeshPhysicalMaterial({color:0x2b455b,metalness:.35,roughness:.24,transparent:true,opacity:.88,depthWrite:true,side:THREE.DoubleSide}),
+  glowGlass:new THREE.MeshStandardMaterial({color:0xe8d5a5,emissive:0xc39f65,emissiveIntensity:.35,roughness:.28,metalness:.1}),
+  white:std(0xc7c9b7,.02,.86),mark:std(0xd3d0b6,0,.9),green:std(0x346457,.05,.87),
+  skyline:std(0x607780,.10,.84,{map:paintedTexture('#445867','#78909c',20)}),
+  lamp:new THREE.MeshBasicMaterial({color:0xffe0ae,toneMapped:false})
  };
  const solid=(x,y,z,w,h,d,material,shadow=true)=>{const mesh=city.box(x,y,z,w,h,d,material,shadow);mesh.castShadow=shadow;mesh.receiveShadow=true;city.rayTargets.push(mesh);return mesh;};
  const deco=(x,y,z,w,h,d,material)=>{const mesh=city.box(x,y,z,w,h,d,material,false);mesh.castShadow=false;return mesh;};
@@ -97,6 +99,20 @@ export function createSquadWorld(city){
   for(const p of pieces){
    const mat=p.interiorPart==='roof'?m.steel:p.interiorPart==='loft'||p.interiorPart==='landing'?m.floor:p.interiorPart==='desk'?m.wood:p.interiorPart==='supply'?m.orange:p.interiorPart==='lintel'?m.trim:wall;
    solid(p.x,(p.minY+p.maxY)/2,p.z,p.w,p.h,p.d,mat,p.interiorPart==='wall'||p.interiorPart==='roof');
+   // ASCEND-style stacked windows on the solid side walls. Never cross the
+   // actual door apertures and never register as a physical collider.
+   if(p.interiorPart==='wall' && p.w<.7 && p.d>7 && p.minY===0){
+     const side=Math.sign(p.x-b.x)||1;
+     for(let floor=0;floor<Math.min(3,Math.floor((p.h-1)/2.8));floor++){
+       const wy=2.1+floor*2.75;
+       for(let zi=p.z-p.d/2+2;zi<p.z+p.d/2-1.3;zi+=2.75){
+         const lit=hash(Math.round(zi*4)+floor*29,Math.round(p.x*5))>.79;
+         inst('sideGlass'+(lit?'Warm':'Dark'),lit?m.glowGlass:m.glass,p.x+side*(p.w/2+.035),wy,zi,.07,1.38,1.55);
+         inst('sideFrame',m.trim,p.x+side*(p.w/2+.095),wy+.75,zi,.09,.07,1.70);
+         inst('sideFrame',m.trim,p.x+side*(p.w/2+.095),wy-.75,zi,.09,.07,1.70);
+       }
+     }
+   }
    city.solids.push({...p});
    if(['loft','landing','roof'].includes(p.interiorPart))city.addSurface(p.x,p.z,p.w,p.d,p.maxY);
   }
@@ -202,7 +218,7 @@ export function createSquadWorld(city){
     }
    }
    for(const side of [-1,1])for(let x=p.x-p.w/2+1.5;x<p.x+p.w/2-1.2;x+=2.1){
-      inst('towerwindow',m.glass,x,p.h*.68,p.z+side*(p.d/2+.05),1.2,1.0,.08);
+      inst('towerwindow',hash(x,p.z)>.81?m.glowGlass:m.glass,x,p.h*.68,p.z+side*(p.d/2+.05),1.2,1.0,.08);
       inst('towerwindow',m.dark,x,p.h*.68+.54,p.z+side*(p.d/2+.09),1.26,.08,.14);
    }
    inst('towercap',m.steel,p.x,p.h+.16,p.z,p.w+.6,.32,p.d+.6);
@@ -223,11 +239,30 @@ export function createSquadWorld(city){
  const graffiti=new THREE.Mesh(new THREE.PlaneGeometry(19,9),graffitiTexture());
  // The west boundary stands in for the bright painted mural in the reference.
  graffiti.position.set(-95.85,5.2,-5);graffiti.rotation.y=Math.PI/2;root.add(graffiti);
- // The industrial district uses a few local lights; no shadow-casting pointlights.
- for(const [x,z,w,d,h] of [[-60,-109,20,8,30],[-22,-109,18,8,26],[22,-109,18,8,28],[60,-109,20,8,32],[-62,109,18,8,28],[-18,109,22,8,31],[26,109,20,8,29],[66,109,16,8,27]]){
-  const shell=deco(x,h/2,z,w,h,d,m.dark);shell.receiveShadow=true;
-  inst('skylineTrim',m.trim,x,h-.2,z,w+.2,.1,d+.2);
+ // Dense skyline silhouettes from ASCEND: deliberately outside the authoritative
+ // arena limits. Buildings/windows are visual-only (no hitboxes, AI, or server changes).
+ const backdrops=[];
+ for(const side of [-1,1])for(let i=-7;i<=7;i++){
+   const xx=i*24+((hash(i,side*9)-.5)*9);
+   const zz=side*(143+hash(i,side*31)*15);
+   const hh=27+hash(i*7,side*3)*61;
+   const ww=13+hash(i,17)*10;
+   const dd=13+hash(i*5,19)*9;
+   backdrops.push([xx,zz,ww,dd,hh,side]);
  }
+ for(const [x,z,w,d,h,side] of backdrops){
+   deco(x,h/2,z,w,h,d,m.skyline);
+   inst('distantRoof',m.dark,x,h+.30,z,w+.55,.60,d+.55);
+   const count=Math.min(5,Math.floor(w/3.15));
+   const floors=Math.floor((h-3)/4.6);
+   for(let fl=0;fl<floors;fl++)for(let j=0;j<count;j++){
+     const px=x+(j-(count-1)/2)*3.1;
+     const yy=2.8+fl*4.6;
+     const windowMat=hash(j+fl*11,Math.floor(x+z))>.81?m.glowGlass:m.glass;
+     inst('skylineGlazing'+(windowMat===m.glowGlass?'Lit':'Dark'),windowMat,px,yy,z-side*(d/2+.05),1.52,1.74,.07);
+   }
+ }
+ // The original port map remains fully traversable with identical collision.
  // Batched decorations: one draw call per material/geometry class.
  const unit=new THREE.BoxGeometry(1,1,1);const tmp=new THREE.Object3D();
  for(const batch of batches.values()){
@@ -239,10 +274,10 @@ export function createSquadWorld(city){
  }
  // Restrained mission markers, no giant neon beacons.
  for(const [key,point] of Object.entries(SQUAD_POINTS)){
-  const ring=new THREE.Mesh(new THREE.RingGeometry(3.8,4.0,36),new THREE.MeshBasicMaterial({color:key==='boss'?0xe1b168:0xa0d4d2,side:THREE.DoubleSide,transparent:true,opacity:.42}));
+  const ring=new THREE.Mesh(new THREE.RingGeometry(3.8,4.0,36),new THREE.MeshBasicMaterial({color:key==='boss'?0xf7ad75:0xd9ff62,side:THREE.DoubleSide,transparent:true,opacity:.42}));
   ring.rotation.x=-Math.PI/2;ring.position.set(point.x,.09,point.z);root.add(ring);
  }
  city.cinematicPalette=null;city.premiumFacadeMeshes=[];city.squadDetailRoot=null;
- root.name='PORT_ZENITH_NEW_ARENA';
+ root.name='PORT_ZENITH_ASCEND_VISUAL_PASS';
  return SQUAD_POINTS;
 }
