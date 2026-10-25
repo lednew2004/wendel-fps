@@ -4,6 +4,8 @@ import {createOperative,animateOperative,disposeOperative} from './characters.js
 import {CHARACTER_STYLES} from './characterIdentity.js';
 import {SQUAD_INTERIORS,SQUAD_DOORS} from './squadLayout.js';
 import {PROJECTILE_LIMIT,SPAWN_RADIUS,fireInterval,segmentSphereHit,steerVelocity} from './combatTactics.js';
+import {CHAMPIONS} from './titanLeague.js';
+import {createChampionModel,animateChampionModel,disposeChampionModel} from './championModels.js';
 const vec=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
 
 
@@ -13,7 +15,7 @@ export class EnemySystem {
   count(){return this.enemies.length;}
   disposeEnemy(e){
     if(!e?.body)return;
-    disposeOperative(e.body);
+    if(e.body.userData.championModel)disposeChampionModel(e.body);else disposeOperative(e.body);
     e.bar?.geometry?.dispose();e.barBg?.geometry?.dispose();
     e.bar?.material?.dispose();e.barBg?.material?.dispose();
     e.nameTag?.material?.map?.dispose();e.nameTag?.material?.dispose();e.muzzleFlash?.material?.dispose();
@@ -22,29 +24,30 @@ export class EnemySystem {
   }
 
 
-  spawn(type,pos,wave=1){
+  spawn(type,pos,wave=1,championId=null){
+    const champion=type==='boss'&&championId?(typeof championId==='object'?championId:CHAMPIONS.find(c=>c.id===championId)):null;
     const cfg=ENEMY_TYPES[type];
     const group=new THREE.Group(); group.position.set(pos[0],0,pos[1]);
     const size=cfg.scale;
     // Dedicated humanoid character renderer: organic silhouette, facial features,
     // jointed limbs, class-colored armor and fully modeled weapons.
-    const body=createOperative({role:type,size});
+    const body=champion?createChampionModel(champion):createOperative({role:type,size});
     group.add(body);
     const title=document.createElement('canvas');title.width=256;title.height=38;
     const labelCtx=title.getContext('2d');
     labelCtx.font='bold 23px Arial';labelCtx.textAlign='center';
     labelCtx.shadowColor='#101923';labelCtx.shadowBlur=6;
     labelCtx.fillStyle='#f4f7ef';
-    labelCtx.fillText(CHARACTER_STYLES[type]?.name||'INIMIGO',128,27,248);
+    labelCtx.fillText(champion?.name||CHARACTER_STYLES[type]?.name||'INIMIGO',128,27,248);
     const nameMap=new THREE.CanvasTexture(title);nameMap.colorSpace=THREE.SRGBColorSpace;
     const nameTag=new THREE.Sprite(new THREE.SpriteMaterial({map:nameMap,transparent:true,depthWrite:false}));
     nameTag.position.y=3.26*size;nameTag.scale.set(1.95*size,.28*size,1);group.add(nameTag);
     const barBg=new THREE.Mesh(new THREE.PlaneGeometry(1.85*size,.12),new THREE.MeshBasicMaterial({color:0x281c26,side:THREE.DoubleSide,depthWrite:false})); barBg.position.y=2.95*size; group.add(barBg);
-    const bar=new THREE.Mesh(new THREE.PlaneGeometry(1.85*size,.085),new THREE.MeshBasicMaterial({color:cfg.color,side:THREE.DoubleSide,depthWrite:false})); bar.position.y=2.95*size; bar.position.z=.008; group.add(bar);
+    const bar=new THREE.Mesh(new THREE.PlaneGeometry(1.85*size,.085),new THREE.MeshBasicMaterial({color:champion?.color??cfg.color,side:THREE.DoubleSide,depthWrite:false})); bar.position.y=2.95*size; bar.position.z=.008; group.add(bar);
     this.world.scene.add(group);
-    const hp=cfg.hp*(1+(wave-1)*.105);
-    const tunedCfg={...cfg,speed:cfg.speed*(type==='boss'?1.20:1.14),fire:fireInterval(type,cfg.fire),damage:cfg.damage*(type==='boss'?.78:type==='gunner'?.75:1)};
-    const enemy={type,cfg:tunedCfg,group,body,barBg,bar,nameTag,hp,maxHp:hp,x:pos[0],z:pos[1],y:1.45*size,radius:cfg.radius,fireTimer:rand(.16,.58),burstLeft:0,velocityX:0,velocityZ:0,coverHold:0,coverFlank:0,strafe:Math.random()>.5?1:-1,strafeChange:rand(.7,2.0),dodgeTime:0,flash:0,fireVisual:0,lastMoving:0,phase:rand(0,6.3),boss:type==='boss',phaseIndex:0,telegraph:0,blastTimer:8,blastCharge:0,dead:false};
+    const hp=cfg.hp*(1+(wave-1)*.105)*(champion?.health??1);
+    const tunedCfg={...cfg,speed:cfg.speed*(type==='boss'?1.20:1.14)*(champion?.speed??1),fire:fireInterval(type,cfg.fire),damage:cfg.damage*(type==='boss'?.78:type==='gunner'?.75:1)*(champion?.damage??1),range:champion?.range??cfg.range,color:champion?.color??cfg.color,radius:champion?.radius??cfg.radius};
+    const enemy={type,cfg:tunedCfg,group,body,barBg,bar,nameTag,hp,maxHp:hp,x:pos[0],z:pos[1],y:1.45*size,radius:tunedCfg.radius,fireTimer:rand(.16,.58),burstLeft:0,velocityX:0,velocityZ:0,coverHold:0,coverFlank:0,strafe:Math.random()>.5?1:-1,strafeChange:rand(.7,2.0),dodgeTime:0,flash:0,fireVisual:0,lastMoving:0,phase:rand(0,6.3),boss:type==='boss',championId:champion?.id||null,champion:champion||null,phaseIndex:0,telegraph:0,blastTimer:8,blastCharge:0,specialTimer:rand(4.0,6.0),specialCharge:0,specialRush:0,specialHit:false,specialTarget:null,dead:false};
     if(!['scout','hunter','tank'].includes(type)){
       const flash=new THREE.Mesh(this.muzzleGeom,new THREE.MeshBasicMaterial({color:type==='boss'?0xec8cff:0xffd18a,transparent:true,opacity:.88,depthWrite:false}));
       flash.position.set(0,enemy.y,-.75*size);flash.visible=false;group.add(flash);enemy.muzzleFlash=flash;
@@ -62,8 +65,9 @@ export class EnemySystem {
   }
 
   /** Place reinforcements within fighting range without materializing inside walls or on top of the player. */
-  spawnAt(type,player,wave){
-    const radius=ENEMY_TYPES[type].radius+.30,city=this.world.city;
+  spawnAt(type,player,wave,championId=null){
+    const champRadius=typeof championId==='object'?championId?.radius:CHAMPIONS.find(c=>c.id===championId)?.radius;
+    const radius=(champRadius??ENEMY_TYPES[type].radius)+.30,city=this.world.city;
     const clear=(x,z)=>city?.canOccupy(x,z,0,1.9,radius)??this.world.canMove(x,z,radius);
     const valid=(x,z)=>Number.isFinite(x)&&Number.isFinite(z)&&clear(x,z)&&Math.hypot(x-player.x,z-player.z)>SPAWN_RADIUS.min;
     const taken=(x,z)=>this.enemies.some(e=>Math.hypot(e.x-x,e.z-z)<5.5);
@@ -81,7 +85,7 @@ export class EnemySystem {
       if(clear(x,z)&&Math.hypot(x-player.x,z-player.z)>12&&!taken(x,z))spots.push([x,z]);
     }
     if(!spots.length)return null;
-    spots.sort((a,b)=>Math.abs(Math.hypot(a[0]-player.x,a[1]-player.z)-35)-Math.abs(Math.hypot(b[0]-player.x,b[1]-player.z)-35));
+    spots.sort((a,b)=>Math.abs(Math.hypot(a[0]-player.x,a[1]-player.z)-(championId?26:35))-Math.abs(Math.hypot(b[0]-player.x,b[1]-player.z)-(championId?26:35)));
     const eligible=spots.slice(0,Math.min(spots.length,12));
     // Prefer cover between the spawn and the player: enemies advance into view naturally.
     const sheltered=eligible.filter(([x,z])=>{
@@ -89,7 +93,7 @@ export class EnemySystem {
       return this.world.raycastDistance(eye,delta.normalize(),d-.12)<d-.25;
     });
     const choices=sheltered.length?sheltered:eligible;
-    const enemy=this.spawn(type,choices[Math.floor(Math.random()*Math.min(choices.length,5))],wave);
+    const enemy=this.spawn(type,choices[Math.floor(Math.random()*Math.min(choices.length,5))],wave,championId);
     // Radio alert contains the last reported player location, not an updating through-wall lock.
     enemy.targetMemory={x:player.x,z:player.z,eyeY:player.eyeY??1.65,until:this.time+4.6,kind:'alert'};
     enemy.alertness=.24;
@@ -184,12 +188,45 @@ export class EnemySystem {
     const speed=boss?39:e.type==='sniper'?72:49;
     this.projectiles.push({mesh,tracer,vel:dir.multiplyScalar(speed),life:e.cfg.range/speed+.4,damage:e.cfg.damage,boss,target});
   }
+  hitChampionTarget(e,target,damage,player){
+    if(!target||target.downed)return;
+    const from=vec(e.x,(e.floorY||0)+1.8,e.z),to=vec(target.x,(target.eyeY||1.7),target.z),delta=to.sub(from),len=delta.length();
+    if(len>.1&&this.world.raycastDistance(from,delta.clone().normalize(),Math.max(.01,len-.15))<len-.30)return;
+    if(target===player)this.hooks.onPlayerHit(damage);else this.hooks.onAllyHit?.(target,damage);
+  }
+  updateChampionAttack(e,target,dist,visible,dt,player){
+    if(e.specialCharge>0){
+      e.specialCharge-=dt;
+      if(e.specialCharge>0)return;
+      e.specialCharge=0;
+      const pos=e.specialTarget||{x:target.x,z:target.z};
+      if(e.championId==='arachnex'){
+        e.specialRush=.9;e.specialHit=false;
+        this.spawnParticles(vec(e.x,(e.floorY||0)+1.4,e.z),e.champion.color,22,1.1);
+      }else if(e.championId==='colossus'){
+        const radius=6.3,near=Math.hypot(target.x-e.x,target.z-e.z);
+        this.spawnParticles(vec(e.x,(e.floorY||0)+.4,e.z),0xffc27e,38,2.1);
+        if(near<radius)this.hitChampionTarget(e,target,Math.round(30*(1-near/(radius*1.7))),player);
+      }else{
+        this.spawnParticles(vec(e.x,(e.floorY||0)+e.y,e.z),0x79dbfa,24,1.1);
+        if(visible)for(const ang of [-.30,-.18,0,.18,.30])this.spawnProjectile(e,target,ang);
+      }
+      e.specialTimer=e.championId==='arachnex'?rand(5,7):e.championId==='colossus'?rand(7,10):rand(6,8);
+      return;
+    }
+    e.specialTimer-=dt;
+    if(e.specialTimer<=0&&dist<(e.championId==='colossus'?8:25)&&visible){
+      e.specialCharge=e.championId==='colossus'?1.25:1.0;
+      e.specialTarget=e.championId==='colossus'?{x:e.x,z:e.z}:{x:target.x,z:target.z};
+      this.hooks.onBossWarning?.(e.champion.name,e.champion.attack);
+    }
+  }
   raycast(origin,dir,maxDist){let hit=null;let dist=maxDist;for(const e of this.enemies){const center=e.group.position.clone().add(vec(0,e.y,0));const radius=e.boss?2.75:e.radius*1.12;const oc=origin.clone().sub(center);const b=oc.dot(dir),c=oc.lengthSq()-radius*radius,discriminant=b*b-c;if(discriminant<0)continue;const t=-b-Math.sqrt(discriminant);if(t>0&&t<dist){dist=t;hit={enemy:e,distance:t,point:origin.clone().addScaledVector(dir,t),headshot:!e.boss&&origin.y+dir.y*t>e.y+.52};}}return hit;}
   damage(e,amount,point,source='shot'){if(!e||e.dead)return false;e.hp-=amount;e.flash=.10;if(!e.boss&&e.dodgeTime<=0){e.strafe*=-1;e.strafeChange=rand(.18,.55);e.dodgeTime=rand(.35,.7);}if(e.boss&&e.hp>0){const stage=e.hp/e.maxHp<.25?2:e.hp/e.maxHp<.56?1:0;if(stage>e.phaseIndex){e.phaseIndex=stage;e.cfg={...e.cfg,speed:e.cfg.speed*(stage===2?1.32:1.18),fire:e.cfg.fire*(stage===2?.66:.78)};this.spawnParticles(e.group.position.clone().add(vec(0,e.y,0)),0xb1674a,38,2);if(this.currentPlayer){this.spawnAt('hunter',this.currentPlayer,this.currentWave||1);this.spawnAt('scout',this.currentPlayer,this.currentWave||1);this.hooks.onSummon?.(2);}}}this.spawnParticles(point||e.group.position.clone().add(vec(0,e.y,0)),0xd7c1a1,source==='pulse'?12:3,source==='pulse'?1.2:.5);if(e.hp<=0){e.dead=true;this.kill(e);return true;}return false;}
   kill(e){this.world.scene.remove(e.group);this.disposeEnemy(e);if(e.laser)this.world.scene.remove(e.laser);if(e.warning)this.world.scene.remove(e.warning);const ix=this.enemies.indexOf(e);if(ix!==-1)this.enemies.splice(ix,1);this.spawnParticles(e.group.position.clone().add(vec(0,e.y,0)),0xb79774,e.boss?45:17,e.boss?2.2:1.2);this.audio.play('kill');this.hooks.onKill(e);if(e.boss||Math.random()<.35)this.drop(e.group.position,e.boss?'medkit':Math.random()<.72?'ammo':'medkit');}
   drop(position,type){const mat=new THREE.MeshStandardMaterial({color:type==='medkit'?0x7ea58b:0xffc458,metalness:.13,roughness:.48,emissive:type==='medkit'?0x203829:0x8e4e17,emissiveIntensity:type==='ammo'?.82:.55});const mesh=new THREE.Group();const core=new THREE.Mesh(new THREE.BoxGeometry(.55,.3,.55),mat);mesh.add(core);const ring=new THREE.Mesh(new THREE.TorusGeometry(.52,.04,8,24),mat);ring.rotation.x=Math.PI/2;mesh.add(ring);mesh.position.set(position.x,.75,position.z);this.world.scene.add(mesh);this.pickups.push({mesh,type,life:type==='ammo'?35:18,phase:rand(0,7)});}
-  update(dt,player,wave=1){this.currentPlayer=player;this.currentWave=wave;this.time+=dt;for(const e of [...this.enemies]){e.flash=Math.max(0,e.flash-dt);e.fireVisual=Math.max(0,(e.fireVisual||0)-dt);if(e.muzzleFlash)e.muzzleFlash.visible=e.fireVisual>0;
-      animateOperative(e.body,dt,{moving:e.lastMoving||0,firing:e.fireVisual>0,frozen:e.frozenUntil>Date.now(),hit:e.flash>0,distance:Math.hypot(e.x-player.x,e.z-player.z)});
+  update(dt,player,wave=1){this.currentPlayer=player;this.currentWave=wave;this.time+=dt;for(const e of [...this.enemies]){e.flash=Math.max(0,e.flash-dt);if(e.champion)animateChampionModel(e.body,this.time,e.lastMoving,e.phaseIndex);e.fireVisual=Math.max(0,(e.fireVisual||0)-dt);if(e.muzzleFlash)e.muzzleFlash.visible=e.fireVisual>0;
+      if(!e.champion)animateOperative(e.body,dt,{moving:e.lastMoving||0,firing:e.fireVisual>0,frozen:e.frozenUntil>Date.now(),hit:e.flash>0,distance:Math.hypot(e.x-player.x,e.z-player.z)});
       e.phase+=dt*(e.boss?1.7:3.2);e.group.position.y=e.gravityUntil>Date.now()?2.7+Math.sin(e.phase)*.15:Math.sin(e.phase)*.04; e.bar.scale.x=Math.max(0,e.hp/e.maxHp);e.bar.position.x=-(1-e.bar.scale.x)*.925*e.cfg.scale;const camPos=new THREE.Vector3();this.world.camera.getWorldPosition(camPos);e.bar.lookAt(camPos);e.barBg.lookAt(camPos);if(e.frozenUntil>Date.now()){e.fireTimer=Math.max(.15,e.fireTimer);continue;}const decoy=this.decoys?.find(d=>d.until>Date.now()&&Math.hypot(d.mesh.position.x-e.x,d.mesh.position.z-e.z)<24);
       const viable=[...(this.hiddenPlayer?[]:[player]),...(this.allies||[]).filter(a=>!a.downed)];
       e.perceptionDelay=(e.perceptionDelay||0)-dt;
@@ -209,7 +246,8 @@ export class EnemySystem {
       }
       e.homeX??=e.x;e.homeZ??=e.z;
       const targetVisible=!!e.visibleTarget;
-      const chase=decoy?{x:decoy.mesh.position.x,z:decoy.mesh.position.z,eyeY:decoy.mesh.position.y}:e.visibleTarget||remembered||e.patrolPoint;
+      // Arena champions hunt the fighter through the navigable map, but attacks still require LOS.
+      const chase=e.champion&&!decoy?player:decoy?{x:decoy.mesh.position.x,z:decoy.mesh.position.z,eyeY:decoy.mesh.position.y}:e.visibleTarget||remembered||e.patrolPoint;
       if(remembered&&Math.hypot(e.x-remembered.x,e.z-remembered.z)<2&&!targetVisible)e.targetMemory=null;
       e.coverCheck=(e.coverCheck||0)-dt;
       const ranged=!['scout','tank','hunter'].includes(e.type);
@@ -222,7 +260,17 @@ export class EnemySystem {
       }
       if(e.coverSpot&&Math.hypot(e.x-e.coverSpot.x,e.z-e.coverSpot.z)<1.55){e.coverSpot=null;e.coverHold=rand(.65,1.3);}
       e.coverHold=Math.max(0,(e.coverHold||0)-dt);
-      const nav=this.navigateTo(e,e.coverSpot||chase);const dx=nav.x-e.x,dz=nav.z-e.z,dist=Math.max(.0001,Math.hypot(dx,dz)),nx=dx/dist,nz=dz/dist;const faceX=(targetVisible?chase.x:nav.x)-e.x,faceZ=(targetVisible?chase.z:nav.z)-e.z,faceLen=Math.max(.001,Math.hypot(faceX,faceZ));e.group.rotation.y=Math.atan2(-faceX,-faceZ);e.facingX=faceX/faceLen;e.facingZ=faceZ/faceLen;e.fireTimer-=dt;e.strafeChange-=dt;if(e.strafeChange<0){e.strafe*=-1;e.strafeChange=rand(.75,2.2);}let fx=0,fz=0;const melee=e.type==='scout'||e.type==='tank'||e.type==='hunter';const optimal=e.boss?20:e.type==='sniper'?33:e.type==='gunner'?19:melee?e.cfg.range*.9:7;if(e.coverSpot){fx+=nx;fz+=nz;}else if(e.coverHold>0){fx=0;fz=0;}else if(targetVisible&&e.hp/e.maxHp<.3&&!e.boss){fx-=nx;fz-=nz;}else if(dist>optimal+2){fx+=nx;fz+=nz;}else if(dist<optimal-4&&!melee){fx-=nx*.65;fz-=nz*.65;}if(!e.coverSpot&&(!melee||dist<optimal+8)){const flank=e.coverHold>0?0:e.dodgeTime>0?1.6:(e.boss?.7:.82);fx+=(-nz)*e.strafe*flank;fz+=nx*e.strafe*flank;}e.dodgeTime=Math.max(0,(e.dodgeTime||0)-dt);const desired=steerVelocity(e.velocityX||0,e.velocityZ||0,fx,fz,e.cfg.speed,dt);e.velocityX=desired.x;e.velocityZ=desired.z;
+      const nav=this.navigateTo(e,e.coverSpot||chase);const dx=nav.x-e.x,dz=nav.z-e.z,dist=Math.max(.0001,Math.hypot(dx,dz)),nx=dx/dist,nz=dz/dist;const faceX=(targetVisible?chase.x:nav.x)-e.x,faceZ=(targetVisible?chase.z:nav.z)-e.z,faceLen=Math.max(.001,Math.hypot(faceX,faceZ));e.group.rotation.y=Math.atan2(-faceX,-faceZ);e.facingX=faceX/faceLen;e.facingZ=faceZ/faceLen;e.fireTimer-=dt;e.strafeChange-=dt;if(e.strafeChange<0){e.strafe*=-1;e.strafeChange=rand(.75,2.2);}let fx=0,fz=0;const melee=e.type==='scout'||e.type==='tank'||e.type==='hunter';const optimal=e.champion?(e.championId==='arachnex'?2.5:e.championId==='colossus'?4.0:11):e.boss?20:e.type==='sniper'?33:e.type==='gunner'?19:melee?e.cfg.range*.9:7;if(e.coverSpot){fx+=nx;fz+=nz;}else if(e.coverHold>0){fx=0;fz=0;}else if(targetVisible&&e.hp/e.maxHp<.3&&!e.boss){fx-=nx;fz-=nz;}else if(dist>optimal+2){fx+=nx;fz+=nz;}else if(dist<optimal-4&&!melee){fx-=nx*.65;fz-=nz*.65;}if(!e.coverSpot&&(!melee||dist<optimal+8)){const flank=e.coverHold>0?0:e.dodgeTime>0?1.6:(e.boss?.7:.82);fx+=(-nz)*e.strafe*flank;fz+=nx*e.strafe*flank;}e.dodgeTime=Math.max(0,(e.dodgeTime||0)-dt);if(e.champion){
+        this.updateChampionAttack(e,chase,Math.hypot(e.x-chase.x,e.z-chase.z),targetVisible,dt,player);
+        if(e.championId==='arachnex'&&e.specialRush>0){
+          e.specialRush=Math.max(0,e.specialRush-dt);
+          fx+=nx*2.8;fz+=nz*2.8;
+          if(!e.specialHit&&Math.hypot(e.x-chase.x,e.z-chase.z)<3.4){
+            this.hitChampionTarget(e,chase,21,player);e.specialHit=true;
+          }
+        }
+      }
+      const desired=steerVelocity(e.velocityX||0,e.velocityZ||0,fx,fz,e.cfg.speed*(e.specialRush>0?2.35:1),dt);e.velocityX=desired.x;e.velocityZ=desired.z;
       const canStep=(x,z)=>this.world.city?.canOccupy(x,z,e.floorY||0,1.8,e.radius)??this.world.canMove(x,z,e.radius);
       // Sweep the body in small increments; slide along walls rather than tunnelling or teleporting.
       const steps=Math.max(1,Math.ceil(Math.hypot(e.velocityX,e.velocityZ)*dt/.32));let moved=false;
@@ -238,12 +286,12 @@ export class EnemySystem {
         const floor=this.world.city.floorAt(e.x,e.z,e.floorY||0,.46);
         e.floorY=floor>(e.floorY||0)-.55?floor:Math.max(0,(e.floorY||0)-5*dt);
         e.group.position.y=(e.floorY||0)+Math.sin(e.phase)*.04;
-      } if(e.type==='sniper'&&e.laser){const from=e.group.position.clone().add(vec(0,e.y,0));const to=vec(chase.x,chase.eyeY,chase.z);const line=e.laser.geometry.attributes.position;line.setXYZ(0,from.x,from.y,from.z);line.setXYZ(1,to.x,to.y,to.z);line.needsUpdate=true;e.laser.visible=e.fireTimer<.75;}if(e.boss&&e.warning){e.warning.visible=e.blastCharge>0;e.warning.position.set(e.x,.08,e.z);e.warning.scale.setScalar(1+Math.max(0,1-e.blastCharge/1.3)*9);}if(melee){if(targetVisible&&e.alertness>=.40&&dist<e.cfg.range&&e.fireTimer<=0){e.fireVisual=.13;if(chase===player)this.hooks.onPlayerHit(e.cfg.damage);else if(chase?.role)this.hooks.onAllyHit?.(chase,e.cfg.damage);e.fireTimer=e.cfg.fire;this.spawnParticles(vec(chase.x,chase.eyeY,chase.z),0xf0d4c2,4,.5);}}else{if(e.boss){e.blastTimer-=dt;if(e.blastTimer<=0&&e.blastCharge<=0)e.blastCharge=1.3;if(e.blastCharge>0){e.blastCharge-=dt;if(e.blastCharge<=0){e.blastTimer=rand(7,10);if(targetVisible&&Math.hypot(e.x-chase.x,e.z-chase.z)<7){const from=vec(e.x,1.25,e.z),delta=vec(chase.x,1.25,chase.z).sub(from),d=delta.length();if(d>.01&&this.world.raycastDistance(from,delta.normalize(),Math.max(.01,d-.18))>=d-.3){if(chase===player)this.hooks.onPlayerHit(16);else this.hooks.onAllyHit?.(chase,16);}}this.spawnParticles(vec(e.x,.1,e.z),0xc46b4a,34,1.7);}}}
+      } if(e.type==='sniper'&&e.laser){const from=e.group.position.clone().add(vec(0,e.y,0));const to=vec(chase.x,chase.eyeY,chase.z);const line=e.laser.geometry.attributes.position;line.setXYZ(0,from.x,from.y,from.z);line.setXYZ(1,to.x,to.y,to.z);line.needsUpdate=true;e.laser.visible=e.fireTimer<.75;}if(e.boss&&e.warning){e.warning.visible=e.champion?e.specialCharge>0:e.blastCharge>0;const loc=e.champion?e.specialTarget||e: e;e.warning.position.set(loc.x,(e.floorY||0)+.08,loc.z);e.warning.scale.setScalar(e.champion?(e.championId==='colossus'?5.2:e.championId==='arachnex'?2.8:4.1):1+Math.max(0,1-e.blastCharge/1.3)*9);}if(melee){if(targetVisible&&e.alertness>=.40&&dist<e.cfg.range&&e.fireTimer<=0){e.fireVisual=.13;if(chase===player)this.hooks.onPlayerHit(e.cfg.damage);else if(chase?.role)this.hooks.onAllyHit?.(chase,e.cfg.damage);e.fireTimer=e.cfg.fire;this.spawnParticles(vec(chase.x,chase.eyeY,chase.z),0xf0d4c2,4,.5);}}else{if(e.boss&&!e.champion){e.blastTimer-=dt;if(e.blastTimer<=0&&e.blastCharge<=0)e.blastCharge=1.3;if(e.blastCharge>0){e.blastCharge-=dt;if(e.blastCharge<=0){e.blastTimer=rand(7,10);if(targetVisible&&Math.hypot(e.x-chase.x,e.z-chase.z)<7){const from=vec(e.x,1.25,e.z),delta=vec(chase.x,1.25,chase.z).sub(from),d=delta.length();if(d>.01&&this.world.raycastDistance(from,delta.normalize(),Math.max(.01,d-.18))>=d-.3){if(chase===player)this.hooks.onPlayerHit(16);else this.hooks.onAllyHit?.(chase,16);}}this.spawnParticles(vec(e.x,.1,e.z),0xc46b4a,34,1.7);}}}
         if(targetVisible&&e.alertness>=.40&&e.fireTimer<=0&&dist<e.cfg.range){
           const from=e.group.position.clone().add(vec(0,e.y,0));
           const to=vec(chase.x,chase.eyeY,chase.z);
           const shotDir=to.sub(from),shotDistance=shotDir.length();
-          if(this.world.raycastDistance(from,shotDir.normalize(),shotDistance-.12)<shotDistance-.2){e.fireTimer=.20;e.burstLeft=0;continue;}if(e.type==='gunner'){if(e.burstLeft>0){e.burstLeft--;e.fireTimer=e.cfg.fire*rand(.91,1.12);}else{e.burstLeft=1;e.fireTimer=.18;}}else e.fireTimer=e.cfg.fire*rand(.92,1.13);if(e.boss){for(const ang of [-.1,0,.1])this.spawnProjectile(e,chase,ang);}else this.spawnProjectile(e,chase);}}
+          if(this.world.raycastDistance(from,shotDir.normalize(),shotDistance-.12)<shotDistance-.2){e.fireTimer=.20;e.burstLeft=0;continue;}if(e.type==='gunner'){if(e.burstLeft>0){e.burstLeft--;e.fireTimer=e.cfg.fire*rand(.91,1.12);}else{e.burstLeft=1;e.fireTimer=.18;}}else e.fireTimer=e.cfg.fire*rand(.92,1.13);if(e.boss){if(e.championId==='arachnex'){this.spawnProjectile(e,chase,-.06);this.spawnProjectile(e,chase,.06);}else if(e.championId==='colossus'){this.spawnProjectile(e,chase,0);}else{for(const ang of [-.10,0,.10])this.spawnProjectile(e,chase,ang);}}else this.spawnProjectile(e,chase);}}
     }
     for(let i=this.projectiles.length-1;i>=0;i--){
       const b=this.projectiles[i],old=b.mesh.position.clone();b.life-=dt;

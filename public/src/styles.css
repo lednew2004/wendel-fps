@@ -818,3 +818,15 @@ body.photo-city-active #geo-game-credit{display:none!important}
 body.photo-city-active #geo-location-hud{top:52px}
 
 #geo-location-hud #geo-photo-hud{color:#f3d695;font-weight:800;letter-spacing:.03em}
+
+/* 4.8 - The Titan League is part of the existing offline bot-PvP mode. */
+.league-menu-info{display:flex;flex-direction:column;gap:4px;margin:10px 0;padding:11px 13px;border:1px solid rgba(244,175,101,.35);border-radius:8px;background:linear-gradient(110deg,rgba(40,27,27,.88),rgba(30,32,44,.8))}
+.league-menu-info strong{font:800 15px Rajdhani,system-ui,sans-serif;color:#ffcf94;letter-spacing:.07em}
+.league-menu-info small{font:700 11px Rajdhani,system-ui,sans-serif;color:#e2ced9}
+.league-menu-info span{font:800 12px Rajdhani,system-ui,sans-serif;color:#b8ebee}
+.league-hud{pointer-events:none;position:absolute;z-index:2;top:89px;left:50%;transform:translateX(-50%);min-width:225px;max-width:min(390px,90vw);padding:7px 12px;display:flex;flex-direction:column;gap:2px;text-align:center;border:1px solid rgba(255,190,117,.4);border-radius:6px;background:linear-gradient(90deg,rgba(14,20,29,.91),rgba(36,22,34,.92));box-shadow:0 12px 30px rgba(0,0,0,.3)}
+.league-hud strong{font:800 11px Rajdhani,system-ui,sans-serif;letter-spacing:.13em;color:#ffd69d}
+.league-hud span{font:900 15px 'Barlow Condensed',Rajdhani,system-ui,sans-serif;color:white;letter-spacing:.045em}
+.league-hud small{font:700 10px Rajdhani,system-ui,sans-serif;color:#a6dadd}
+body:not(.mode-training) .league-hud{display:none!important}
+@media(max-width:700px){.league-hud{top:49px;min-width:155px;padding:5px 8px}.league-hud strong{font-size:9px}.league-hud span{font-size:12px}.league-hud small{font-size:8px}}
