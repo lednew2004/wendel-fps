@@ -78,7 +78,7 @@ export function createSquadWorld(city){
  const floor=new THREE.Mesh(new THREE.PlaneGeometry(ARENA_BOUNDS.halfX*2,ARENA_BOUNDS.halfZ*2),m.floor);
  floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;root.add(floor);
  // Asphalt is a connected, deliberately designed street system. All walkable.
- for(const [x,z,w,d] of [[0,0,32,224],[-77,0,18,210],[77,0,18,210],[0,-28,194,20],[0,43,194,18],[0,-94,194,18],[0,100,194,16]]){
+ for(const [x,z,w,d] of [[0,0,22,224],[-77,0,14,210],[77,0,14,210],[0,-28,194,14],[0,43,194,14],[0,-94,194,14],[0,100,194,12]]){
   const road=new THREE.Mesh(new THREE.PlaneGeometry(w,d),m.asphalt);road.rotation.x=-Math.PI/2;road.position.set(x,.022,z);road.receiveShadow=true;root.add(road);
   const edgeX=w<d;
   if(edgeX)for(const sx of [-1,1])inst('curb',m.white,x+sx*(w/2+.55),.13,z,.75,.25,d);
@@ -181,7 +181,7 @@ export function createSquadWorld(city){
  }
  // 3D obstacle geometry is driven ONLY by the shared authoritative blockers.
  for(const p of [...SQUAD_OBSTACLES,...SQUAD_BLOCKS.filter(b=>b.perimeter)]){
-  let mat=p.perimeter?m.marine:p.kind==='barrier'?m.cream:p.kind==='crate'?m.wood:m.blue;
+  let mat=p.perimeter?m.marine:p.kind==='barrier'?m.cream:p.kind==='crate'?m.wood:p.kind==='tower'?m.blue:m.blue;
   const mesh=solid(p.x,p.h/2,p.z,p.w,p.h,p.d,mat,true);city.solids.push({...p});
   if(p.perimeter){
    // Segmented perimeter metal panels and vertical bracing.
@@ -193,6 +193,21 @@ export function createSquadWorld(city){
   }else if(p.kind==='container'){
    for(let i=0;i<p.w/1.2;i++)inst('containerdetail',m.trim,p.x-p.w/2+.6+i*1.2,p.h/2,p.z+p.d/2+.045,.07,p.h-.16,.08);
    inst('containerdetail',m.orange,p.x,p.h-.14,p.z,p.w,.16,p.d);
+  }else if(p.kind==='tower'){
+   for(const side of [-1,1]){
+    for(let z=p.z-p.d/2+1.4;z<p.z+p.d/2-1;z+=2.4){
+      inst('towerframe',m.trim,p.x+side*(p.w/2+.09),p.h/2,z,.12,p.h,.16);
+      inst('towerseam',m.white,p.x+side*(p.w/2+.11),p.h*.72,z,.10,.06,1.65);
+      inst('towerseam',m.white,p.x+side*(p.w/2+.11),p.h*.36,z,.10,.06,1.65);
+    }
+   }
+   for(const side of [-1,1])for(let x=p.x-p.w/2+1.5;x<p.x+p.w/2-1.2;x+=2.1){
+      inst('towerwindow',m.glass,x,p.h*.68,p.z+side*(p.d/2+.05),1.2,1.0,.08);
+      inst('towerwindow',m.dark,x,p.h*.68+.54,p.z+side*(p.d/2+.09),1.26,.08,.14);
+   }
+   inst('towercap',m.steel,p.x,p.h+.16,p.z,p.w+.6,.32,p.d+.6);
+   inst('towertrim',m.orange,p.x,p.h-.22,p.z,p.w+.18,.12,p.d+.18);
+   inst('warning',m.orange,p.x,p.h*.46,p.z,p.w+.08,.08,.10);
   }else{
    inst('warning',m.orange,p.x,p.h-.14,p.z,p.w+.02,.10,p.d+.02);
   }
@@ -209,8 +224,9 @@ export function createSquadWorld(city){
  // The west boundary stands in for the bright painted mural in the reference.
  graffiti.position.set(-95.85,5.2,-5);graffiti.rotation.y=Math.PI/2;root.add(graffiti);
  // The industrial district uses a few local lights; no shadow-casting pointlights.
- for(const [x,z] of [[-14,-7],[13,27],[0,93]]){
-  const bulb=new THREE.PointLight(0xffc484,.9,18,2);bulb.position.set(x,9,z);root.add(bulb);
+ for(const [x,z,w,d,h] of [[-60,-109,20,8,30],[-22,-109,18,8,26],[22,-109,18,8,28],[60,-109,20,8,32],[-62,109,18,8,28],[-18,109,22,8,31],[26,109,20,8,29],[66,109,16,8,27]]){
+  const shell=deco(x,h/2,z,w,h,d,m.dark);shell.receiveShadow=true;
+  inst('skylineTrim',m.trim,x,h-.2,z,w+.2,.1,d+.2);
  }
  // Batched decorations: one draw call per material/geometry class.
  const unit=new THREE.BoxGeometry(1,1,1);const tmp=new THREE.Object3D();

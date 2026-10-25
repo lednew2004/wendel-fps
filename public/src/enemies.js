@@ -69,31 +69,41 @@ export class EnemySystem {
     const champRadius=typeof championId==='object'?championId?.radius:CHAMPIONS.find(c=>c.id===championId)?.radius;
     const radius=(champRadius??ENEMY_TYPES[type].radius)+.30,city=this.world.city;
     const clear=(x,z)=>city?.canOccupy(x,z,0,1.9,radius)??this.world.canMove(x,z,radius);
-    const valid=(x,z)=>Number.isFinite(x)&&Number.isFinite(z)&&clear(x,z)&&Math.hypot(x-player.x,z-player.z)>SPAWN_RADIUS.min;
     const taken=(x,z)=>this.enemies.some(e=>Math.hypot(e.x-x,e.z-z)<5.5);
+    const minRange=Math.max(14,SPAWN_RADIUS.min-(championId?4:2));
+    const maxRange=Math.max(minRange+12,SPAWN_RADIUS.max+(championId?8:0));
+    const valid=(x,z,min=minRange)=>Number.isFinite(x)&&Number.isFinite(z)&&clear(x,z)&&Math.hypot(x-player.x,z-player.z)>min;
+    const pushCandidate=(spots,x,z,min=minRange)=>{
+      const offsets=[[0,0],[2.2,0],[-2.2,0],[0,2.2],[0,-2.2],[3.2,3.2],[-3.2,3.2],[3.2,-3.2],[-3.2,-3.2]];
+      for(const [ox,oz] of offsets){
+        const px=x+ox,pz=z+oz;
+        if(valid(px,pz,min)&&!taken(px,pz))spots.push([px,pz]);
+      }
+    };
     const spots=[];
-    for(let i=0;i<26;i++){
-      const a=Math.random()*Math.PI*2,dist=rand(SPAWN_RADIUS.min,SPAWN_RADIUS.max);
-      const x=player.x+Math.cos(a)*dist,z=player.z+Math.sin(a)*dist;
-      if(valid(x,z)&&!taken(x,z))spots.push([x,z]);
+    // Prefer authored spawn nodes first, because the new arena is more enclosed.
+    for(const [x,z] of this.world.spawnPoints||[])pushCandidate(spots,x,z,minRange);
+    for(let i=0;i<24;i++){
+      const a=Math.random()*Math.PI*2,dist=rand(minRange,maxRange);
+      pushCandidate(spots,player.x+Math.cos(a)*dist,player.z+Math.sin(a)*dist,minRange);
     }
-    // Real-city geography and original arena both have their own collision-safe spawn lists.
-    for(const [x,z] of this.world.spawnPoints||[]){if(valid(x,z)&&!taken(x,z))spots.push([x,z]);}
     // Dense neighborhoods can have very little free ground: widen the search instead of stalling the wave.
-    if(!spots.length)for(let i=0;i<55;i++){
-      const angle=rand(-Math.PI,Math.PI),r=rand(12,95),x=player.x+Math.cos(angle)*r,z=player.z+Math.sin(angle)*r;
-      if(clear(x,z)&&Math.hypot(x-player.x,z-player.z)>12&&!taken(x,z))spots.push([x,z]);
+    if(!spots.length)for(let i=0;i<90;i++){
+      const angle=rand(-Math.PI,Math.PI),r=rand(10,110);
+      pushCandidate(spots,player.x+Math.cos(angle)*r,player.z+Math.sin(angle)*r,10);
     }
     if(!spots.length)return null;
-    spots.sort((a,b)=>Math.abs(Math.hypot(a[0]-player.x,a[1]-player.z)-(championId?26:35))-Math.abs(Math.hypot(b[0]-player.x,b[1]-player.z)-(championId?26:35)));
-    const eligible=spots.slice(0,Math.min(spots.length,12));
+    const preferredDistance=championId?24:28;
+    spots.sort((a,b)=>Math.abs(Math.hypot(a[0]-player.x,a[1]-player.z)-preferredDistance)-Math.abs(Math.hypot(b[0]-player.x,b[1]-player.z)-preferredDistance));
+    const eligible=spots.slice(0,Math.min(spots.length,18));
     // Prefer cover between the spawn and the player: enemies advance into view naturally.
     const sheltered=eligible.filter(([x,z])=>{
       const eye=vec(player.x,player.eyeY||1.7,player.z),delta=vec(x,1.5,z).sub(eye),d=delta.length();
-      return this.world.raycastDistance(eye,delta.normalize(),d-.12)<d-.25;
+      return d>0.1&&this.world.raycastDistance(eye,delta.normalize(),Math.max(.01,d-.12))<d-.25;
     });
-    const choices=sheltered.length?sheltered:eligible;
-    const enemy=this.spawn(type,choices[Math.floor(Math.random()*Math.min(choices.length,5))],wave,championId);
+    const choices=(sheltered.length?sheltered:eligible).slice(0,Math.min(10,(sheltered.length?sheltered:eligible).length));
+    const pick=choices[Math.floor(Math.random()*choices.length)]||eligible[0];
+    const enemy=this.spawn(type,pick,wave,championId);
     // Radio alert contains the last reported player location, not an updating through-wall lock.
     enemy.targetMemory={x:player.x,z:player.z,eyeY:player.eyeY??1.65,until:this.time+4.6,kind:'alert'};
     enemy.alertness=.24;

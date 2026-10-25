@@ -73,7 +73,18 @@ const obstacles=[
  [-76,-20,6.0,2.4,2.2,'container'],[78,0,5.2,3,1.85,'crate'],
  [-79,46,5.0,2.5,1.45,'barrier'],[80,47,5.6,2.6,2.1,'container'],
  // Medium-range sight-breaks with entry and flank clearances.
- [-16,-3,2.5,7.2,2.15,'barrier'],[16,23,2.4,8.0,1.70,'barrier']
+ [-16,-3,2.5,7.2,2.15,'barrier'],[16,23,2.4,8.0,1.70,'barrier'],
+ // New canyoning blocks: tall masses close the arena and create true alleys.
+ [-18,-57,11.5,18,22,'tower'],[18,-55,11.5,18,23,'tower'],
+ [18,-6,12.0,22,24,'tower'],[-18,11,12.0,22,24,'tower'],
+ [-18,59,12.0,22,25,'tower'],[18,58,12.0,22,25,'tower'],
+ [-87,-60,12,34,28,'tower'],[87,-60,12,34,28,'tower'],
+ [-87,10,12,38,30,'tower'],[87,14,12,38,30,'tower'],
+ [-87,79,12,34,28,'tower'],[87,79,12,34,28,'tower'],
+ // Alley pinch points and diagonal blockers to reduce long open sightlines.
+ [-2,-42,8.4,2.0,3.2,'container'],[2,41,8.4,2.0,3.2,'container'],
+ [-33,-60,10.5,1.8,3.6,'barrier'],[33,-18,10.5,1.8,3.6,'barrier'],
+ [-33,28,10.5,1.8,3.6,'barrier'],[33,77,10.5,1.8,3.6,'barrier']
 ];
 export const SQUAD_OBSTACLES=Object.freeze(obstacles.map(([x,z,w,d,h,kind])=>freezeBlock(x,z,w,d,h,{obstacle:true,kind})));
 // Edge walls prevent falling off the authored combat arena. Breaks at front and
@@ -100,8 +111,9 @@ export const SQUAD_BLOCKS=Object.freeze([
  ...SQUAD_BRIDGE_BLOCKS,...SQUAD_PERIMETER
 ]);
 export const SQUAD_ENEMY_SPAWNS=Object.freeze([
- [-36,-86],[37,-87],[-31,-43],[34,-41],[-36,-4],[32,-3],
- [-33,44],[34,43],[-35,94],[36,96],[0,104],[-75,-10],[75,31],[-75,65],[76,-71],[-2,54]
+ [-72,-91],[72,-91],[-41,-73],[41,-73],[-72,-30],[72,-28],
+ [-42,-6],[42,-7],[-72,24],[72,25],[-42,49],[42,50],
+ [-72,90],[72,90],[-18,103],[18,103],[0,71],[-57,8],[57,10]
 ]);
 export const FFA_SPAWNS=Object.freeze([[-9,-99],[11,99],[-33,-93],[35,92],[-80,-44],[84,60],[-8,13],[4,-49]]);
 export function roleForHero(id){return ({striker:'front',cryomancer:'support',riftwalker:'sniper',aeronaut:'sniper',phantom:'sniper',chronos:'bomber',echo:'support',storm:'bomber',gravity:'front',guardian:'support',shiro:'front',leo:'bomber',butterfly:'bomber',adaptomega:'front',forge:'bomber',terra:'front',puppet:'support',thread:'front',mirror:'sniper',pixel:'front',cipher:'sniper',vector:'front',bloom:'support',fusion:'bomber',echo2:'support'})[id]||'front';}
