@@ -30,18 +30,33 @@ export const SQUAD_OBSTACLES=Object.freeze([
  [27,49,12,1.5,5.2,'concrete'],[-78,83,1.5,10,5.7,'security'],
  [78,82,1.5,10,5.4,'industrial'],[-28,-89,1.4,13,4.8,'construction']
 ].map(([x,z,w,d,h,kind])=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h,obstacle:true,kind})));
+/** Build 4.6.6: physical cover props shared by client FPS physics, bullet raycasts,
+ * and authoritative multiplayer collision. Kept out of mission spawn/objective paths. */
+export const SQUAD_COVERS_466=Object.freeze([
+  [-9.6,-127.0,2.6,2.4,1.7,'crate'],[9.9,-106.2,3.0,2.2,2.15,'crate'],
+  [-9.8,-50.0,2.8,2.45,1.65,'crate'],[9.7,-42.0,3.0,2.2,2.10,'crate'],
+  [-11.3,-9.5,4.1,1.25,1.42,'barrier'],[11.1,28.0,3.4,1.3,1.38,'barrier'],
+  [-10.8,52.0,3.6,2.4,1.75,'crate'],[11.3,72.0,3.5,1.3,1.40,'barrier'],
+  [-9.5,115.0,2.8,2.8,1.7,'crate'],[12.0,143.0,3.6,2.3,2.15,'crate'],
+  [-18.0,-33.0,3.6,1.35,1.35,'barrier'],[18.1,-67.0,3.8,1.25,1.35,'barrier']
+].map(([x,z,w,d,h,style],index)=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h,referenceCover:true,style,index})));
 const SQUAD_RAW_BLOCKS=Object.freeze([
  [-39,-104,16,9,6], [39,-104,16,9,6],[-31,-76,12,7,4],[31,-76,12,7,4],
  [-84,-50,19,14,12],[84,-50,19,14,12],[-46,-16,14,17,8],[46,-16,14,17,8],
  [-105,18,18,16,9],[103,25,21,14,8],[-36,62,16,9,7],[37,62,16,9,7],
  [-91,97,23,16,10],[91,97,23,16,10],[-46,145,15,22,8],[48,145,15,22,8],
  [-23,5,3.2,8,1.3],[21,12,3.2,8,1.3],[-15,96,6,2.5,1.3],[20,105,6,2.5,1.3],
- [-58,-128,8,3,2], [57,-123,8,3,2],[-83,65,3,6,1.8],[82,-1,3,6,1.8]
-].map(([x,z,w,d,h])=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h})).concat(SQUAD_OBSTACLES));
+ [-58,-128,8,3,2], [57,-123,8,3,2],[-83,65,3,6,1.8],[82,-1,3,6,1.8],
+ // Compact accessible prefab shops create the reference's dense combat alley.
+ // These are REAL interiors: door openings, stairs, loft and roofs use the
+ // existing shared interiorColliders + multiplayer interactables.
+ [-18,-135,12,13,7.4],[18,-125,12,13,7.7],[-18,-79,12,12,7.4],[18,-79,12,12,7.7],
+ [-20,-8,11,13,7.6],[20,-8,11,13,7.8],[-20,62,11,13,7.8],[20,62,11,13,7.6]
+].map(([x,z,w,d,h])=>Object.freeze({x,z,w,d,h,hx:w/2,hz:d/2,minY:0,maxY:h})).concat(SQUAD_OBSTACLES,SQUAD_COVERS_466));
 
 // Four former solid building blocks become navigable structures. Client and server
 // use the same shell, intermediate floor, roof and furnishing collision volumes.
-export const SQUAD_INTERIORS=Object.freeze([0,1,4,5,12,13,14,15].map(i=>Object.freeze({...SQUAD_RAW_BLOCKS[i],id:`interior-${i}`})));
+export const SQUAD_INTERIORS=Object.freeze([0,1,4,5,12,13,14,15,24,25,26,27,28,29,30,31].map(i=>Object.freeze({...SQUAD_RAW_BLOCKS[i],id:`interior-${i}`})));
 export const SQUAD_DOORS=Object.freeze(SQUAD_INTERIORS.map(b=>Object.freeze({id:`${b.id}-door`,kind:'door',x:b.x,z:b.z+b.d/2-.01,hx:1.56,hz:.16,minY:0,maxY:2.9})));
 export function interiorColliders(b){
  const w=b.w,d=b.d,h=b.h,mid=h/2,gap=3.2,front=(w-gap)/2;
@@ -59,11 +74,11 @@ export function interiorColliders(b){
  ];
  return defs.map(([ox,oz,cw,cd,ch,base,part])=>Object.freeze({x:b.x+ox,z:b.z+oz,w:cw,d:cd,h:ch,hx:cw/2,hz:cd/2,minY:base,maxY:base+ch,interiorPart:part,interiorId:b.id}));
 }
-const interiorIndexes=new Set([0,1,4,5,12,13,14,15]);
-export const SQUAD_BLOCKS=Object.freeze(SQUAD_RAW_BLOCKS.flatMap((b,i)=>interiorIndexes.has(i)?interiorColliders(b):[b]));
+const interiorIndexes=new Set([0,1,4,5,12,13,14,15,24,25,26,27,28,29,30,31]);
+export const SQUAD_BLOCKS=Object.freeze(SQUAD_RAW_BLOCKS.flatMap((b,i)=>interiorIndexes.has(i)?interiorColliders({...b,id:`interior-${i}`}):[b]));
 export const SQUAD_ENEMY_SPAWNS=Object.freeze([
  [-59,-76],[58,-79],[-32,-50],[31,-47],[-98,-16],[96,-1],[-93,63],[-46,81],
- [47,77],[71,96],[-72,116],[0,158],[51,156],[-46,152],[-105,111],[104,117]
+ [47,77],[71,96],[-72,116],[0,158],[62,156],[-46,152],[-105,111],[104,117]
 ]);
 export const FFA_SPAWNS=Object.freeze([[-140,-140],[139,139],[-139,139],[139,-140],[-110,0],[111,1],[0,72],[5,-125]]);
 export function roleForHero(id){return ({striker:'front',cryomancer:'support',riftwalker:'sniper',aeronaut:'sniper',phantom:'sniper',chronos:'bomber',echo:'support',storm:'bomber',gravity:'front',guardian:'support',shiro:'front',leo:'bomber',butterfly:'bomber',adaptomega:'front',forge:'bomber',terra:'front',puppet:'support',thread:'front',mirror:'sniper',pixel:'front',cipher:'sniper',vector:'front',bloom:'support',fusion:'bomber',echo2:'support'})[id]||'front';}

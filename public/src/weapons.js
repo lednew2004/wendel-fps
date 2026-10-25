@@ -34,12 +34,12 @@ export class Weapons {
     this.weaponObjects=[];
 
     const gunBlack=new THREE.MeshStandardMaterial({color:0x25292d,metalness:.92,roughness:.30,depthTest:false});
-    const gunSteel=new THREE.MeshStandardMaterial({color:0x6e7478,metalness:.92,roughness:.23,depthTest:false});
+    const gunSteel=new THREE.MeshStandardMaterial({color:0x78818a,metalness:.86,roughness:.29,depthTest:false});
     const polymer=new THREE.MeshStandardMaterial({color:0x373d41,metalness:.48,roughness:.62,depthTest:false});
     const wood=new THREE.MeshStandardMaterial({color:0x785d42,metalness:.12,roughness:.78,depthTest:false});
     const tan=new THREE.MeshStandardMaterial({color:0x6d6559,metalness:.26,roughness:.76,depthTest:false});
-    const handMat=new THREE.MeshStandardMaterial({color:0xb48869,metalness:.02,roughness:.96,depthTest:false});
-    const gloveMat=new THREE.MeshStandardMaterial({color:0x5f655f,metalness:.12,roughness:.88,depthTest:false});
+    const handMat=new THREE.MeshStandardMaterial({color:0xbc947b,metalness:.02,roughness:.96,depthTest:false});
+    const gloveMat=new THREE.MeshStandardMaterial({color:0x328c9b,metalness:.12,roughness:.88,depthTest:false});
 
     const buildHands=(group, forePos=[-.12,-.26,-.07], supportPos=[.15,-.16,-.56])=>{
       const left=new THREE.Group();left.name='TITAN_HAND_LEFT';

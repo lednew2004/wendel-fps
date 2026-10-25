@@ -96,8 +96,8 @@ export class World {
     this.mount=mount;
     this.scene=new THREE.Scene();
     this.photorealMode=false;this.photorealNodes=()=>[];this.prePhotoState=null;
-    this.scene.background=new THREE.Color(0x71c8f8);
-    this.scene.fog=new THREE.FogExp2(0xc5e9ff,.0022);
+    this.scene.background=new THREE.Color(0x8bc2e8);
+    this.scene.fog=new THREE.FogExp2(0xc8d5db,.0016);
     this.camera=new THREE.PerspectiveCamera(78,1,.07,440);
     this.cameraRig=new THREE.Group();
     this.cameraPitch=new THREE.Group();
@@ -108,7 +108,7 @@ export class World {
     this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure=1.21;
+    this.renderer.toneMappingExposure=1.23;
     this.renderer.shadowMap.enabled=true;
     this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     mount.appendChild(this.renderer.domElement);
@@ -146,10 +146,10 @@ export class World {
     this.customFar=260;
     this.vegetation=null;
 
-    const hemi=new THREE.HemisphereLight(0xdbecff,0x657f70,1.12);
+    const hemi=new THREE.HemisphereLight(0xd4ebff,0x806855,1.28);
     this.scene.add(hemi);
-    const sun=new THREE.DirectionalLight(0xffe5c7,2.05);
-    sun.position.set(-48,58,30);
+    const sun=new THREE.DirectionalLight(0xffe1bc,2.35);
+    sun.position.set(-56,89,41);
     sun.castShadow=true;
     sun.shadow.mapSize.set(2048,2048);
     sun.shadow.camera.left=-85;
@@ -572,6 +572,7 @@ export class World {
     this.camera.far=p.far;
     this.camera.updateProjectionMatrix();
     if(this.city?.squadDetailRoot)this.city.squadDetailRoot.visible=q!=='low';
+    if(this.city?.reference466)this.city.reference466.detail.visible=q!=='low';
     this.syncGraphicsLab39();
     if(this.vegetation)this.vegetation.count=Math.floor(this.vegetation.instanceMatrix.count*p.vegetation);
     this.resize();
@@ -580,23 +581,25 @@ export class World {
   syncGraphicsLab39(){
     const lab=this.city?.graphicsLab;
     if(lab){lab.root.visible=!!this.graphicsLabEnabled;lab.deluxe.visible=['high','ultra','cinematic'].includes(this.quality);}
+    if(this.city?.reference466)this.city.reference466.detail.visible=this.quality!=='low';
     const premium=this.city?.cinematic391;
     if(premium){premium.root.visible=!!this.graphicsLabEnabled;premium.high.visible=['high','ultra','cinematic'].includes(this.quality);}
     for(const part of this.city?.premiumFacadeMeshes||[]){part.mesh.material=this.graphicsLabEnabled?part.cinematic:part.original;}
     // Preserve the original palette for the A/B switch. No collision changes.
     const pal=this.city?.cinematicPalette;
     if(pal){
-      pal.road.color.setHex(this.graphicsLabEnabled?0x54595a:0x638091);
+      pal.road.color.setHex(0xffffff);
       pal.road.metalness=this.graphicsLabEnabled?.12:0;
       pal.road.roughness=this.graphicsLabEnabled?.82:.85;
-      pal.road.map=this.graphicsLabEnabled?this.textures.asphalt:null;pal.road.needsUpdate=true;
-      pal.concrete.color.setHex(this.graphicsLabEnabled?0xd0d1cb:0xaabcc2);
+      // The physically authored asphalt remains active in all modes.
+      pal.road.needsUpdate=true;
+      pal.concrete.color.setHex(0xffffff);
       pal.panel.color.setHex(this.graphicsLabEnabled?0x9ebfbb:0x72e8db);
       pal.panel.emissiveIntensity=this.graphicsLabEnabled?.10:.22;
       pal.orange.color.setHex(this.graphicsLabEnabled?0xdbbb84:0xffc05f);
     }
-    this.renderer.toneMappingExposure=this.graphicsLabEnabled?1.10:1.21;
-    if(this.urbanActive&&this.scene.fog&&this.scene.background){this.scene.fog.color.setHex(this.graphicsLabEnabled?0xb9c9ca:0xb3d8f0);this.scene.background.setHex(this.graphicsLabEnabled?0x90afc2:0x87c3f2);}
+    this.renderer.toneMappingExposure=this.graphicsLabEnabled?1.19:1.23;
+    if(this.urbanActive&&this.scene.fog&&this.scene.background){this.scene.fog.color.setHex(this.graphicsLabEnabled?0xc8d5db:0xc3d7e5);this.scene.background.setHex(this.graphicsLabEnabled?0x8bc2e8:0x87c3f2);}
   }
   setGraphicsLabEnabled(enabled){
     this.graphicsLabEnabled=!!enabled;this.syncGraphicsLab39();
@@ -656,7 +659,7 @@ export class World {
     this.moon.shadow.camera.updateProjectionMatrix();
     for(const node of this.baseEnvironmentNodes)node.visible=!enabled;
     if(!enabled){this.scene.background.setHex(0xc0c9cf);this.scene.fog.color.setHex(0xb7c0c7);}
-    else{this.scene.background.setHex(this.graphicsLabEnabled?0x90afc2:0x87c3f2);this.scene.fog.color.setHex(this.graphicsLabEnabled?0xb9c9ca:0xb3d8f0);}
+    else{this.scene.background.setHex(this.graphicsLabEnabled?0x8bc2e8:0x87c3f2);this.scene.fog.color.setHex(this.graphicsLabEnabled?0xc8d5db:0xc3d7e5);}
   }
   canMove(x,z,r=.5){
     if(this.urbanActive && this.city) return this.city.canOccupy(x,z,0,1.65,r);

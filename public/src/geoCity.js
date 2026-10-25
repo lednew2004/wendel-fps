@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {projectGeo,geoPolyline,nearPolyline,nearestRoadPoint} from './geoProjection.js';
 import {tileBounds} from './geoVectorParser.js';
+import {makeReferenceMaterials466} from './referenceDistrict466.js';
 
 const makeMat=color=>new THREE.MeshStandardMaterial({color,roughness:.86,metalness:.08});
 const bannedRoads=new Set(['footway','cycleway','path','steps','bridleway','pedestrian','corridor','construction','proposed']);
@@ -13,7 +14,8 @@ export class GeoCity {
     this.isGeoCity=true;this.world=world;this.root=new THREE.Group();this.root.name='REAL_OSM_CITY';world.scene.add(this.root);
     this.center=data.center;this.cityName=data.city;this.solids=[];this.surfaces=[];this.ladders=[];this.lowWalls=[];this.courses=[];this.rayTargets=[];this.spawnPoints=[];this.polygons=[];
     this.visibilityRadius=245;this.streetPaths=[];this.approximateBuildings=0;
-    const terrain=new THREE.Mesh(new THREE.PlaneGeometry(512,512),makeMat(0x899a91));terrain.rotation.x=-Math.PI/2;terrain.position.y=-.023;terrain.receiveShadow=true;this.root.add(terrain);
+    const visual466=makeReferenceMaterials466();
+    const terrain=new THREE.Mesh(new THREE.PlaneGeometry(512,512),visual466.paving);terrain.rotation.x=-Math.PI/2;terrain.position.y=-.023;terrain.receiveShadow=true;this.root.add(terrain);
     if(data.rasterOnly){
       // Emergency map mode: authentic OSM streets are drawn on the ground in geographic positions.
       // No made-up building footprints or road geometry are substituted.
@@ -27,9 +29,9 @@ export class GeoCity {
         this.root.add(segment);
       }
     }
-    const roadMat=makeMat(0x444654),walkMat=makeMat(0x7d818c),parkMat=makeMat(0x608a68);
-    const facades=[0x413950,0x5c526d,0x6d647c,0x68738f,0x9b859a,0x514f61,0x826f92].map(makeMat);
-    const roof=makeMat(0x403a51);
+    const roadMat=visual466.asphalt,walkMat=visual466.paving,parkMat=makeMat(0x668b6b);
+    const facades=[visual466.cyan,visual466.cream,visual466.warm,visual466.blue,visual466.marine,visual466.orange];
+    const roof=visual466.dark;
     const urbanPoints=[],streetLabels=new Map(),roadInstances={road:[],walk:[]};
     let roads=[];
     for(const feature of data.roads){
@@ -79,6 +81,8 @@ export class GeoCity {
       const s=new THREE.Shape();polygon.forEach((pt,i)=>(i?s.lineTo(pt.x,-pt.z):s.moveTo(pt.x,-pt.z)));
       const mesh=new THREE.Mesh(new THREE.ShapeGeometry(s),parkMat);mesh.rotation.x=-Math.PI/2;mesh.position.y=.026;this.root.add(mesh);
     }
+    // Real building edge/window relief, batched for the current geographic tile.
+    const facadeWindows=[];
     for(let i=0;i<data.buildings.length;i++){
       const feature=data.buildings[i],polygon=geoPolyline(feature.points,this.center);
       if(polygon.length<4)continue;
@@ -91,8 +95,43 @@ export class GeoCity {
       const mesh=new THREE.Mesh(geo,facades[i%facades.length]);mesh.castShadow=false;mesh.receiveShadow=true;this.root.add(mesh);this.rayTargets.push(mesh);
       const collider={x:(minX+maxX)/2,z:(minZ+maxZ)/2,hx:(maxX-minX)/2,hz:(maxZ-minZ)/2,minY:0,maxY:height};
       this.solids.push(collider);this.polygons.push({collider,polygon});
+      // Place frames along the REAL polygon edges, never along invented roads.
+      // Keep only near-camera, wide facades to bound mobile GPU memory.
+      if(Math.abs(collider.x)<165&&Math.abs(collider.z)<165&&facadeWindows.length<2500){
+        const n=Math.max(0,Math.floor(height/3.1));
+        const centroid={x:polygon.reduce((sum,p)=>sum+p.x,0)/polygon.length,z:polygon.reduce((sum,p)=>sum+p.z,0)/polygon.length};
+        for(let edge=1;edge<polygon.length;edge++){
+          const a=polygon[edge-1],b=polygon[edge],dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
+          if(len<4.5||len>55)continue;
+          const count=Math.min(6,Math.floor(len/2.8));
+          const tangent={x:dx/len,z:dz/len};
+          let outward={x:tangent.z,z:-tangent.x};
+          const mid={x:(a.x+b.x)*.5,z:(a.z+b.z)*.5};
+          if((mid.x-centroid.x)*outward.x+(mid.z-centroid.z)*outward.z<0){outward.x*=-1;outward.z*=-1;}
+          const angle=-Math.atan2(tangent.z,tangent.x);
+          for(let floor=0;floor<Math.min(7,n);floor++)for(let column=0;column<count;column++){
+            const amount=(column+.5)/count;
+            if(facadeWindows.length>=2500)break;
+            facadeWindows.push({x:a.x+dx*amount+outward.x*.18,z:a.z+dz*amount+outward.z*.18,y:1.7+floor*3.10,angle});
+          }
+        }
+      }
       const top=new THREE.Mesh(new THREE.ShapeGeometry(shape),roof);top.rotation.x=-Math.PI/2;top.position.y=height+.006;this.root.add(top);
       // Roofing is visual only. Rectangular roof walking would otherwise extend outside complex footprints.
+    }
+    if(facadeWindows.length){
+      const geometry=new THREE.BoxGeometry(1,1,1),dummy=new THREE.Object3D();
+      const frames=new THREE.InstancedMesh(geometry,visual466.frame,facadeWindows.length);
+      const glass=new THREE.InstancedMesh(geometry,visual466.glass,facadeWindows.length);
+      for(const [i,p] of facadeWindows.entries()){
+        dummy.position.set(p.x,p.y,p.z);dummy.rotation.set(0,p.angle,0);
+        dummy.scale.set(1.55,1.62,.12);dummy.updateMatrix();frames.setMatrixAt(i,dummy.matrix);
+        dummy.position.set(p.x,p.y,p.z);dummy.scale.set(1.37,1.42,.16);dummy.updateMatrix();glass.setMatrixAt(i,dummy.matrix);
+      }
+      for(const mesh of [frames,glass]){
+        mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=false;mesh.receiveShadow=false;
+        mesh.frustumCulled=false;this.root.add(mesh);
+      }
     }
     // Optional stylized street-front buildings where OSM has roads but no mapped
     // building outlines: visual estimates, NOT claimed to be actual buildings.
@@ -149,8 +188,8 @@ export class GeoCity {
     // Signs carry actual street names from OSM, so the setting is recognizable even with original game graphics.
     for(const [name,p] of streetLabels){
       const canvas=document.createElement('canvas');canvas.width=640;canvas.height=120;
-      const ctx=canvas.getContext('2d');ctx.fillStyle='rgba(26,20,39,.89)';ctx.fillRect(0,0,640,120);
-      ctx.strokeStyle='#ae86ec';ctx.strokeRect(4,4,632,112);
+      const ctx=canvas.getContext('2d');ctx.fillStyle='rgba(24,53,64,.92)';ctx.fillRect(0,0,640,120);
+      ctx.strokeStyle='#dfaf70';ctx.strokeRect(4,4,632,112);
       ctx.fillStyle='#f9f5ff';ctx.font='bold 38px Arial';ctx.textAlign='center';ctx.fillText(name,320,76,600);
       const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;
       const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));
@@ -201,7 +240,7 @@ export class GeoCity {
   updateVisibility(){}
   toggle(on){this.root.visible=!!on;}
   dispose(){
-    this.root.traverse(obj=>{if(obj.isMesh){obj.geometry?.dispose?.();if(obj.material?.map)obj.material.map.dispose();if(obj.material?.dispose)obj.material.dispose();}});
+    this.root.traverse(obj=>{if(obj.isMesh){obj.geometry?.dispose?.();if(!obj.material?.userData?.referenceShared466){if(obj.material?.map)obj.material.map.dispose();if(obj.material?.dispose)obj.material.dispose();}}});
     this.world.scene.remove(this.root);
   }
 }

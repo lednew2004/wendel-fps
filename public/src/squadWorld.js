@@ -4,26 +4,28 @@ import {SQUAD_BLOCKS,SQUAD_POINTS,SQUAD_INTERIORS} from './squadLayout.js';
 import {installArchitecturalDetails} from './sceneDetails35.js';
 import {installGraphicsLab39} from './graphicsLab39.js';
 import {installCinematicWorld391} from './cinematicWorld391.js';
+import {makeReferenceMaterials466,installReferenceDistrict466} from './referenceDistrict466.js';
 /** Linear FPS mission environment. No lanes, towers, jungle camps or MOBA bases. */
 export function createSquadWorld(city){
  const root=city.root;
+ const visual466=makeReferenceMaterials466();
  const metal=new THREE.MeshStandardMaterial({color:0x47779c,metalness:.28,roughness:.59});
  const wall=new THREE.MeshStandardMaterial({color:0x95c9eb,metalness:.08,roughness:.76});
  // Distinct bright districts stay readable without bloom or dynamic light sources.
- const facades=[0x8acbed,0xf2ae81,0xb0d887,0xc9adea,0xffd379,0x79d6d0].map(color=>new THREE.MeshStandardMaterial({color,roughness:.82,metalness:0}));
- // PBR alternatives are enabled only with the cinematic A/B switch.
- const cinematicFacades=[0xf7f7f0,0xe7d6c2,0xc8d7d7,0xdbdce0,0xe4e2d8,0xd1bcae].map(color=>city.world.mat(color,.12,.87,city.world.textures.facade));
+ const facades=[visual466.blue,visual466.warm,visual466.cyan,visual466.cream,visual466.marine,visual466.orange];
+ // Both quality palette choices retain real PBR textures, not flat fallback cubes.
+ const cinematicFacades=[visual466.blue,visual466.cream,visual466.cyan,visual466.warm,visual466.marine,visual466.orange];
  city.premiumFacadeMeshes=[];
- const concrete=new THREE.MeshStandardMaterial({color:0xaabcc2,roughness:.91});
- const road=new THREE.MeshStandardMaterial({color:0x638091,metalness:0,roughness:.85});
+ const concrete=visual466.paving;
+ const road=visual466.asphalt;
  const panel=new THREE.MeshStandardMaterial({color:0x72e8db,emissive:0x238d86,emissiveIntensity:.22});
  const orange=new THREE.MeshStandardMaterial({color:0xffc05f,emissive:0xb96920,emissiveIntensity:.12});
  city.cinematicPalette={road,concrete,panel,orange};
  const obstacleMaterials={
-  concrete:new THREE.MeshStandardMaterial({color:0xb3c6cf,roughness:.95}),
-  security:new THREE.MeshStandardMaterial({color:0x5995b2,metalness:.18,roughness:.76}),
-  industrial:new THREE.MeshStandardMaterial({color:0xe7ad67,metalness:.22,roughness:.77}),
-  construction:new THREE.MeshStandardMaterial({color:0xcd8c6e,roughness:.92})
+  concrete:visual466.cream,
+  security:visual466.marine,
+  industrial:visual466.orange,
+  construction:visual466.warm
  };
  const obstaclePaint=new THREE.MeshStandardMaterial({color:0xf7d66c,roughness:.75});
  const obstacleStripes=new THREE.InstancedMesh(new THREE.BoxGeometry(1,.14,.06),obstaclePaint,240);
@@ -33,7 +35,7 @@ export function createSquadWorld(city){
  // Static ground AO is baked offline; zero dynamic light or shadow cost.
  const groundMap=new THREE.TextureLoader().load('./assets/baked/mission_ground_baked.webp');
  groundMap.colorSpace=THREE.SRGBColorSpace;groundMap.anisotropy=2;
- const ground=new THREE.Mesh(new THREE.PlaneGeometry(435,435),new THREE.MeshStandardMaterial({map:groundMap,color:0xe8ffe5,metalness:0,roughness:1}));
+ const ground=new THREE.Mesh(new THREE.PlaneGeometry(435,435),new THREE.MeshStandardMaterial({map:groundMap,color:0xcad4c9,metalness:0,roughness:1}));
  ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;root.add(ground);
  // Vehicle road, service roads and open plazas, no colored team lanes.
  const roadGeo=new THREE.PlaneGeometry(17,340);
@@ -42,6 +44,7 @@ export function createSquadWorld(city){
    const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),concrete);m.rotation.x=-Math.PI/2;m.position.set(x,.025,z);m.receiveShadow=true;root.add(m);
  }
  for(const [index,b] of SQUAD_BLOCKS.entries()){
+   if(b.referenceCover){ city.solids.push({...b});continue; }
    if(b.interiorPart){
      const mat=b.interiorPart==='roof'?metal:(b.interiorPart==='loft'||b.interiorPart==='landing')?concrete:b.interiorPart==='cover'?obstacleMaterials.construction:facades[index%facades.length];
      const mesh=city.box(b.x,(b.minY+b.maxY)/2,b.z,b.w,b.h,b.d,mat);
@@ -219,6 +222,7 @@ export function createSquadWorld(city){
  installArchitecturalDetails(city);
  installGraphicsLab39(city);
  installCinematicWorld391(city);
+ installReferenceDistrict466(city,visual466);
  city.squadLandmarks={rings,craft};
  return SQUAD_POINTS;
 }
