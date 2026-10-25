@@ -35,7 +35,7 @@ const num=n=>String(Math.floor(n)).padStart(6,'0');
 
 export class Game {
   constructor(){
-    this.world=new World(el('viewport'));this.audio=new AudioEngine();this.clock=new THREE.Clock();this.look=new LookController();this.state='menu';this.keys={};this.mouseDown=false;this.rightDown=false;this.yaw=0;this.pitch=0;this.sensitivity=1;this.invertY=false;this.grenadeCd=0;this.meleeCd=0;this.fps=60;this.fpsTick=0;this.fpsCount=0;this.damageFlash=0;this.hitmarkTimer=0;this.toastTimer=0;this.calloutTimer=0;this.uiTick=0;this.radarTick=0;this.animTime=0;this.fx=[];this.pendingSpawns=[];this.spawnTimer=0;this.spawnFailureTime=0;this.spawnFailureCount=0;this.waveCount=0;this.waveKilled=0;this.wave=0;this.score=0;this.kills=0;this.combo=0;this.comboTimer=0;this.best=this.loadBest();this.league=new LeagueProgress();this.leagueRound=null;this.player={x:0,z:13,eyeY:PLAYER_HEIGHT,radius:.48,health:100,maxHealth:100,shield:60,maxShield:60,lastDamage:0,velY:0,jump:0,moveX:0,moveZ:0,dashCd:0,pulseCd:0,dashDuration:0,slideDuration:0,invulnerable:0,speedBonus:1,killsHeal:0,dashFactor:1};
+    this.world=new World(el('viewport'));this.audio=new AudioEngine();this.clock=new THREE.Clock();this.look=new LookController();this.state='menu';this.keys={};this.mouseDown=false;this.rightDown=false;this.yaw=0;this.pitch=0;this.sensitivity=1;this.invertY=false;this.grenadeCd=0;this.meleeCd=0;this.fps=60;this.fpsTick=0;this.fpsCount=0;this.damageFlash=0;this.hitmarkTimer=0;this.toastTimer=0;this.calloutTimer=0;this.uiTick=0;this.radarTick=0;this.animTime=0;this.fx=[];this.pendingSpawns=[];this.spawnTimer=0;this.intermissionTimer=0;this.spawnFailureTime=0;this.spawnFailureCount=0;this.waveCount=0;this.waveKilled=0;this.wave=0;this.score=0;this.kills=0;this.combo=0;this.comboTimer=0;this.best=this.loadBest();this.league=new LeagueProgress();this.leagueRound=null;this.player={x:0,z:13,eyeY:PLAYER_HEIGHT,radius:.48,health:100,maxHealth:100,shield:60,maxShield:60,lastDamage:0,velY:0,jump:0,moveX:0,moveZ:0,dashCd:0,pulseCd:0,dashDuration:0,slideDuration:0,invulnerable:0,speedBonus:1,killsHeal:0,dashFactor:1};
     this.enemies=new EnemySystem(this.world,this.audio,{onKill:e=>this.onEnemyKill(e),onPlayerHit:(d,p)=>this.takeDamage(d,p),onAllyHit:(ally,damage)=>this.squad?.damage(ally,damage),onPickup:t=>this.pickup(t),onSummon:n=>{this.waveCount+=n;this.toast('REFORÇOS HOSTIS!');},onBossWarning:(name,attack)=>this.toast(name?`ALERTA: ${name} · ${attack}!`:'ALERTA: ONDA DE CHOQUE — AFASTE-SE!')});
     this.ordnance=new Ordnance(this.world,this.audio,this.enemies);
     this.weapons=new Weapons(this.world,this.audio,{onRay:(origin,dir,damage,range,weapon)=>this.shootRay(origin,dir,damage,range,weapon),onHitmarker:k=>this.hitmarker(k),onFire:()=>{if(this.mode==='multiplayer')this.multiplayer?.fire();else this.enemies?.hearShot(this.player.x,this.player.z);},onWeaponChanged:()=>this.updateHud()});
@@ -338,7 +338,7 @@ export class Game {
     this.fx.forEach(f=>this.world.scene.remove(f.mesh));this.fx=[];
     this.keys={};this.mouseDown=false;this.rightDown=false;this.look.reset();
     this.grenadeCd=0;this.meleeCd=0;this.wave=0;this.score=0;this.kills=0;this.combo=0;this.comboTimer=0;
-    this.pendingSpawns=[];this.spawnTimer=0;this.spawnFailureTime=0;this.spawnFailureCount=0;this.animTime=0;this.leagueRound=null;
+    this.pendingSpawns=[];this.spawnTimer=0;this.intermissionTimer=0;this.spawnFailureTime=0;this.spawnFailureCount=0;this.animTime=0;this.leagueRound=null;
     Object.assign(this.player,{x:SQUAD_START.x,z:SQUAD_START.z,eyeY:PLAYER_HEIGHT,health:100,maxHealth:100,shield:60,maxShield:60,lastDamage:-100,velY:0,jump:0,moveX:0,moveZ:0,dashCd:0,pulseCd:0,dashDuration:0,slideDuration:0,invulnerable:0,speedBonus:1,killsHeal:0,dashFactor:1});
     this.world.setUrbanMode(true);
     this.world.spawnPoints=this.urban.spawnPoints;
@@ -360,7 +360,7 @@ export class Game {
     this.world.update(0);
     this.positionCamera();this.updateHud();this.requestLock();
   }
-  menu(){this.restoreGeoCity();this.forge?.clear();this.mapSupplies?.clear();this.weaponLoot?.clear();this.deployment?.reset();this.powers?.reset();el('power-hud').classList.add('hidden');if(this.mode==='multiplayer'&&this.multiplayer?.connected)this.multiplayer.disconnect();this.parkour.stop();this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.urban.resetInteractions();document.body.classList.remove('trial-active');this.campaign.disposeSector();this.hideScreens();el('start-screen').classList.remove('hidden');this.enemies.clear();this.ordnance.clear();this.pendingSpawns=[];this.leagueRound=null;this.setState('menu');this.powers.restoreMenuLoadout();el('menu-best').textContent=num(this.best);if(document.pointerLockElement)document.exitPointerLock();}
+  menu(){this.restoreGeoCity();this.forge?.clear();this.mapSupplies?.clear();this.weaponLoot?.clear();this.deployment?.reset();this.powers?.reset();el('power-hud').classList.add('hidden');if(this.mode==='multiplayer'&&this.multiplayer?.connected)this.multiplayer.disconnect();this.parkour.stop();this.world.setUrbanMode(true);this.urban.toggle(true);this.urban.updateVisibility(0,18,138);this.urban.resetInteractions();document.body.classList.remove('trial-active');this.campaign.disposeSector();this.hideScreens();el('start-screen').classList.remove('hidden');this.enemies.clear();this.ordnance.clear();this.pendingSpawns=[];this.intermissionTimer=0;this.leagueRound=null;this.setState('menu');this.powers.restoreMenuLoadout();el('menu-best').textContent=num(this.best);if(document.pointerLockElement)document.exitPointerLock();}
   pause(){if(this.state!=='playing')return;if(this.mode==='multiplayer'){this.multiplayer.openRoomPanel();return;}this.setState('paused');this.mobile?.clear();this.mouseDown=false;this.rightDown=false;el('pause-screen').classList.remove('hidden');if(document.pointerLockElement)document.exitPointerLock();}
   resume(){if(this.state!=='paused')return;if(this.mode==='multiplayer'&&this.multiplayer?.panelOpen){this.multiplayer.closeRoomPanel();return;}this.hideScreens();this.setState('playing');this.requestLock();}
   beginWave(){
@@ -406,9 +406,58 @@ export class Game {
     if(spawned){this.spawnFailureTime=0;this.spawnFailureCount=0;this.spawnTimer=spawnInterval(this.wave);}
     return spawned;
   }
-  waveComplete(){if(this.state!=='playing')return;this.setState('upgrade');this.mouseDown=false;this.rightDown=false;if(document.pointerLockElement)document.exitPointerLock();const options=[...UPGRADES].sort(()=>Math.random()-.5).slice(0,3);el('upgrade-choices').replaceChildren();const kicker=el('upgrade-screen').querySelector('.dialog-kicker');if(kicker)kicker.textContent=this.mode==='survival'?(this.leagueRound?.champion?'CAMPEÃO DERROTADO · RECOMPENSA DA LIGA':'CLASSIFICATÓRIA VENCIDA · RECOMPENSA'):'ONDA CONCLUÍDA · SUPRIMENTOS ENCONTRADOS';for(const opt of options){const b=document.createElement('button');b.type='button';b.className='upgrade-choice';b.innerHTML=`<span class="upgrade-icon">${opt.icon}</span><small>${opt.tag}</small><strong>${opt.name}</strong><p>${opt.desc}</p>`;b.addEventListener('click',()=>this.applyUpgrade(opt.id));el('upgrade-choices').appendChild(b);}el('upgrade-screen').classList.remove('hidden');this.audio.play('pickup');}
-  applyUpgrade(id){const p=this.player,w=this.weapons;if(id==='damage')w.damageMultiplier*=1.25;if(id==='speed')p.speedBonus*=1.17;if(id==='health'){p.maxHealth+=25;p.health=p.maxHealth;}if(id==='shield'){p.maxShield+=25;p.shield=p.maxShield;}if(id==='rapid')w.fireMultiplier*=1.14;if(id==='heal')p.killsHeal+=8;if(id==='ammo')for(const [i,s] of w.state.entries())s.reserve+=Math.ceil(WEAPONS[i].reserve*.5);if(id==='dash')p.dashFactor*=.7;if(id==='grenade')this.ordnance.damageMultiplier*=1.28;
-    this.hideScreens();this.setState('playing');this.beginWave();this.requestLock();}
+  waveComplete(){
+    if(this.state!=='playing'||this.intermissionTimer>0)return;
+    // PvP bots is a continuous league. An upgrade modal used to freeze the game
+    // after a champion was beaten, leaving the arena silent until a click.
+    if(this.mode==='survival'){
+      this.intermissionTimer=2.2;
+      this.pendingSpawns=[];
+      const options=[...UPGRADES];
+      const reward=options[Math.floor(Math.random()*options.length)];
+      if(reward)this.grantUpgrade(reward.id);
+      this.player.health=Math.min(this.player.maxHealth,this.player.health+14);
+      this.player.shield=Math.min(this.player.maxShield,this.player.shield+12);
+      const label=this.leagueRound?.champion?'CAMPEÃO DERROTADO':'CLASSIFICATÓRIA VENCIDA';
+      const callout=el('wave-callout');
+      callout.querySelector('small').textContent='LIGA DOS TITÃS · RODADA CONCLUÍDA';
+      callout.querySelector('strong').textContent=label;
+      callout.querySelector('span').textContent=`RECOMPENSA: ${reward?.name||'REPARO'} · PRÓXIMA RODADA EM BREVE`;
+      callout.classList.add('active');this.calloutTimer=2.1;
+      this.toast(`${label} · ${reward?.name||'REPARO'} · NOVOS INIMIGOS CHEGANDO`);
+      this.updateHud();
+      return;
+    }
+    this.setState('upgrade');this.mouseDown=false;this.rightDown=false;
+    if(document.pointerLockElement)document.exitPointerLock();
+    const options=[...UPGRADES].sort(()=>Math.random()-.5).slice(0,3);
+    el('upgrade-choices').replaceChildren();
+    const kicker=el('upgrade-screen').querySelector('.dialog-kicker');
+    if(kicker)kicker.textContent='ONDA CONCLUÍDA · SUPRIMENTOS ENCONTRADOS';
+    for(const opt of options){const b=document.createElement('button');b.type='button';b.className='upgrade-choice';b.innerHTML=`<span class="upgrade-icon">${opt.icon}</span><small>${opt.tag}</small><strong>${opt.name}</strong><p>${opt.desc}</p>`;b.addEventListener('click',()=>this.applyUpgrade(opt.id));el('upgrade-choices').appendChild(b);}
+    el('upgrade-screen').classList.remove('hidden');this.audio.play('pickup');
+  }
+  tickLeagueIntermission(dt){
+    if(this.intermissionTimer<=0||this.state!=='playing')return false;
+    this.intermissionTimer=Math.max(0,this.intermissionTimer-Math.max(0,dt));
+    if(this.intermissionTimer===0)this.beginWave();
+    return true;
+  }
+  grantUpgrade(id){
+    const p=this.player,w=this.weapons;
+    if(id==='damage')w.damageMultiplier*=1.25;
+    if(id==='speed')p.speedBonus*=1.17;
+    if(id==='health'){p.maxHealth+=25;p.health=p.maxHealth;}
+    if(id==='shield'){p.maxShield+=25;p.shield=p.maxShield;}
+    if(id==='rapid')w.fireMultiplier*=1.14;
+    if(id==='heal')p.killsHeal+=8;
+    if(id==='ammo')for(const [i,s] of w.state.entries())s.reserve+=Math.ceil(WEAPONS[i].reserve*.5);
+    if(id==='dash')p.dashFactor*=.7;
+    if(id==='grenade')this.ordnance.damageMultiplier*=1.28;
+  }
+  applyUpgrade(id){
+    this.grantUpgrade(id);this.hideScreens();this.setState('playing');this.beginWave();this.requestLock();
+  }
   cycleWeapon(direction=1){
     const squadMatch=this.mode==='campaign'||this.mode==='survival'||(this.mode==='multiplayer'&&this.multiplayer?.roomMode==='coop');
     const allowed=this.mode==='multiplayer'?(squadMatch?ROLE_INFO[roleForHero(this.heroSelection?.selectedHero)]?.weapons:WEAPONS.map((_,i)=>i)):WEAPONS.map((_,i)=>i);
@@ -623,7 +672,11 @@ export class Game {
         if(this.weapons.ammo.reserve<this.weapons.def.clip&&this.ammoSpawnTimer>3)this.ammoSpawnTimer=3;
         if(this.ammoSpawnTimer<=0){this.spawnMapAmmo();this.ammoSpawnTimer=16;}}
       if(this.mode==='campaign'&&!this.deployment.active){this.squad.update(dt);this.campaign.update(dt);}
-      if(this.state==='playing'&&this.mode!=='multiplayer'&&!this.deployment.active){if(this.pendingSpawns.length){this.spawnTimer-=dt;if(this.spawnTimer<=0&&this.enemies.count()<BOT_LIMIT){
+      if(this.state==='playing'&&this.mode!=='multiplayer'&&!this.deployment.active){
+        if(this.tickLeagueIntermission(dt)){
+          // Enemies are scheduled when the next wave begins, never while
+          // an intermission is still running.
+        }else if(this.pendingSpawns.length){this.spawnTimer-=dt;if(this.spawnTimer<=0&&this.enemies.count()<BOT_LIMIT){
         const added=this.releaseQueuedBots(this.enemies.count()===0?2:1);
         if(!added){this.spawnFailureTime+=Math.max(dt,.15);this.spawnTimer=.18;
           if(this.spawnFailureTime>2.8){

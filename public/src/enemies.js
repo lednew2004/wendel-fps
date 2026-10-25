@@ -72,21 +72,34 @@ export class EnemySystem {
     const clear=(x,z,r=radius)=>city?.canOccupy(x,z,0,1.9,r)??this.world.canMove(x,z,r);
     const occupied=(x,z)=>this.enemies.some(e=>Math.hypot(e.x-x,e.z-z)<4.6+e.radius);
     const eye=vec(player.x,player.eyeY??1.75,player.z);
+    const playerFeet=Math.max(0,(player.eyeY??1.75)-1.75);
+    const raised=playerFeet>3.0&&!city?.isGeoCity;
     const facing=vec(0,0,-1);this.world.camera?.getWorldDirection?.(facing);facing.y=0;facing.normalize();
     const options=[];
     const offer=(x,z)=>{
-      if(!Number.isFinite(x)||!Number.isFinite(z)||!clear(x,z)||occupied(x,z))return;
+      if(!Number.isFinite(x)||!Number.isFinite(z)||occupied(x,z))return;
       const dx=x-player.x,dz=z-player.z,d=Math.hypot(dx,dz);
-      if(d<13.5||d>65)return;
-      const ray=vec(x,1.45,z).sub(eye),len=ray.length();
+      if(d<9||d>65)return;
+      const floor=raised&&city?.floorAt?city.floorAt(x,z,playerFeet,.65):0;
+      const upper=raised&&floor>2.5&&Math.abs(floor-playerFeet)<2.4;
+      const y=upper?floor:0;
+      if(upper){if(!city.canOccupy(x,z,y,1.9,radius))return;}
+      else if(!clear(x,z))return;
+      if(upper){
+        // A combatant must stand on a full solid platform, not on a roof edge.
+        const r=Math.max(.7,radius);
+        if([[r,0],[-r,0],[0,r],[0,-r]].some(([ox,oz])=>Math.abs(city.floorAt(x+ox,z+oz,playerFeet,.65)-floor)>1.05))return;
+      }
+      if(!upper&&d<13.5)return;
+      const ray=vec(x,y+1.45,z).sub(eye),len=ray.length();
       const visible=len>1&&this.world.raycastDistance(eye,ray.normalize(),Math.max(.1,len-.35))>=len-.50;
       const facingDot=(dx*facing.x+dz*facing.z)/d;
-      // Most enemies enter a player's actual combat space, instead of spending
-      // the entire wave 70-150 metres away behind solid buildings.
-      const score=Math.abs(d-(champ?25:21))+(visible?0:13)+(facingDot<-.3?8:0)+Math.random()*3;
-      options.push({x,z,score,visible});
+      // Rooftop reinforcements join at the player's elevation; ground-level
+      // bots otherwise remain unreachable when the player climbs a building.
+      const score=Math.abs(d-(champ?19:16))+(visible?0:8)+(facingDot<-.3?5:0)+(raised&&!upper?40:0)+Math.random()*3;
+      options.push({x,z,y,score,visible});
     };
-    for(const d of [17,21,25,29,35,42]){
+    for(const d of (raised?[10,13,16,19,23,29,35,42]:[17,21,25,29,35,42])){
       for(let i=0;i<20;i++){
         const a=(i/20)*Math.PI*2+Math.random()*.16;
         offer(player.x+Math.cos(a)*d,player.z+Math.sin(a)*d);
@@ -108,6 +121,8 @@ export class EnemySystem {
     // Keep at least one immediately visible opponent; randomize close contenders.
     const selected=options[Math.floor(Math.random()*Math.min(4,options.length))];
     const enemy=this.spawn(type,[selected.x,selected.z],wave,champ||null);
+    enemy.floorY=selected.y;
+    if(enemy.group)enemy.group.position.y=selected.y;
     enemy.homeX=selected.x;enemy.homeZ=selected.z;
     enemy.targetMemory={x:player.x,z:player.z,eyeY:player.eyeY??1.65,until:this.time+18,kind:'alert'};
     enemy.alertness=.66;
@@ -137,6 +152,9 @@ export class EnemySystem {
   navigateTo(e,target){
     const city=this.world.city;
     if(!city||!target||city.isGeoCity)return target;
+    // Rooftop combat uses a separate height-aware route. Ground door waypoints
+    // would incorrectly send an elevated bot off the roof.
+    if((e.floorY||0)>2.5)return target;
     for(const b of SQUAD_INTERIORS){
       const within=p=>Math.abs(p.x-b.x)<b.hx-.55&&Math.abs(p.z-b.z)<b.hz-.55;
       const inMe=within(e),inTarget=within(target);
@@ -239,7 +257,40 @@ export class EnemySystem {
   damage(e,amount,point,source='shot'){if(!e||e.dead)return false;e.hp-=amount;e.flash=.10;if(!e.boss&&e.dodgeTime<=0){e.strafe*=-1;e.strafeChange=rand(.18,.55);e.dodgeTime=rand(.35,.7);}if(e.boss&&e.hp>0){const stage=e.hp/e.maxHp<.25?2:e.hp/e.maxHp<.56?1:0;if(stage>e.phaseIndex){e.phaseIndex=stage;e.cfg={...e.cfg,speed:e.cfg.speed*(stage===2?1.32:1.18),fire:e.cfg.fire*(stage===2?.66:.78)};this.spawnParticles(e.group.position.clone().add(vec(0,e.y,0)),0xb1674a,38,2);if(this.currentPlayer){this.spawnAt('hunter',this.currentPlayer,this.currentWave||1);this.spawnAt('scout',this.currentPlayer,this.currentWave||1);this.hooks.onSummon?.(2);}}}this.spawnParticles(point||e.group.position.clone().add(vec(0,e.y,0)),0xd7c1a1,source==='pulse'?12:3,source==='pulse'?1.2:.5);if(e.hp<=0){e.dead=true;this.kill(e);return true;}return false;}
   kill(e){this.world.scene.remove(e.group);this.disposeEnemy(e);if(e.laser)this.world.scene.remove(e.laser);if(e.warning)this.world.scene.remove(e.warning);const ix=this.enemies.indexOf(e);if(ix!==-1)this.enemies.splice(ix,1);this.spawnParticles(e.group.position.clone().add(vec(0,e.y,0)),0xb79774,e.boss?45:17,e.boss?2.2:1.2);this.audio.play('kill');this.hooks.onKill(e);if(e.boss||Math.random()<.35)this.drop(e.group.position,e.boss?'medkit':Math.random()<.72?'ammo':'medkit');}
   drop(position,type){const mat=new THREE.MeshStandardMaterial({color:type==='medkit'?0x7ea58b:0xffc458,metalness:.13,roughness:.48,emissive:type==='medkit'?0x203829:0x8e4e17,emissiveIntensity:type==='ammo'?.82:.55});const mesh=new THREE.Group();const core=new THREE.Mesh(new THREE.BoxGeometry(.55,.3,.55),mat);mesh.add(core);const ring=new THREE.Mesh(new THREE.TorusGeometry(.52,.04,8,24),mat);ring.rotation.x=Math.PI/2;mesh.add(ring);mesh.position.set(position.x,.75,position.z);this.world.scene.add(mesh);this.pickups.push({mesh,type,life:type==='ammo'?35:18,phase:rand(0,7)});}
-  update(dt,player,wave=1){this.currentPlayer=player;this.currentWave=wave;this.time+=dt;for(const e of [...this.enemies]){e.flash=Math.max(0,e.flash-dt);if(e.champion)animateChampionModel(e.body,this.time,e.lastMoving,e.phaseIndex);e.fireVisual=Math.max(0,(e.fireVisual||0)-dt);if(e.muzzleFlash)e.muzzleFlash.visible=e.fireVisual>0;
+  recoverElevatedCombat(player,wave,dt){
+    this.roofRecoveryClock=(this.roofRecoveryClock||0)+dt;
+    if(this.roofRecoveryClock<2.5)return;
+    const elapsed=this.roofRecoveryClock;this.roofRecoveryClock=0;
+    const feet=(player.eyeY??1.75)-1.75;
+    if(feet<3.5)return;
+    for(const e of [...this.enemies]){
+      const gap=feet-(e.floorY||0),distance=Math.hypot(e.x-player.x,e.z-player.z);
+      // Don't teleport an opponent that is already fighting or clearly in view.
+      const visible=this.canSee(e,player,distance);
+      if(gap<3.5||distance>75||visible){e.elevationStall=0;continue;}
+      e.elevationStall=(e.elevationStall||0)+elapsed;
+      if(e.elevationStall<7.5)continue;
+      e.elevationStall=0;
+      const replacement=this.spawnAt(e.type,player,wave,e.champion||null);
+      if(!replacement)continue;
+      if(Math.abs((replacement.floorY||0)-feet)>2.5){
+        this.world.scene.remove(replacement.group);this.disposeEnemy(replacement);
+        if(replacement.laser)this.world.scene.remove(replacement.laser);
+        if(replacement.warning)this.world.scene.remove(replacement.warning);
+        this.enemies.splice(this.enemies.indexOf(replacement),1);
+        continue;
+      }
+      replacement.hp=Math.min(replacement.maxHp,e.hp);
+      replacement.phaseIndex=e.phaseIndex;
+      replacement.bar.scale.x=Math.max(0,replacement.hp/replacement.maxHp);
+      this.world.scene.remove(e.group);this.disposeEnemy(e);
+      if(e.laser)this.world.scene.remove(e.laser);
+      if(e.warning)this.world.scene.remove(e.warning);
+      this.enemies.splice(this.enemies.indexOf(e),1);
+      this.hooks.onBossWarning?.(e.champion?.name||'',e.champion?'REFORÇOS NO TELHADO':'INIMIGOS PELOS ANDARES');
+    }
+  }
+  update(dt,player,wave=1){this.currentPlayer=player;this.currentWave=wave;this.time+=dt;this.recoverElevatedCombat(player,wave,dt);for(const e of [...this.enemies]){e.flash=Math.max(0,e.flash-dt);if(e.champion)animateChampionModel(e.body,this.time,e.lastMoving,e.phaseIndex);e.fireVisual=Math.max(0,(e.fireVisual||0)-dt);if(e.muzzleFlash)e.muzzleFlash.visible=e.fireVisual>0;
       if(!e.champion)animateOperative(e.body,dt,{moving:e.lastMoving||0,firing:e.fireVisual>0,frozen:e.frozenUntil>Date.now(),hit:e.flash>0,distance:Math.hypot(e.x-player.x,e.z-player.z)});
       e.phase+=dt*(e.boss?1.7:3.2);e.group.position.y=e.gravityUntil>Date.now()?2.7+Math.sin(e.phase)*.15:Math.sin(e.phase)*.04; e.bar.scale.x=Math.max(0,e.hp/e.maxHp);e.bar.position.x=-(1-e.bar.scale.x)*.925*e.cfg.scale;const camPos=new THREE.Vector3();this.world.camera.getWorldPosition(camPos);e.bar.lookAt(camPos);e.barBg.lookAt(camPos);if(e.frozenUntil>Date.now()){e.fireTimer=Math.max(.15,e.fireTimer);continue;}const decoy=this.decoys?.find(d=>d.until>Date.now()&&Math.hypot(d.mesh.position.x-e.x,d.mesh.position.z-e.z)<24);
       const viable=[...(this.hiddenPlayer?[]:[player]),...(this.allies||[]).filter(a=>!a.downed)];
@@ -289,7 +340,12 @@ export class EnemySystem {
         }
       }
       const desired=steerVelocity(e.velocityX||0,e.velocityZ||0,fx,fz,e.cfg.speed*(e.specialRush>0?2.35:1),dt);e.velocityX=desired.x;e.velocityZ=desired.z;
-      const canStep=(x,z)=>this.world.city?.canOccupy(x,z,e.floorY||0,1.8,e.radius)??this.world.canMove(x,z,e.radius);
+      const canStep=(x,z)=>{
+        const city=this.world.city,feet=e.floorY||0;
+        if(!city?.canOccupy)return this.world.canMove(x,z,e.radius);
+        if(!city.canOccupy(x,z,feet,1.8,e.radius))return false;
+        return feet<2.5||!city.floorAt||Math.abs(city.floorAt(x,z,feet,.60)-feet)<1.18;
+      };
       // Sweep the body in small increments; slide along walls rather than tunnelling or teleporting.
       const steps=Math.max(1,Math.ceil(Math.hypot(e.velocityX,e.velocityZ)*dt/.32));let moved=false;
       for(let j=0;j<steps;j++){

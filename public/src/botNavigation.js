@@ -1,4 +1,4 @@
-/** Ground-floor pathfinding for the authored FPS arena. No Three.js dependency.
+/** Multi-level pathfinding for the authored FPS arena. No Three.js dependency.
  * All nodes are checked against the actual collision volumes used by the game.
  */
 import {ARENA_BOUNDS} from './squadLayout.js';
@@ -13,26 +13,37 @@ const at=(i,j)=>({x:xmin+i*STEP,z:zmin+j*STEP});
 const cell=(x,z)=>({i:Math.min(width-1,Math.max(0,Math.round((x-xmin)/STEP))),j:Math.min(height-1,Math.max(0,Math.round((z-zmin)/STEP)))});
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 
-export function lineWalkable(from,to,city,radius=.75){
+export function botCanWalk(city,x,z,feet=0,radius=.75){
+  if(!city?.canOccupy?.(x,z,feet,1.80,radius))return false;
+  if(feet<2.5||!city.floorAt)return true;
+  // A rooftop bot must not plan its route through empty air between roofs.
+  for(const [dx,dz] of [[0,0],[radius*.65,0],[-radius*.65,0],[0,radius*.65],[0,-radius*.65]]){
+    const floor=city.floorAt(x+dx,z+dz,feet,.65);
+    if(Math.abs(floor-feet)>1.15)return false;
+  }
+  return true;
+}
+
+export function lineWalkable(from,to,city,radius=.75,feet=0){
   if(!city?.canOccupy)return false;
   const len=distance(from,to);
   for(let k=1,n=Math.max(1,Math.ceil(len/1.5));k<=n;k++){
     const t=k/n,x=from.x+(to.x-from.x)*t,z=from.z+(to.z-from.z)*t;
-    if(!city.canOccupy(x,z,0,1.80,radius))return false;
+    if(!botCanWalk(city,x,z,feet,radius))return false;
   }
   return true;
 }
 
 /** Return a short series of waypoints, or [] when no legal route exists. */
-export function findGroundRoute(start,goal,city,radius=.75,maxVisited=2300){
+export function findGroundRoute(start,goal,city,radius=.75,maxVisited=2300,feet=0){
   if(!city?.canOccupy)return [];
-  if(lineWalkable(start,goal,city,radius))return [{x:goal.x,z:goal.z}];
+  if(lineWalkable(start,goal,city,radius,feet))return [{x:goal.x,z:goal.z}];
   const from=cell(start.x,start.z),target=cell(goal.x,goal.z);
   const allowed=new Map();
   const free=(i,j)=>{
     if(i<0||j<0||i>=width||j>=height)return false;
     const key=id(i,j);
-    if(!allowed.has(key)){const pos=at(i,j);allowed.set(key,city.canOccupy(pos.x,pos.z,0,1.80,radius));}
+    if(!allowed.has(key)){const pos=at(i,j);allowed.set(key,botCanWalk(city,pos.x,pos.z,feet,radius));}
     return allowed.get(key);
   };
   // Find the nearest standable grid node around each endpoint.
@@ -64,10 +75,10 @@ export function findGroundRoute(start,goal,city,radius=.75,maxVisited=2300){
       const reduced=[];let eye=start;
       for(let k=0;k<nodes.length;){
         let last=k;
-        for(let j=Math.min(nodes.length-1,k+12);j>=k;j--){if(lineWalkable(eye,nodes[j],city,radius)){last=j;break;}}
+        for(let j=Math.min(nodes.length-1,k+12);j>=k;j--){if(lineWalkable(eye,nodes[j],city,radius,feet)){last=j;break;}}
         reduced.push(nodes[last]);eye=nodes[last];k=last+1;
       }
-      if(lineWalkable(eye,goal,city,radius))reduced.push({x:goal.x,z:goal.z});
+      if(lineWalkable(eye,goal,city,radius,feet))reduced.push({x:goal.x,z:goal.z});
       return reduced;
     }
     for(const [di,dj] of dirs){const ni=n.i+di,nj=n.j+dj;
@@ -84,10 +95,10 @@ export function findGroundRoute(start,goal,city,radius=.75,maxVisited=2300){
 
 export function botNextWaypoint(enemy,goal,city,time){
   if(!city?.canOccupy||city.isGeoCity)return goal;
-  const cache=enemy.groundRoute;
-  if(!cache||time>cache.expiry||distance(cache.target,goal)>7){
-    const route=findGroundRoute(enemy,goal,city,enemy.radius+.1);
-    enemy.groundRoute={route,index:0,target:{x:goal.x,z:goal.z},expiry:time+1.8};
+  const cache=enemy.groundRoute,feet=enemy.floorY||0;
+  if(!cache||time>cache.expiry||distance(cache.target,goal)>7||Math.abs((cache.feet||0)-feet)>1){
+    const route=findGroundRoute(enemy,goal,city,enemy.radius+.1,2300,feet);
+    enemy.groundRoute={route,index:0,feet,target:{x:goal.x,z:goal.z},expiry:time+1.8};
   }
   const state=enemy.groundRoute;
   while(state.index<state.route.length-1&&distance(enemy,state.route[state.index])<2.5)state.index++;
