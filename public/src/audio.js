@@ -1,5 +1,41 @@
-export class AudioEngine {
-  constructor(){this.ctx=null;this.enabled=true;}
-  unlock(){try {if(!this.ctx) this.ctx=new (window.AudioContext||window.webkitAudioContext)();if(this.ctx.state==='suspended')this.ctx.resume();}catch(e){console.warn('Áudio indisponível',e);}}
-  play(type){if(!this.enabled||!this.ctx)return; const presets={rifle:[145,53,.085,'sawtooth',.055],shotgun:[102,26,.22,'sawtooth',.11],rail:[500,60,.42,'sawtooth',.11],hit:[860,380,.063,'triangle',.027],kill:[490,780,.16,'sine',.055],hurt:[130,65,.22,'sawtooth',.075],reload:[820,1100,.085,'triangle',.026],empty:[380,260,.06,'square',.017],dash:[210,900,.16,'sawtooth',.05],grenade:[510,160,.18,'sawtooth',.085],pulse:[95,720,.48,'sawtooth',.1],pickup:[600,1120,.2,'sine',.065],boss:[50,110,.75,'sawtooth',.09],click:[500,720,.08,'triangle',.03],door:[195,340,.22,'triangle',.045]};const [start,end,duration,wave,vol]=presets[type]||presets.click;try{const now=this.ctx.currentTime,osc=this.ctx.createOscillator(),gain=this.ctx.createGain();osc.type=wave;osc.frequency.setValueAtTime(start,now);osc.frequency.exponentialRampToValueAtTime(Math.max(1,end),now+duration);gain.gain.setValueAtTime(vol,now);gain.gain.exponentialRampToValueAtTime(.0001,now+duration);osc.connect(gain);gain.connect(this.ctx.destination);osc.start(now);osc.stop(now+duration+.01);}catch(e){}}
+/** Audio engine using decoded WAV samples with concurrency-safe polyphony.
+ *  Real, CC0 sound recordings can be installed locally via npm install or npm run sfx:install.
+ *  Bundled acoustic fallback WAVs work offline without Web Audio oscillator beeps.
+ */
+const CLIPS={
+ rifle:['rifle.wav',.64],shotgun:['shotgun.wav',.83],rail:['rail.wav',.7],
+ reload:['reload.wav',.57],empty:['empty.wav',.37],hit:['hit.wav',.4],kill:['kill.wav',.5],
+ hurt:['hurt.wav',.53],dash:['dash.wav',.4],grenade:['grenade.wav',.7],pulse:['pulse.wav',.55],
+ pickup:['pickup.wav',.5],boss:['boss.wav',.72],click:['click.wav',.38],door:['door.wav',.5]
+};
+export class AudioEngine{
+  constructor(){this.ctx=null;this.enabled=true;this.samples=new Map();this.loading=null;this.voices=0;this.last=new Map();this.volume=.83;}
+  getContext(){try{if(!this.ctx)this.ctx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});return this.ctx;}catch(e){console.warn('Áudio indisponível:',e);return null;}}
+  preload(){
+    if(this.loading)return this.loading;const ctx=this.getContext();if(!ctx)return Promise.resolve();
+    this.loading=Promise.all(Object.entries(CLIPS).map(async([name,[file]])=>{
+      try{const response=await fetch('/assets/sfx/'+file,{cache:'force-cache'});if(!response.ok)throw new Error('HTTP '+response.status);
+        const bytes=await response.arrayBuffer();const buffer=await ctx.decodeAudioData(bytes);this.samples.set(name,buffer);
+      }catch(e){console.warn('Sem amostra sonora de',name,e.message);}
+    }));return this.loading;
+  }
+  unlock(){const ctx=this.getContext();if(!ctx)return;ctx.resume().catch(()=>{});void this.preload();}
+  play(type){
+    if(!this.enabled)return;const ctx=this.getContext();if(!ctx)return;if(ctx.state==='suspended')void ctx.resume().catch(()=>{});
+    if(!this.loading)void this.preload();const spec=CLIPS[type]||CLIPS.click,buf=this.samples.get(type)||this.samples.get('click');
+    if(!buf)return;
+    // Caps extreme spam (overlapping bullets / impact particles), without throttling rifle fire-rate.
+    const now=ctx.currentTime,last=this.last.get(type)||-1;
+    if(type==='hit'&&now-last<.032)return;
+    if(type==='click'&&now-last<.05)return;
+    this.last.set(type,now);
+    try{
+      const source=ctx.createBufferSource();source.buffer=buf;
+      const gain=ctx.createGain();const isWeapon=['rifle','shotgun','rail'].includes(type);
+      gain.gain.value=spec[1]*this.volume*(isWeapon?.84+Math.random()*.20:1);
+      source.playbackRate.value=isWeapon?.95+Math.random()*.10:1;
+      if(ctx.createStereoPanner){const pan=ctx.createStereoPanner();pan.pan.value=isWeapon?(Math.random()-.5)*.1:0;source.connect(gain);gain.connect(pan);pan.connect(ctx.destination);}else{source.connect(gain);gain.connect(ctx.destination);}
+      source.start();source.onended=()=>{try{source.disconnect();gain.disconnect();}catch{}};
+    }catch(e){console.warn('Falha ao reproduzir amostra:',e);}
+  }
 }

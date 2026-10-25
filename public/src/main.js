@@ -1,9 +1,11 @@
 import {Game} from './game.js';
+import {EntryFlow} from './entryFlow.js';
 import {installGraphicsLabControls39} from './graphicsLabControls39.js';
 import {installSkinnedOperativeRuntime} from './skinnedOperatives.js';
 try{
   installSkinnedOperativeRuntime();
   const game=new Game();
+  new EntryFlow(game);
   installGraphicsLabControls39(game);
   clearTimeout(window.__titanBootTimer);
   window.__titanBootReady=true;

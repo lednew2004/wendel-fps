@@ -53,7 +53,7 @@ export class Game {
       el('vegetation').value='35';el('vegetation-label').textContent='35%';
     }
     if(!this.mobile.enabled){this.world.setQuality('medium');el('quality').value='medium';}
-    this.world.gameInstance=this;this.photoreal=null;this.photoConfig=null;this.geoCity=null;this.baseUrban=this.urban;this.locationPromise=null;this.geoData=null;this.geoUser=null;this.geoLoadPromise=null;this.bind();this.autoLocate();this.hudCustomizer.attach();this.positionCamera();el('menu-best').textContent=num(this.best);el('loading').classList.add('hidden');this.mobile.sync();this.loop();
+    this.world.gameInstance=this;this.photoreal=null;this.photoConfig=null;this.geoCity=null;this.baseUrban=this.urban;this.locationPromise=null;this.geoData=null;this.geoUser=null;this.geoLoadPromise=null;this.bind();this.geoStatus('ESCOLHA MINHA CIDADE PARA LOCALIZAR SEU MAPA');this.hudCustomizer.attach();this.positionCamera();el('menu-best').textContent=num(this.best);el('loading').classList.add('hidden');this.mobile.sync();this.loop();
   }
   get yaw(){return this.look.yaw;}
   set yaw(v){this.look.yaw=v;}
